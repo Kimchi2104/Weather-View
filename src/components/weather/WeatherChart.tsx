@@ -139,25 +139,27 @@ const WeatherChart: FC<WeatherChartProps> = ({
   };
 
   const renderChartSpecificElements = () => {
-    return selectedMetrics.map((key) => {
+    const firstNumericMetric = selectedMetrics.find(key => {
       const metricConfig = metricConfigs[key];
-      if (!metricConfig || metricConfig.isString) return null;
-
-      const color = metricConfig.color || '#8884d8';
-      const name = metricConfig.name || key;
-      const seriesKey = `${chartType}-${key}`;
-
-
-      switch (chartType) {
-        case 'bar':
-          return <Bar key={seriesKey} dataKey={key} fill={color} name={name} radius={[4, 4, 0, 0]} onClick={(payload) => onPointClick && payload && onPointClick(payload as unknown as WeatherDataPoint)} />;
-        case 'scatter':
-          return <Scatter key={seriesKey} dataKey={key} fill={color} name={name} onClick={(payload) => onPointClick && payload && onPointClick(payload as unknown as WeatherDataPoint)} />;
-        case 'line':
-        default:
-          return <Line key={seriesKey} type="monotone" dataKey={key} stroke={color} name={name} dot={false} activeDot={{ r: 6 }} onClick={(payload) => onPointClick && payload && onPointClick(payload as unknown as WeatherDataPoint)}/>;
-      }
+      return metricConfig && !metricConfig.isString;
     });
+
+    if (!firstNumericMetric) return null;
+
+    const metricConfig = metricConfigs[firstNumericMetric];
+    const color = metricConfig.color || '#8884d8';
+    const name = metricConfig.name || firstNumericMetric;
+    const seriesKey = `${chartType}-${firstNumericMetric}`;
+
+    switch (chartType) {
+      case 'bar':
+        return <Bar key={seriesKey} dataKey={firstNumericMetric} fill={color} name={name} radius={[4, 4, 0, 0]} /* onClick={(payload) => onPointClick && payload && onPointClick(payload as unknown as WeatherDataPoint)} */ />;
+      case 'scatter':
+        return <Scatter key={seriesKey} dataKey={firstNumericMetric} fill={color} name={name} /* onClick={(payload) => onPointClick && payload && onPointClick(payload as unknown as WeatherDataPoint)} */ />;
+      case 'line':
+      default:
+        return <Line key={seriesKey} type="monotone" dataKey={firstNumericMetric} stroke={color} name={name} dot={false} /* activeDot={{ r: 6 }} onClick={(payload) => onPointClick && payload && onPointClick(payload as unknown as WeatherDataPoint)} */ />;
+    }
   };
 
   const ChartComponent = chartType === 'bar' ? BarChart : chartType === 'scatter' ? ScatterChart : LineChart;
@@ -219,6 +221,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           formatter={tooltipFormatter}
         />
         */}
+        {/*
         <Legend
            wrapperStyle={{paddingBottom: '20px', paddingTop: '0px'}}
            iconSize={14}
@@ -226,6 +229,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
            align="center"
            verticalAlign="top"
         />
+        */}
         {renderChartSpecificElements()}
       </ChartComponent>
   );
