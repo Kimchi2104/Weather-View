@@ -10,7 +10,7 @@ import type { DateRange } from 'react-day-picker';
 import { subDays, startOfDay, endOfDay } from 'date-fns';
 import type { WeatherDataPoint, MetricKey, MetricConfig, RawFirebaseDataPoint } from '@/types/weather';
 import { database } from '@/lib/firebase';
-import { ref, get, type DataSnapshot } from "firebase/database"; 
+import { ref, get, type DataSnapshot } from "firebase/database";
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { transformRawDataToWeatherDataPoint } from '@/lib/utils';
@@ -42,20 +42,19 @@ const HistoricalDataSection: FC = () => {
   const [displayedData, setDisplayedData] = useState<WeatherDataPoint[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // TODO: IMPORTANT! Update this path to the correct location of your weather data in Firebase.
-  // This should be the parent node containing all your timestamped records (e.g., '2025-06-03_16:08:39': {...})
-  const firebaseDataPath = 'allWeatherData'; // <<< --- USER NEEDS TO VERIFY AND CHANGE THIS IF DIFFERENT
+  // IMPORTANT! This path now reflects the user's provided structure.
+  const firebaseDataPath = 'devices/TGkMhLL4k4ZFBwgOyRVNKe5mTQq1/records';
 
   const fetchAllHistoricalData = useCallback(async () => {
     setIsLoading(true);
-    setAllFetchedData([]); // Clear previous data
+    setAllFetchedData([]);
     setDisplayedData([]);
     console.log(`[HistoricalDataSection] Attempting to fetch all historical data from Firebase path: ${firebaseDataPath}`);
-    
+
     try {
       const dataRef = ref(database, firebaseDataPath);
       const snapshot: DataSnapshot = await get(dataRef);
-      
+
       if (snapshot.exists()) {
         const rawDataContainer = snapshot.val();
         console.log('[HistoricalDataSection] Raw historical data container from Firebase:', JSON.parse(JSON.stringify(rawDataContainer)));
@@ -80,7 +79,7 @@ const HistoricalDataSection: FC = () => {
             if (!isValid) console.warn('[HistoricalDataSection] A point was filtered out after transformation (returned null).');
             return isValid;
           })
-          .sort((a, b) => a.timestamp - b.timestamp); // Ensure data is sorted by time
+          .sort((a, b) => a.timestamp - b.timestamp);
 
         console.log(`[HistoricalDataSection] Number of successfully processed and sorted data points: ${processedData.length}`);
         if (processedData.length > 0) {
@@ -94,7 +93,7 @@ const HistoricalDataSection: FC = () => {
       }
     } catch (error) {
       console.error("[HistoricalDataSection] Firebase historical data fetching error:", error);
-      setAllFetchedData([]); 
+      setAllFetchedData([]);
     } finally {
       setIsLoading(false);
     }
@@ -116,18 +115,14 @@ const HistoricalDataSection: FC = () => {
       return;
     }
 
-    const fromTime = startOfDay(dateRange.from).getTime(); // Ensure start of day for 'from'
-    const toTime = endOfDay(dateRange.to).getTime();     // Ensure end of day for 'to'
+    const fromTime = startOfDay(dateRange.from).getTime();
+    const toTime = endOfDay(dateRange.to).getTime();
 
     console.log(`[HistoricalDataSection] Filtering data for date range: ${new Date(fromTime).toISOString()} to ${new Date(toTime).toISOString()}`);
-    
+
     const filtered = allFetchedData.filter(point => {
       const pointTime = point.timestamp;
-      const isInRange = pointTime >= fromTime && pointTime <= toTime;
-      if (!isInRange) {
-        // console.log(`[HistoricalDataSection] Point timestamp ${new Date(pointTime).toISOString()} (${pointTime}) is OUT of range ${new Date(fromTime).toISOString()} - ${new Date(toTime).toISOString()}`);
-      }
-      return isInRange;
+      return pointTime >= fromTime && pointTime <= toTime;
     });
 
     setDisplayedData(filtered);
@@ -164,7 +159,7 @@ const HistoricalDataSection: FC = () => {
           </Button>
         </div>
          <p className="text-xs text-muted-foreground">
-            Data is fetched from Firebase path: `{firebaseDataPath}`. Verify this path in `HistoricalDataSection.tsx` if no data appears.
+            Data is fetched from Firebase path: `{firebaseDataPath}`.
           </p>
         <DataSelector
           availableMetrics={AVAILABLE_METRICS}
@@ -173,9 +168,9 @@ const HistoricalDataSection: FC = () => {
         />
       </div>
       <div className="mt-6">
-        <WeatherChart 
-          data={displayedData} 
-          selectedMetrics={selectedMetrics} 
+        <WeatherChart
+          data={displayedData}
+          selectedMetrics={selectedMetrics}
           metricConfigs={METRIC_CONFIGS}
           isLoading={isLoading && allFetchedData.length === 0}
         />
@@ -185,4 +180,3 @@ const HistoricalDataSection: FC = () => {
 };
 
 export default HistoricalDataSection;
-
