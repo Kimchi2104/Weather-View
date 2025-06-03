@@ -20,6 +20,7 @@ interface RealtimeDataCardProps {
   dailyTrendData?: { timestamp: number; value: number | undefined }[];
   dailyMin?: number | string;
   dailyMax?: number | string;
+  dailyAverage?: number; // Added prop for average
   lineColor?: string;
 }
 
@@ -35,6 +36,7 @@ const RealtimeDataCard: FC<RealtimeDataCardProps> = ({
   dailyTrendData,
   dailyMin,
   dailyMax,
+  dailyAverage, // Destructure average
   lineColor,
 }) => {
   const isAlerting =
@@ -78,6 +80,7 @@ const RealtimeDataCard: FC<RealtimeDataCardProps> = ({
             data={dailyTrendData}
             dailyMin={dailyMin}
             dailyMax={dailyMax}
+            dailyAverage={dailyAverage} // Pass average to sparkline
             unit={unit}
             metricKey={metricKey}
             lineColor={lineColor}
@@ -90,3 +93,4 @@ const RealtimeDataCard: FC<RealtimeDataCardProps> = ({
 };
 
 export default RealtimeDataCard;
+

@@ -6,37 +6,62 @@ import { LineChart, Line, ResponsiveContainer } from 'recharts';
 import { CardDescription } from '@/components/ui/card';
 
 interface MetricSparklineProps {
-  data: { timestamp: number; value: number | undefined }[]; // Array of data points for the sparkline
+  data: { timestamp: number; value: number | undefined }[];
   dailyMin?: number | string;
   dailyMax?: number | string;
+  dailyAverage?: number; // Added prop for average
   unit: string;
-  metricKey: string; // To ensure unique line keys if multiple sparklines are on one card (not current case)
+  metricKey: string;
   lineColor?: string;
   isStringData?: boolean;
 }
 
-const MetricSparkline: FC<MetricSparklineProps> = ({ data, dailyMin, dailyMax, unit, metricKey, lineColor = 'hsl(var(--primary))', isStringData }) => {
+const MetricSparkline: FC<MetricSparklineProps> = ({ data, dailyMin, dailyMax, dailyAverage, unit, metricKey, lineColor = 'hsl(var(--primary))', isStringData }) => {
+  const hasTrendStats = dailyMin !== undefined || dailyMax !== undefined || dailyAverage !== undefined;
+
   if (isStringData || !data || data.length < 2) {
-    // Don't render sparkline for string data or if not enough data points
-    if (dailyMin !== undefined && dailyMax !== undefined) {
-         return (
+    if (hasTrendStats) {
+      const parts = [];
+      if (dailyAverage !== undefined) {
+          parts.push(`Avg: ${dailyAverage.toFixed(1)}${unit}`);
+      }
+      if (dailyMin !== undefined) {
+          parts.push(`Min: ${typeof dailyMin === 'number' ? dailyMin.toFixed(1) : dailyMin}${unit}`);
+      }
+      if (dailyMax !== undefined) {
+          parts.push(`Max: ${typeof dailyMax === 'number' ? dailyMax.toFixed(1) : dailyMax}${unit}`);
+      }
+      if (parts.length > 0) {
+        return (
             <CardDescription className="text-xs mt-1">
-                Day: {typeof dailyMin === 'number' ? dailyMin.toFixed(1) : dailyMin}{unit} - {typeof dailyMax === 'number' ? dailyMax.toFixed(1) : dailyMax}{unit}
+                Day: {parts.join(' / ')}
             </CardDescription>
         );
+      }
     }
     return null;
   }
 
-  // Filter out points where value is undefined to prevent chart errors
   const validData = data.filter(p => p.value !== undefined);
   if (validData.length < 2) {
-     if (dailyMin !== undefined && dailyMax !== undefined) {
-         return (
-            <CardDescription className="text-xs mt-1">
-                Day: {typeof dailyMin === 'number' ? dailyMin.toFixed(1) : dailyMin}{unit} - {typeof dailyMax === 'number' ? dailyMax.toFixed(1) : dailyMax}{unit}
-            </CardDescription>
-        );
+     if (hasTrendStats) {
+        const parts = [];
+        if (dailyAverage !== undefined) {
+            parts.push(`Avg: ${dailyAverage.toFixed(1)}${unit}`);
+        }
+        if (dailyMin !== undefined) {
+            parts.push(`Min: ${typeof dailyMin === 'number' ? dailyMin.toFixed(1) : dailyMin}${unit}`);
+        }
+        if (dailyMax !== undefined) {
+            parts.push(`Max: ${typeof dailyMax === 'number' ? dailyMax.toFixed(1) : dailyMax}${unit}`);
+        }
+        if (parts.length > 0) {
+          return (
+              <CardDescription className="text-xs mt-1">
+                  Day: {parts.join(' / ')}
+              </CardDescription>
+          );
+        }
     }
     return null;
   }
@@ -54,18 +79,34 @@ const MetricSparkline: FC<MetricSparklineProps> = ({ data, dailyMin, dailyMax, u
               strokeWidth={1.5}
               dot={false}
               isAnimationActive={false}
-              name={metricKey} // mainly for Recharts internals
+              name={metricKey} 
             />
           </LineChart>
         </ResponsiveContainer>
       </div>
-      {(dailyMin !== undefined && dailyMax !== undefined) && (
-         <CardDescription className="text-xs text-center mt-0.5">
-          Day Min/Max: {typeof dailyMin === 'number' ? dailyMin.toFixed(1) : dailyMin}{unit} / {typeof dailyMax === 'number' ? dailyMax.toFixed(1) : dailyMax}{unit}
-        </CardDescription>
-      )}
+      {hasTrendStats && (() => {
+        const parts = [];
+        if (dailyAverage !== undefined) {
+            parts.push(`Avg: ${dailyAverage.toFixed(1)}${unit}`);
+        }
+        if (dailyMin !== undefined) {
+            parts.push(`Min: ${typeof dailyMin === 'number' ? dailyMin.toFixed(1) : dailyMin}${unit}`);
+        }
+        if (dailyMax !== undefined) {
+            parts.push(`Max: ${typeof dailyMax === 'number' ? dailyMax.toFixed(1) : dailyMax}${unit}`);
+        }
+        if (parts.length > 0) {
+            return (
+                <CardDescription className="text-xs text-center mt-0.5">
+                    {parts.join(' / ')}
+                </CardDescription>
+            );
+        }
+        return null;
+      })()}
     </div>
   );
 };
 
 export default MetricSparkline;
+

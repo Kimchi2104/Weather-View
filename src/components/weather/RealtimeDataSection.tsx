@@ -27,6 +27,7 @@ interface DailyMetricTrend {
   latest: number | string | null;
   min?: number | string;
   max?: number | string;
+  average?: number; // Added for daily average
   sparklineData?: { timestamp: number; value: number | undefined }[];
 }
 
@@ -142,19 +143,21 @@ const RealtimeDataSection: FC = () => {
             if (!config.isString && todayRecords.length > 0) {
               const numericValues = todayRecords.map(p => {
                 if (key === 'aqiPpm') return p.aqiPpm;
-                const val = p[key as Exclude<MetricKey, 'aqiPpm' | 'airQuality' | 'precipitation'>];
-                return typeof val === 'number' ? val : undefined;
+                if (key === 'pressure' && p.pressure === undefined) return undefined; // Explicitly handle optional pressure
+                const val = p[key as Exclude<MetricKey, 'aqiPpm' | 'airQuality' | 'precipitation' | 'pressure'>];
+                return typeof val === 'number' ? val : (key === 'pressure' && typeof p.pressure === 'number' ? p.pressure : undefined);
               }).filter((v): v is number => typeof v === 'number');
 
 
               if (numericValues.length > 0) {
                 currentMetricData.min = Math.min(...numericValues);
                 currentMetricData.max = Math.max(...numericValues);
+                currentMetricData.average = numericValues.reduce((sum, val) => sum + val, 0) / numericValues.length;
               }
               
               currentMetricData.sparklineData = todayRecords.map(p => ({
                 timestamp: p.timestamp,
-                value: (key === 'aqiPpm') ? p.aqiPpm : p[key as Exclude<MetricKey, 'aqiPpm' | 'airQuality' | 'precipitation'>] as number | undefined,
+                value: (key === 'aqiPpm') ? p.aqiPpm : (key === 'pressure') ? p.pressure : p[key as Exclude<MetricKey, 'aqiPpm' | 'airQuality' | 'precipitation' | 'pressure'>] as number | undefined,
               }));
             }
             newProcessedData[key] = currentMetricData;
@@ -228,7 +231,7 @@ const RealtimeDataSection: FC = () => {
                   <span className={`text-md font-semibold ${precipStyle.statusTextColorClass}`}>{precipStyle.label}</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <aqStyle.Icon className={`h-6 w-6 ${aqStyle.color}`} /> {/* Air quality uses its own color scheme based on severity */}
+                  <aqStyle.Icon className={`h-6 w-6 ${aqStyle.color}`} />
                   <span className={`text-md font-semibold ${aqStyle.color}`}>{aqStyle.label}</span>
                 </div>
               </>
@@ -254,6 +257,7 @@ const RealtimeDataSection: FC = () => {
               dailyTrendData={config.isString ? undefined : metricData?.sparklineData}
               dailyMin={config.isString ? undefined : metricData?.min}
               dailyMax={config.isString ? undefined : metricData?.max}
+              dailyAverage={config.isString ? undefined : metricData?.average} // Pass average
               lineColor={config.color}
             />
           );
