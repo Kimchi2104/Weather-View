@@ -155,7 +155,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           return <Scatter key={seriesKey} dataKey={key} fill={color} name={name} onClick={(payload) => onPointClick && payload && onPointClick(payload as unknown as WeatherDataPoint)} />;
         case 'line':
         default:
-          return <Line key={seriesKey} type="monotone" dataKey={key} stroke={color} name={name} dot={false} activeDot={{ r: 6 }} connectNulls={true} onClick={(payload) => onPointClick && payload && onPointClick(payload as unknown as WeatherDataPoint)}/>;
+          return <Line key={seriesKey} type="monotone" dataKey={key} stroke={color} name={name} dot={false} activeDot={{ r: 6 }} onClick={(payload) => onPointClick && payload && onPointClick(payload as unknown as WeatherDataPoint)}/>;
       }
     });
   };
@@ -218,7 +218,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           formatter={tooltipFormatter}
         />
         <Legend
-           wrapperStyle={{ paddingTop: '0px', paddingBottom: '20px' }}
+           wrapperStyle={{paddingBottom: '20px', paddingTop: '0px'}}
            iconSize={14}
            layout="horizontal"
            align="center"
@@ -278,3 +278,4 @@ const WeatherChart: FC<WeatherChartProps> = ({
 };
 
 export default WeatherChart;
+
