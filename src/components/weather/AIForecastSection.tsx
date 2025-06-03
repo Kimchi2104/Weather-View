@@ -8,8 +8,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { generateWeatherForecast, type GenerateWeatherForecastInput } from '@/ai/flows/generate-weather-forecast';
-import { Wand2 } from 'lucide-react';
+import { generateWeatherForecast, type GenerateWeatherForecastInput, type GenerateWeatherForecastOutput } from '@/ai/flows/generate-weather-forecast';
+import { Wand2, Thermometer, Droplets, WindIcon, CloudDrizzle } from 'lucide-react'; // Added more icons
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from '@/components/ui/skeleton';
 import type { WeatherDataPoint } from '@/types/weather'; 
@@ -23,7 +23,7 @@ const sampleHistoricalData: WeatherDataPoint[] = [
 
 const AIForecastSection: FC = () => {
   const [location, setLocation] = useState<string>('Local Area');
-  const [forecast, setForecast] = useState<string | null>(null);
+  const [forecast, setForecast] = useState<GenerateWeatherForecastOutput | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [customHistoricalData, setCustomHistoricalData] = useState<string>(JSON.stringify(sampleHistoricalData, null, 2));
   const { toast } = useToast();
@@ -41,7 +41,7 @@ const AIForecastSection: FC = () => {
         typeof item.humidity === 'number' &&
         typeof item.precipitation === 'number' &&
         typeof item.airQualityIndex === 'number' &&
-        typeof item.lux === 'number'  // Changed from lightPollution to lux
+        typeof item.lux === 'number'
       )) {
         throw new Error("Data does not conform to expected WeatherDataPoint structure.");
       }
@@ -64,15 +64,15 @@ const AIForecastSection: FC = () => {
 
     try {
       const result = await generateWeatherForecast(input);
-      setForecast(result.forecast);
+      setForecast(result);
     } catch (error) {
       console.error('Error generating forecast:', error);
       toast({
         title: "Forecast Generation Error",
-        description: "Could not generate forecast. Check console for details.",
+        description: `Could not generate forecast. ${error instanceof Error ? error.message : 'Please check console for details.'}`,
         variant: "destructive",
       });
-      setForecast('Failed to generate forecast. Please try again.');
+      setForecast(null);
     } finally {
       setIsLoading(false);
     }
@@ -88,7 +88,7 @@ const AIForecastSection: FC = () => {
             Generate Forecast
           </CardTitle>
           <CardDescription>
-            Use AI to predict upcoming weather conditions based on historical data. Ensure the data matches the structure: timestamp (number), temperature, humidity, precipitation, airQualityIndex, lux.
+            Use AI to predict upcoming weather conditions (summary, temp high/low, precipitation chance, wind, AQI outlook) based on historical data. Ensure the input data matches the structure: timestamp (number), temperature, humidity, precipitation, airQualityIndex, lux.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -119,17 +119,39 @@ const AIForecastSection: FC = () => {
           </div>
           
           {isLoading && (
-            <div className="space-y-2 pt-2">
-              <Skeleton className="h-4 w-1/3" />
+            <div className="space-y-3 pt-2 bg-muted/50 p-4 rounded-md">
+              <Skeleton className="h-5 w-1/3" />
               <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-5/6" />
               <Skeleton className="h-4 w-2/3" />
             </div>
           )}
 
           {forecast && !isLoading && (
-            <div>
-              <h3 className="font-semibold mb-1">Forecast:</h3>
-              <p className="text-sm bg-secondary p-3 rounded-md whitespace-pre-wrap">{forecast}</p>
+            <div className="space-y-3 pt-2 bg-secondary/50 p-4 rounded-md">
+              <h3 className="text-lg font-semibold text-primary mb-2">Forecast for {location}:</h3>
+              
+              <p className="text-sm"><strong className="font-medium">Summary:</strong> {forecast.summary}</p>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                <div className="flex items-center">
+                  <Thermometer className="mr-2 h-4 w-4 text-accent" />
+                  <strong className="font-medium">High:</strong> {forecast.temperatureHigh}°C
+                </div>
+                <div className="flex items-center">
+                  <Thermometer className="mr-2 h-4 w-4 text-accent" />
+                  <strong className="font-medium">Low:</strong> {forecast.temperatureLow}°C
+                </div>
+                <div className="flex items-center">
+                  <CloudDrizzle className="mr-2 h-4 w-4 text-accent" />
+                  <strong className="font-medium">Precipitation:</strong> {forecast.precipitationChance}%
+                </div>
+                <div className="flex items-center">
+                   <WindIcon className="mr-2 h-4 w-4 text-accent" />
+                  <strong className="font-medium">Wind:</strong> {forecast.windConditions}
+                </div>
+              </div>
+               <p className="text-sm"><strong className="font-medium">AQI Outlook:</strong> {forecast.aqiOutlook}</p>
             </div>
           )}
         </CardContent>
@@ -138,12 +160,12 @@ const AIForecastSection: FC = () => {
             {isLoading ? (
               <>
                 <Wand2 className="mr-2 h-4 w-4 animate-pulse" />
-                Generating...
+                Generating Forecast...
               </>
             ) : (
               <>
                 <Wand2 className="mr-2 h-4 w-4" />
-                Generate Forecast
+                Generate Detailed Forecast
               </>
             )}
           </Button>
@@ -154,4 +176,3 @@ const AIForecastSection: FC = () => {
 };
 
 export default AIForecastSection;
-
