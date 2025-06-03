@@ -58,9 +58,10 @@ const WeatherChart: FC<WeatherChartProps> = ({
   const chartRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
 
-  // useEffect(() => {
-  //   console.log("[WeatherChart] Props received:", { dataLength: data?.length, selectedMetrics, chartType, isLoading });
-  // }, [data, selectedMetrics, chartType, isLoading]);
+  useEffect(() => {
+    // console.log("[WeatherChart] Props received:", { dataLength: data?.length, selectedMetrics, chartType, isLoading });
+    // console.log("[WeatherChart] First 3 data points:", data?.slice(0,3));
+  }, [data, selectedMetrics, chartType, isLoading]);
 
   const formattedData = useMemo(() => {
     if (!data) {
@@ -72,20 +73,18 @@ const WeatherChart: FC<WeatherChartProps> = ({
       timestampDisplay: formatTimestampToDdMmHhMmUTC(point.timestamp),
       tooltipTimestampFull: formatTimestampToFullUTC(point.timestamp),
     }));
-    // console.log("[WeatherChart] formattedData (first 3):", processed.slice(0,3));
+    // console.log("[WeatherChart] Formatted Data (first 3):", processed.slice(0,3));
     return processed;
   }, [data]);
 
   const exportChart = async (format: 'png' | 'jpeg' | 'pdf') => {
     if (!chartRef.current) return;
-    const chartWrapper = chartRef.current.querySelector('.recharts-wrapper');
-    if (!chartWrapper) {
-      console.error("Recharts wrapper not found for export.");
-      return;
-    }
+    // Target the Recharts wrapper directly if possible, otherwise the main div
+    const chartElementToCapture = chartRef.current.querySelector('.recharts-wrapper') || chartRef.current;
+
     setIsExporting(true);
     try {
-      const canvas = await html2canvas(chartWrapper as HTMLElement, {
+      const canvas = await html2canvas(chartElementToCapture as HTMLElement, {
         scale: 2,
         useCORS: true,
         backgroundColor: 'hsl(var(--card))', 
@@ -115,11 +114,11 @@ const WeatherChart: FC<WeatherChartProps> = ({
   if (isLoading) {
     return (
       <Card className="shadow-lg">
-        <CardHeader>
+        <CardHeader className="pb-3">
           <Skeleton className="h-6 w-1/2 mb-2" />
           <Skeleton className="h-4 w-1/3" />
         </CardHeader>
-        <CardContent className="p-4">
+        <CardContent className="p-4 pt-0">
           <Skeleton className="h-[450px] w-full" />
         </CardContent>
       </Card>
@@ -135,7 +134,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
             Select metrics and a date range to display data. Current Chart: {chartType.charAt(0).toUpperCase() + chartType.slice(1)}
           </CardDescription>
         </CardHeader>
-        <CardContent className="p-4 h-[450px] flex items-center justify-center">
+        <CardContent className="p-4 pt-0 h-[450px] flex items-center justify-center">
           <p className="text-muted-foreground">No data available for the selected criteria or metrics.</p>
         </CardContent>
       </Card>
@@ -143,7 +142,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
   }
   
   const commonCartesianProps = { 
-    margin: { top: 5, right: 40, left: 20, bottom: 80 },
+    margin: { top: 5, right: 40, left: 20, bottom: 40 }, // Reduced bottom margin
   };
 
   const renderChartSpecificElements = () => {
@@ -153,15 +152,17 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
       const color = metricConfig.color || '#8884d8';
       const name = metricConfig.name || key;
+      const seriesKey = `${chartType}-${key}`;
+
 
       switch (chartType) {
         case 'bar':
-          return <Bar key={key} dataKey={key} fill={color} name={name} radius={[4, 4, 0, 0]} onClick={(payload) => onPointClick && payload && onPointClick(payload as unknown as WeatherDataPoint)} />;
+          return <Bar key={seriesKey} dataKey={key} fill={color} name={name} radius={[4, 4, 0, 0]} onClick={(payload) => onPointClick && payload && onPointClick(payload as unknown as WeatherDataPoint)} />;
         case 'scatter':
-          return <Scatter key={key} dataKey={key} fill={color} name={name} onClick={(payload) => onPointClick && payload && onPointClick(payload as unknown as WeatherDataPoint)} />;
+          return <Scatter key={seriesKey} dataKey={key} fill={color} name={name} onClick={(payload) => onPointClick && payload && onPointClick(payload as unknown as WeatherDataPoint)} />;
         case 'line':
         default:
-          return <Line key={key} type="monotone" dataKey={key} stroke={color} name={name} dot={false} activeDot={{ r: 6 }} onClick={(payload) => onPointClick && payload && onPointClick(payload as unknown as WeatherDataPoint)}/>;
+          return <Line key={seriesKey} type="monotone" dataKey={key} stroke={color} name={name} dot={false} activeDot={{ r: 6 }} connectNulls={true} onClick={(payload) => onPointClick && payload && onPointClick(payload as unknown as WeatherDataPoint)}/>;
       }
     });
   };
@@ -178,7 +179,8 @@ const WeatherChart: FC<WeatherChartProps> = ({
           tick={{ fill: "hsl(var(--foreground))", fontSize: 11 }} 
           angle={-45} 
           textAnchor="end" 
-          dy={10} 
+          dy={10} // Pushes labels slightly down from axis line
+          height={60} // Allocate height for angled labels
           minTickGap={5} 
           interval="preserveStartEnd"
         />
@@ -259,4 +261,3 @@ const WeatherChart: FC<WeatherChartProps> = ({
 };
 
 export default WeatherChart;
-
