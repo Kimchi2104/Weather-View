@@ -16,23 +16,24 @@ import { Button } from '@/components/ui/button';
 import { transformRawDataToWeatherDataPoint } from '@/lib/utils';
 import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge, ShieldCheck } from 'lucide-react';
 
-const AVAILABLE_METRICS: { key: MetricKey; name: string }[] = [
+// Metrics available for selection in the historical chart's DataSelector
+const HISTORICAL_AVAILABLE_METRICS: { key: MetricKey; name: string }[] = [
   { key: 'temperature', name: 'Temperature' },
   { key: 'humidity', name: 'Humidity' },
-  { key: 'precipitation', name: 'Precipitation' },
-  { key: 'airQuality', name: 'Air Quality (Status)' },
+  { key: 'precipitation', name: 'Precipitation' }, // String-based, won't plot as line, but can be in tooltip
   { key: 'aqiPpm', name: 'AQI (ppm)' },
   { key: 'lux', name: 'Light (Lux)' },
   { key: 'pressure', name: 'Pressure' },
 ];
 
+// Full configuration for all possible metrics (used by chart and potentially other components)
 const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
   temperature: { name: 'Temperature', unit: '°C', Icon: Thermometer, color: 'hsl(var(--chart-1))', healthyMin: 0, healthyMax: 35 },
   humidity: { name: 'Humidity', unit: '%', Icon: Droplets, color: 'hsl(var(--chart-2))', healthyMin: 30, healthyMax: 70 },
   precipitation: { name: 'Precipitation', unit: '', Icon: CloudRain, color: 'hsl(var(--chart-3))', isString: true },
-  airQuality: { name: 'Air Quality', unit: '', Icon: ShieldCheck, color: 'hsl(var(--chart-4))', isString: true },
+  airQuality: { name: 'Air Quality', unit: '', Icon: ShieldCheck, color: 'hsl(var(--chart-4))', isString: true }, // String based, used in realtime
   aqiPpm: { name: 'AQI (ppm)', unit: 'ppm', Icon: Wind, color: 'hsl(var(--chart-5))', healthyMin: 0, healthyMax: 300 },
-  lux: { name: 'Light Level', unit: 'lux', Icon: SunDim, color: 'hsl(30, 80%, 55%)' }, // Example new color
+  lux: { name: 'Light Level', unit: 'lux', Icon: SunDim, color: 'hsl(30, 80%, 55%)' },
   pressure: { name: 'Pressure', unit: 'hPa', Icon: Gauge, color: 'hsl(120, 60%, 45%)', healthyMin: 980, healthyMax: 1040 },
 };
 
@@ -170,7 +171,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
             Data is fetched from Firebase path: `{firebaseDataPath}`.
           </p>
         <DataSelector
-          availableMetrics={AVAILABLE_METRICS}
+          availableMetrics={HISTORICAL_AVAILABLE_METRICS}
           selectedMetrics={selectedMetrics}
           onSelectionChange={setSelectedMetrics}
         />
