@@ -21,7 +21,7 @@ const HISTORICAL_AVAILABLE_METRICS: { key: MetricKey; name: string }[] = [
   { key: 'temperature', name: 'Temperature' },
   { key: 'humidity', name: 'Humidity' },
   { key: 'precipitation', name: 'Precipitation' },
-  // { key: 'airQuality', name: 'Air Quality (Status)' }, // Removed as per user request (string data)
+  // { key: 'airQuality', name: 'Air Quality (Status)' }, // Removed as per user request
   { key: 'aqiPpm', name: 'AQI (ppm)' },
   { key: 'lux', name: 'Light (Lux)' },
   { key: 'pressure', name: 'Pressure' },
@@ -145,13 +145,13 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
     <section className="mb-8">
       <h2 className="text-2xl font-headline font-semibold mb-4 text-primary">Historical Data Analysis</h2>
       <div className="bg-card p-4 sm:p-6 rounded-lg shadow-md space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
-          <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
-            <div className="sm:col-span-2">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+          <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+            <div>
               <Label htmlFor="date-range-picker" className="text-sm font-medium text-muted-foreground mb-1 block">Select Date Range:</Label>
               <DateRangePicker onDateChange={setDateRange} initialRange={dateRange} id="date-range-picker"/>
             </div>
-             <div className="grid grid-cols-2 gap-2">
+             <div className="grid grid-cols-2 gap-2 items-end">
                 <div>
                     <Label htmlFor="start-time-hist" className="text-sm font-medium text-muted-foreground mb-1 block">Start Time:</Label>
                     <Input 
@@ -174,7 +174,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
                 </div>
             </div>
           </div>
-          <Button onClick={fetchAllHistoricalData} disabled={isLoading} className="w-full md:w-auto lg:w-full">
+          <Button onClick={fetchAllHistoricalData} disabled={isLoading} className="w-full md:w-auto">
             {isLoading ? 'Loading...' : 'Refresh All Data'}
           </Button>
         </div>
@@ -204,3 +204,4 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
 };
 
 export default HistoricalDataSection;
+
