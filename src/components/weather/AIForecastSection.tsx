@@ -9,12 +9,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { generateWeatherForecast, type GenerateWeatherForecastInput, type GenerateWeatherForecastOutput } from '@/ai/flows/generate-weather-forecast';
-import { Wand2, Thermometer, Droplets, WindIcon, CloudDrizzle, CheckCircle } from 'lucide-react'; 
+import { Wand2, Thermometer, CloudDrizzle, WindIcon, CheckCircle } from 'lucide-react'; 
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from '@/components/ui/skeleton';
 import type { WeatherDataPoint } from '@/types/weather'; 
 
-// Sample historical data reflecting the transformed WeatherDataPoint structure
+// Sample historical data (can be kept for manual testing or fallback)
 const sampleHistoricalData: WeatherDataPoint[] = [
   { timestamp: Date.now() - 86400000 * 2, temperature: 22, humidity: 70, precipitation: 4000, airQualityIndex: 30, lux: 100 },
   { timestamp: Date.now() - 86400000, temperature: 24, humidity: 65, precipitation: 2000, airQualityIndex: 40, lux: 150 },
@@ -37,7 +37,7 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
       setCustomHistoricalData(JSON.stringify(initialDataForForecast, null, 2));
       toast({
         title: "Historical Data Populated",
-        description: "Data from the clicked chart point has been loaded into the forecast generator.",
+        description: `Data from chart selection (${initialDataForForecast.length} point(s)) has been loaded into the forecast generator.`,
         action: (
           <div className="flex items-center">
             <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
@@ -46,6 +46,13 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
         ),
       });
       // Optionally, auto-scroll to this section or highlight the textarea
+      const textareaElement = document.getElementById("historical-data");
+      if (textareaElement) {
+        textareaElement.focus();
+        // textareaElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    } else if (initialDataForForecast === null) { // Explicitly null means clear or no selection
+        // setCustomHistoricalData(JSON.stringify(sampleHistoricalData, null, 2)); // Optionally reset to sample
     }
   }, [initialDataForForecast, toast]);
 
@@ -109,7 +116,7 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
             Generate Forecast
           </CardTitle>
           <CardDescription>
-            Use AI to predict upcoming weather conditions. Click a point on the historical chart above to auto-fill its data here, or manually input a JSON array of historical WeatherDataPoint objects.
+            Use AI to predict upcoming weather. Click a point or drag on the chart above to auto-fill historical data, or manually input a JSON array of WeatherDataPoint objects.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -130,7 +137,7 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
               id="historical-data"
               value={customHistoricalData}
               onChange={(e) => setCustomHistoricalData(e.target.value)}
-              placeholder="Enter historical weather data as JSON array or click a point on the chart above..."
+              placeholder="Click or drag on the chart above, or enter historical weather data as JSON array..."
               rows={8}
               className="mt-1 font-mono text-xs"
             />

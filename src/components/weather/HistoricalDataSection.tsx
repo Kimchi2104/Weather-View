@@ -34,9 +34,10 @@ const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
 
 interface HistoricalDataSectionProps {
   onChartPointClick?: (point: WeatherDataPoint) => void;
+  onChartRangeSelect?: (points: WeatherDataPoint[]) => void; // New prop for range selection
 }
 
-const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointClick }) => {
+const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointClick, onChartRangeSelect }) => {
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: subDays(startOfDay(new Date()), 7),
     to: endOfDay(new Date()),
@@ -176,7 +177,8 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           selectedMetrics={selectedMetrics}
           metricConfigs={METRIC_CONFIGS}
           isLoading={isLoading && allFetchedData.length === 0}
-          onPointClick={onChartPointClick} // Pass the callback here
+          onPointClick={onChartPointClick}
+          onRangeSelect={onChartRangeSelect} // Pass the new callback here
         />
       </div>
     </section>

@@ -12,7 +12,7 @@ import {
   ChartLegendContent,
   type ChartConfig,
 } from '@/components/ui/chart';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Brush } from 'recharts';
 import type { WeatherDataPoint, MetricKey, MetricConfig } from '@/types/weather';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -21,10 +21,11 @@ interface WeatherChartProps {
   selectedMetrics: MetricKey[];
   metricConfigs: Record<MetricKey, MetricConfig>;
   isLoading: boolean;
-  onPointClick?: (point: WeatherDataPoint) => void; // New prop for click handler
+  onPointClick?: (point: WeatherDataPoint) => void;
+  onRangeSelect?: (points: WeatherDataPoint[]) => void; // New prop for range selection
 }
 
-const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConfigs, isLoading, onPointClick }) => {
+const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConfigs, isLoading, onPointClick, onRangeSelect }) => {
   if (isLoading) {
     return (
       <Card className="shadow-lg">
@@ -34,20 +35,6 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
         </CardHeader>
         <CardContent>
           <Skeleton className="h-[400px] w-full" />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (!data || data.length === 0) {
-    return (
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle className="font-headline">Historical Data Trends</CardTitle>
-          <CardDescription>No data available for the selected range or metrics.</CardDescription>
-        </CardHeader>
-        <CardContent className="h-[400px] flex items-center justify-center">
-          <p className="text-muted-foreground">Please select a date range and metrics to view data, or check data source.</p>
         </CardContent>
       </Card>
     );
@@ -64,7 +51,6 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
     ])
   ) as ChartConfig;
   
-
   const formattedData = data.map(point => ({
     ...point,
     timestampDisplay: typeof point.timestamp === 'number' ? format(new Date(point.timestamp), 'MMM d, HH:mm') : 'Invalid Date',
@@ -72,27 +58,57 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
 
   const handleChartClick = (event: any) => {
     if (onPointClick && event && event.activePayload && event.activePayload.length > 0) {
-      // The actual data point object is in event.activePayload[0].payload
       const clickedPointData = event.activePayload[0].payload;
-      // Remove the temporary 'timestampDisplay' field before passing it up
       const { timestampDisplay, ...originalPoint } = clickedPointData;
       onPointClick(originalPoint as WeatherDataPoint);
     }
   };
 
+  const handleBrushChange = (e: any) => { // e: { startIndex?: number; endIndex?: number } from Brush onChange
+    if (onRangeSelect && e && typeof e.startIndex === 'number' && typeof e.endIndex === 'number') {
+      // formattedData is the array used by the chart, so indices from Brush refer to it
+      const selectedSlice = formattedData.slice(e.startIndex, e.endIndex + 1);
+      const originalPoints = selectedSlice.map(pointWithDisplay => {
+        const { timestampDisplay, ...rest } = pointWithDisplay;
+        return rest as WeatherDataPoint; 
+      });
+      if (originalPoints.length > 0) {
+        onRangeSelect(originalPoints);
+      }
+    } else if (onRangeSelect && (!e || typeof e.startIndex !== 'number')) {
+      // This case might occur if the brush is cleared or the event is malformed.
+      // Optionally call onRangeSelect with an empty array or null to signify clearing.
+      // onRangeSelect([]); 
+    }
+  };
+  
+  if (!data || data.length === 0) { // Moved this check after isLoading to prioritize loading skeleton
+    return (
+      <Card className="shadow-lg">
+        <CardHeader>
+          <CardTitle className="font-headline">Historical Data Trends</CardTitle>
+          <CardDescription>No data available for the selected range or metrics. Use date picker above or select a range on the chart.</CardDescription>
+        </CardHeader>
+        <CardContent className="h-[400px] flex items-center justify-center">
+          <p className="text-muted-foreground">Please select a date range and metrics to view data, or check data source.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="shadow-lg">
       <CardHeader>
         <CardTitle className="font-headline">Historical Data Trends</CardTitle>
-        <CardDescription>Interactive chart displaying selected weather metrics over time. Click a point to use its data for AI forecast.</CardDescription>
+        <CardDescription>Interactive chart displaying selected weather metrics. Click a point or drag on the chart to select a range for AI forecast.</CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={chartConfig} className="h-[400px] w-full">
+        <ChartContainer config={chartConfig} className="h-[450px] w-full"> {/* Increased height for Brush */}
           <ResponsiveContainer width="100%" height="100%">
             <LineChart 
               data={formattedData} 
               margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
-              onClick={handleChartClick} // Added onClick handler to the chart
+              onClick={handleChartClick}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis 
@@ -127,6 +143,15 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
                   connectNulls={false}
                 />
               ))}
+              <Brush 
+                dataKey="timestampDisplay" 
+                height={30} 
+                stroke="hsl(var(--primary))"
+                startIndex={undefined} // Allow brush to be unselected initially
+                endIndex={undefined}
+                onChange={handleBrushChange}
+                tickFormatter={(index) => formattedData[index]?.timestampDisplay.split(',')[0] || ''} // Show only date part in brush ticks
+              />
             </LineChart>
           </ResponsiveContainer>
         </ChartContainer>
