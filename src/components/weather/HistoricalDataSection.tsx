@@ -32,7 +32,11 @@ const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
   lux: { name: 'Light Level', unit: 'lux', Icon: SunDim, color: 'hsl(var(--chart-5))' },
 };
 
-const HistoricalDataSection: FC = () => {
+interface HistoricalDataSectionProps {
+  onChartPointClick?: (point: WeatherDataPoint) => void;
+}
+
+const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointClick }) => {
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: subDays(startOfDay(new Date()), 7),
     to: endOfDay(new Date()),
@@ -42,8 +46,7 @@ const HistoricalDataSection: FC = () => {
   const [displayedData, setDisplayedData] = useState<WeatherDataPoint[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // IMPORTANT! This path now reflects the user's provided structure.
-  const firebaseDataPath = 'devices/TGkMhLL4k4ZFBwgOyRVNKe5mTQq1/records';
+  const firebaseDataPath = 'devices/TGkMhLL4k4ZFBwgOyRVNKe5mTQq1/records/'; 
 
   const fetchAllHistoricalData = useCallback(async () => {
     setIsLoading(true);
@@ -173,6 +176,7 @@ const HistoricalDataSection: FC = () => {
           selectedMetrics={selectedMetrics}
           metricConfigs={METRIC_CONFIGS}
           isLoading={isLoading && allFetchedData.length === 0}
+          onPointClick={onChartPointClick} // Pass the callback here
         />
       </div>
     </section>

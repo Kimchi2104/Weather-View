@@ -2,14 +2,14 @@
 "use client";
 
 import type { FC } from 'react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { generateWeatherForecast, type GenerateWeatherForecastInput, type GenerateWeatherForecastOutput } from '@/ai/flows/generate-weather-forecast';
-import { Wand2, Thermometer, Droplets, WindIcon, CloudDrizzle } from 'lucide-react'; // Added more icons
+import { Wand2, Thermometer, Droplets, WindIcon, CloudDrizzle, CheckCircle } from 'lucide-react'; 
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from '@/components/ui/skeleton';
 import type { WeatherDataPoint } from '@/types/weather'; 
@@ -21,12 +21,33 @@ const sampleHistoricalData: WeatherDataPoint[] = [
   { timestamp: Date.now(), temperature: 25, humidity: 60, precipitation: 0, airQualityIndex: 35, lux: 120 },
 ];
 
-const AIForecastSection: FC = () => {
+interface AIForecastSectionProps {
+  initialDataForForecast?: WeatherDataPoint[] | null;
+}
+
+const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast }) => {
   const [location, setLocation] = useState<string>('Local Area');
   const [forecast, setForecast] = useState<GenerateWeatherForecastOutput | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [customHistoricalData, setCustomHistoricalData] = useState<string>(JSON.stringify(sampleHistoricalData, null, 2));
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (initialDataForForecast && initialDataForForecast.length > 0) {
+      setCustomHistoricalData(JSON.stringify(initialDataForForecast, null, 2));
+      toast({
+        title: "Historical Data Populated",
+        description: "Data from the clicked chart point has been loaded into the forecast generator.",
+        action: (
+          <div className="flex items-center">
+            <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
+            <span>Loaded</span>
+          </div>
+        ),
+      });
+      // Optionally, auto-scroll to this section or highlight the textarea
+    }
+  }, [initialDataForForecast, toast]);
 
   const handleGenerateForecast = async () => {
     setIsLoading(true);
@@ -88,7 +109,7 @@ const AIForecastSection: FC = () => {
             Generate Forecast
           </CardTitle>
           <CardDescription>
-            Use AI to predict upcoming weather conditions (summary, temp high/low, precipitation chance, wind, AQI outlook) based on historical data. Ensure the input data matches the structure: timestamp (number), temperature, humidity, precipitation, airQualityIndex, lux.
+            Use AI to predict upcoming weather conditions. Click a point on the historical chart above to auto-fill its data here, or manually input a JSON array of historical WeatherDataPoint objects.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -109,12 +130,12 @@ const AIForecastSection: FC = () => {
               id="historical-data"
               value={customHistoricalData}
               onChange={(e) => setCustomHistoricalData(e.target.value)}
-              placeholder="Enter historical weather data as JSON array..."
+              placeholder="Enter historical weather data as JSON array or click a point on the chart above..."
               rows={8}
               className="mt-1 font-mono text-xs"
             />
             <p className="text-xs text-muted-foreground mt-1">
-              Provide an array of data points. Each point should include numerical fields: timestamp, temperature, humidity, precipitation, airQualityIndex, lux.
+              Each point should include numerical fields: timestamp, temperature, humidity, precipitation, airQualityIndex, lux.
             </p>
           </div>
           

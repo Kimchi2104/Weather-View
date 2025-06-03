@@ -12,7 +12,7 @@ import {
   ChartLegendContent,
   type ChartConfig,
 } from '@/components/ui/chart';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'; // Removed Legend as ChartLegendContent is used
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import type { WeatherDataPoint, MetricKey, MetricConfig } from '@/types/weather';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -21,9 +21,10 @@ interface WeatherChartProps {
   selectedMetrics: MetricKey[];
   metricConfigs: Record<MetricKey, MetricConfig>;
   isLoading: boolean;
+  onPointClick?: (point: WeatherDataPoint) => void; // New prop for click handler
 }
 
-const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConfigs, isLoading }) => {
+const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConfigs, isLoading, onPointClick }) => {
   if (isLoading) {
     return (
       <Card className="shadow-lg">
@@ -42,7 +43,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
     return (
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle className="font-headline">Historical Data</CardTitle>
+          <CardTitle className="font-headline">Historical Data Trends</CardTitle>
           <CardDescription>No data available for the selected range or metrics.</CardDescription>
         </CardHeader>
         <CardContent className="h-[400px] flex items-center justify-center">
@@ -58,7 +59,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
       {
         label: metricConfigs[key].name,
         color: metricConfigs[key].color,
-        icon: metricConfigs[key].Icon, // Pass icon to chart config for legend
+        icon: metricConfigs[key].Icon,
       },
     ])
   ) as ChartConfig;
@@ -66,34 +67,45 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
 
   const formattedData = data.map(point => ({
     ...point,
-    // Format timestamp for X-axis display
-    // Ensure point.timestamp is a valid number (milliseconds)
     timestampDisplay: typeof point.timestamp === 'number' ? format(new Date(point.timestamp), 'MMM d, HH:mm') : 'Invalid Date',
   }));
+
+  const handleChartClick = (event: any) => {
+    if (onPointClick && event && event.activePayload && event.activePayload.length > 0) {
+      // The actual data point object is in event.activePayload[0].payload
+      const clickedPointData = event.activePayload[0].payload;
+      // Remove the temporary 'timestampDisplay' field before passing it up
+      const { timestampDisplay, ...originalPoint } = clickedPointData;
+      onPointClick(originalPoint as WeatherDataPoint);
+    }
+  };
 
   return (
     <Card className="shadow-lg">
       <CardHeader>
         <CardTitle className="font-headline">Historical Data Trends</CardTitle>
-        <CardDescription>Interactive chart displaying selected weather metrics over time.</CardDescription>
+        <CardDescription>Interactive chart displaying selected weather metrics over time. Click a point to use its data for AI forecast.</CardDescription>
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig} className="h-[400px] w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={formattedData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+            <LineChart 
+              data={formattedData} 
+              margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
+              onClick={handleChartClick} // Added onClick handler to the chart
+            >
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis 
                 dataKey="timestampDisplay" 
                 tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} 
-                // tickFormatter={(value) => value} // Already formatted in data
-                angle={-15} // Angle ticks for better readability if many points
+                angle={-15}
                 textAnchor="end"
-                minTickGap={20} // Ensure some spacing between ticks
+                minTickGap={20}
               />
               <YAxis 
                 tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
                 tickFormatter={(value) => typeof value === 'number' ? value.toFixed(0) : value}
-                domain={['auto', 'auto']} // Auto domain or specify if needed
+                domain={['auto', 'auto']}
               />
               <Tooltip
                 content={<ChartTooltipContent indicator="line" />}
@@ -112,7 +124,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
                   activeDot={{ r: 5, strokeWidth: 1, stroke: metricConfigs[key].color }}
                   name={metricConfigs[key].name}
                   unit={metricConfigs[key].unit}
-                  connectNulls={false} // Decide if you want to connect lines over null data points
+                  connectNulls={false}
                 />
               ))}
             </LineChart>
