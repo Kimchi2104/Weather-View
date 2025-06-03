@@ -66,7 +66,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
       const canvas = await html2canvas(chartRef.current, {
         scale: 2,
         useCORS: true,
-        backgroundColor: null,
+        backgroundColor: null, 
       });
       
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
@@ -168,11 +168,11 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
           </CardDescription>
         </div>
       </CardHeader>
-      <CardContent className="bg-card p-4">
+      <CardContent className="p-4">
         <ChartContainer ref={chartRef} config={chartConfig} className="h-[450px] w-full aspect-auto">
             <LineChart 
                 data={formattedData}
-                margin={{ top: 20, right: 30, left: 20, bottom: 50 }} 
+                margin={{ top: 20, right: 30, left: 20, bottom: 60 }} 
                 onClick={handleChartClick}
             >
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -185,7 +185,6 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
                     angle={-30}
                     textAnchor="end"
                     minTickGap={20}
-                    height={50} 
                     dy={10}
                 />
                 <YAxis 
@@ -215,7 +214,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
                 />
                 <ChartLegend 
                   content={<ChartLegendContent />} 
-                  wrapperStyle={{ paddingTop: "5px" }} 
+                  wrapperStyle={{ paddingTop: "20px" }} 
                 />
                 {selectedMetrics.map((key) => {
                   const metricConfig = metricConfigs[key];
@@ -237,7 +236,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
                 })}
             </LineChart>
         </ChartContainer>
-        <div className="mt-2 flex justify-center">
+        <div className="mt-1 flex justify-center">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="default" disabled={isExporting} className="min-w-[150px]">
@@ -271,4 +270,3 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
 };
 
 export default WeatherChart;
-
