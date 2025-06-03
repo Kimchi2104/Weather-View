@@ -45,14 +45,12 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
           </div>
         ),
       });
-      const textareaElement = document.getElementById("historical-data");
-      if (textareaElement) {
-        textareaElement.focus();
-        // textareaElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
+      // Removed focus and scrollIntoView to prevent interrupting chart drag
+      // const textareaElement = document.getElementById("historical-data");
+      // if (textareaElement) {
+      //   textareaElement.focus();
+      // }
     } else if (initialDataForForecast && initialDataForForecast.length === 0) {
-      // This case handles when the brush is cleared or selection is empty
-      // setCustomHistoricalData(JSON.stringify(sampleHistoricalData, null, 2)); // Optionally reset to sample or clear
        toast({
         title: "Historical Data Cleared",
         description: "Forecast input has been cleared or no data selected from chart.",
@@ -74,7 +72,7 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
         typeof item.humidity === 'number' &&
         typeof item.precipitation === 'number' &&
         typeof item.airQualityIndex === 'number' &&
-        typeof item.lux === 'number' // Ensure 'lux' is checked as per WeatherDataPoint
+        typeof item.lux === 'number' 
       )) {
         throw new Error("Data does not conform to expected WeatherDataPoint structure.");
       }
@@ -185,7 +183,7 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
                   <strong className="font-medium">Wind:</strong> {forecast.windConditions}
                 </div>
                  <div className="flex items-center">
-                   <Leaf className="mr-2 h-4 w-4 text-accent" /> {/* Leaf icon for AQI */}
+                   <Leaf className="mr-2 h-4 w-4 text-accent" />
                   <strong className="font-medium">AQI Outlook:</strong> {forecast.aqiOutlook}
                 </div>
               </div>
