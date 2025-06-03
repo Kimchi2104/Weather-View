@@ -236,7 +236,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
                 })}
             </LineChart>
         </ChartContainer>
-        <div className="flex justify-center -mt-7">
+        <div className="flex justify-center -mt-10">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="default" disabled={isExporting} className="min-w-[150px]">
@@ -270,3 +270,4 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
 };
 
 export default WeatherChart;
+
