@@ -49,7 +49,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
   });
   const [startTime, setStartTime] = useState<string>("00:00");
   const [endTime, setEndTime] = useState<string>("23:59");
-  const [selectedMetrics, setSelectedMetrics] = useState<MetricKey[]>(['temperature', 'humidity', 'aqiPpm']);
+  const [selectedMetrics, setSelectedMetrics] = useState<MetricKey[]>(['temperature', 'humidity']);
   const [allFetchedData, setAllFetchedData] = useState<WeatherDataPoint[]>([]);
   const [displayedData, setDisplayedData] = useState<WeatherDataPoint[]>([]);
   const [isLoading, setIsLoading] = useState(false);
