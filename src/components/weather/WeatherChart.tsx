@@ -141,17 +141,17 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
     }
   };
   
-  if (!data || data.length === 0 && !isLoading) {
+  if ((!data || data.length === 0 || selectedMetrics.length === 0) && !isLoading) {
     return (
       <Card className="shadow-lg">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle className="font-headline">Historical Data Trends</CardTitle>
-            <CardDescription>No data available for the selected range or metrics. Use date picker above.</CardDescription>
+            <CardDescription>No data available for the selected range or no metrics selected. Use controls above.</CardDescription>
           </div>
         </CardHeader>
         <CardContent className="h-[450px] flex items-center justify-center p-4">
-          <p className="text-muted-foreground">Please select a date range and metrics to view data, or check data source.</p>
+          <p className="text-muted-foreground">Please select a date range and metrics to view data.</p>
         </CardContent>
       </Card>
     );
@@ -159,43 +159,43 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
 
   const commonCartesianProps = {
     data: formattedData,
-    margin:{ top: 40, right: 50, left: 50, bottom: 120 }, // Increased margins
+    margin:{ top: 40, right: 50, left: 50, bottom: 120 },
     onClick: handleChartClick,
   };
 
   const commonAxisAndGridComponents = (
     <>
-      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+      <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
       <XAxis
         dataKey="timestampDisplay"
-        stroke="hsl(var(--muted-foreground))"
+        stroke="#888888" 
         axisLine={false}
         tickLine={false}
-        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+        tick={{ fill: '#333333', fontSize: 12 }}
         angle={-45}
         textAnchor="end"
-        dy={10} // Offset for angled labels
+        dy={10}
       />
       <YAxis
-        stroke="hsl(var(--muted-foreground))"
+        stroke="#888888" 
         axisLine={false}
         tickLine={false}
-        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+        tick={{ fill: '#333333', fontSize: 12 }}
         tickFormatter={(value) => (typeof value === 'number' ? value.toFixed(0) : String(value))}
       />
       <Tooltip
         cursor={{ stroke: 'hsl(var(--accent))', strokeWidth: 1, strokeDasharray: '3 3' }}
         wrapperStyle={{ 
-            outline: 'none', 
-            zIndex: 100, 
-            backgroundColor: 'hsl(var(--background))', 
-            border: '1px solid hsl(var(--border))', 
+            zIndex: 1000, 
+            backgroundColor: '#ffffff', 
+            border: '1px solid #cccccc', 
             borderRadius: 'var(--radius)', 
-            padding: '0.5rem',
-            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)'
+            padding: '10px',
+            color: '#000000',
+            boxShadow: '2px 2px 5px rgba(0,0,0,0.1)'
         }}
-        labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: '600', marginBottom: '0.25rem', fontSize: '0.875rem' }}
-        itemStyle={{ color: 'hsl(var(--foreground))', fontSize: '0.875rem' }}
+        labelStyle={{ fontWeight: '600', marginBottom: '0.25rem', fontSize: '0.875rem' }}
+        itemStyle={{ fontSize: '0.875rem' }}
         formatter={(value: any, name: any, entry: any) => {
             const metricKey = name as MetricKey;
             const config = metricConfigs[metricKey];
@@ -212,7 +212,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
       />
       <ChartLegend 
         content={<ChartLegendContent />} 
-        wrapperStyle={{ paddingTop: "40px" }} // Space between X-axis and legend text
+        wrapperStyle={{ paddingTop: "40px" }}
       />
     </>
   );
@@ -270,7 +270,6 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
     } else if (chartType === 'scatter') {
       return <ScatterChart {...chartSpecificProps}>{commonAxisAndGridComponents}{renderChartSpecificElements()}</ScatterChart>;
     }
-    // Default to LineChart if chartType is somehow invalid, though the select should prevent this.
     return <LineChart {...chartSpecificProps}>{commonAxisAndGridComponents}{renderChartSpecificElements()}</LineChart>; 
   };
 
@@ -292,12 +291,12 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
           <ChartContainer
             key={chartContainerKey}
             config={chartConfig}
-            className="h-[450px] w-full aspect-auto"
+            className="h-[550px] w-full" 
           >
             {renderChart()}
           </ChartContainer>
         </div>
-        <div className="flex justify-center -mt-10"> {/* Maintained tight button positioning */}
+        <div className="flex justify-center -mt-10">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="default" disabled={isExporting} className="min-w-[150px]">
@@ -331,3 +330,4 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
 };
 
 export default WeatherChart;
+
