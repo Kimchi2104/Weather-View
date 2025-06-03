@@ -7,7 +7,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Parses a timestamp string in "dd/MM/yyyy HH:mm:ss" format to a Unix timestamp (milliseconds).
+ * Parses a timestamp string in "MM/dd/yyyy HH:mm:ss" format to a Unix timestamp (milliseconds).
  * @param timestampStr The timestamp string to parse.
  * @returns A Unix timestamp in milliseconds, or null if parsing fails.
  */
@@ -16,23 +16,26 @@ export function parseCustomTimestamp(timestampStr: string | undefined): number |
     console.warn(`[parseCustomTimestamp] Invalid input: timestampStr is undefined or not a string:`, timestampStr);
     return null;
   }
+  // Assumes MM/dd/yyyy HH:mm:ss format
   const parts = timestampStr.match(/(\d{2})\/(\d{2})\/(\d{4})\s(\d{2}):(\d{2}):(\d{2})/);
   if (parts) {
     const year = parseInt(parts[3], 10);
-    const month = parseInt(parts[2], 10) - 1; // Adjust month for 0-indexing
-    const day = parseInt(parts[1], 10);
+    const month = parseInt(parts[1], 10) - 1; // parts[1] is MM (month)
+    const day = parseInt(parts[2], 10);   // parts[2] is dd (day)
     const hour = parseInt(parts[4], 10);
     const minute = parseInt(parts[5], 10);
     const second = parseInt(parts[6], 10);
 
-    const date = new Date(Date.UTC(year, month, day, hour, minute, second)); // Use UTC to avoid local timezone issues if data is consistently UTC based
+    // Use Date.UTC to avoid local timezone issues if data is consistently UTC based,
+    // or if the original string implies a specific timezone that should be normalized to UTC.
+    const date = new Date(Date.UTC(year, month, day, hour, minute, second)); 
     if (isNaN(date.getTime())) {
-      console.warn(`[parseCustomTimestamp] Invalid date constructed for timestamp string: ${timestampStr}`);
+      console.warn(`[parseCustomTimestamp] Invalid date constructed for timestamp string: ${timestampStr} (parsed as MM/dd/yyyy)`);
       return null;
     }
     return date.getTime();
   }
-  console.warn(`[parseCustomTimestamp] Could not parse timestamp format: ${timestampStr}. Expected "dd/MM/yyyy HH:mm:ss"`);
+  console.warn(`[parseCustomTimestamp] Could not parse timestamp format: ${timestampStr}. Expected "MM/dd/yyyy HH:mm:ss"`);
   return null;
 }
 
@@ -74,7 +77,7 @@ export function transformRawDataToWeatherDataPoint(rawData: RawFirebaseDataPoint
   
   const aqiPpmValue = typeof rawData.mq135PPM === 'number' ? rawData.mq135PPM : 0;
   if (typeof rawData.mq135PPM !== 'number') console.warn(`[transformRawDataToWeatherDataPoint] mq135PPM (for AQI PPM) is not a number for (key: ${recordKey || 'N/A'}). Defaulting to 0. Value:`, rawData.mq135PPM);
-  console.log(`[transformRawDataToWeatherDataPoint] AQI PPM (from mq135PPM) for (key: ${recordKey || 'N/A'}):`, aqiPpmValue);
+  console.log(`[transformRawDataToWeatherDataPoint] AQI PPM (from mq135PPM) for (key: ${recordKevy || 'N/A'}):`, aqiPpmValue);
 
   const pressureValue = typeof rawData.pressure === 'number' ? rawData.pressure : undefined; 
 
