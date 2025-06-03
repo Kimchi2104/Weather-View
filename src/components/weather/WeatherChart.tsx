@@ -2,8 +2,17 @@
 "use client";
 
 import type { FC } from 'react';
-// Removed direct import of 'format' from 'date-fns' as we'll format manually using UTC
+import { useRef, useState } from 'react';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   ChartContainer,
   ChartTooltip,
@@ -15,6 +24,7 @@ import {
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import type { WeatherDataPoint, MetricKey, MetricConfig } from '@/types/weather';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Download, FileImage, FileText, Loader2 } from 'lucide-react';
 
 interface WeatherChartProps {
   data: WeatherDataPoint[];
@@ -24,21 +34,19 @@ interface WeatherChartProps {
   onPointClick?: (point: WeatherDataPoint) => void;
 }
 
-// Helper function to format a Date object into "dd/MM HH:mm" using UTC components
 const formatTimestampToDdMmHhMmUTC = (timestamp: number): string => {
   const date = new Date(timestamp);
   const day = date.getUTCDate().toString().padStart(2, '0');
-  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0'); // Month is 0-indexed
+  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
   const hours = date.getUTCHours().toString().padStart(2, '0');
   const minutes = date.getUTCMinutes().toString().padStart(2, '0');
   return `${day}/${month} ${hours}:${minutes}`;
 };
 
-// Helper function to format a Date object into "dd/MM/yyyy HH:mm:ss" using UTC components
 const formatTimestampToFullUTC = (timestamp: number): string => {
   const date = new Date(timestamp);
   const day = date.getUTCDate().toString().padStart(2, '0');
-  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0'); // Month is 0-indexed
+  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
   const year = date.getUTCFullYear();
   const hours = date.getUTCHours().toString().padStart(2, '0');
   const minutes = date.getUTCMinutes().toString().padStart(2, '0');
@@ -48,6 +56,60 @@ const formatTimestampToFullUTC = (timestamp: number): string => {
 
 
 const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConfigs, isLoading, onPointClick }) => {
+  const chartRef = useRef<HTMLDivElement>(null);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const exportChart = async (format: 'png' | 'jpeg' | 'pdf') => {
+    if (!chartRef.current) return;
+    setIsExporting(true);
+
+    // Temporarily increase resolution for better quality export
+    const originalWidth = chartRef.current.style.width;
+    const originalHeight = chartRef.current.style.height;
+    // chartRef.current.style.width = '1200px'; // Example: larger width
+    // chartRef.current.style.height = '800px'; // Example: larger height
+    // await new Promise(resolve => setTimeout(resolve, 100)); // Allow rerender
+
+    try {
+      const canvas = await html2canvas(chartRef.current, {
+        scale: 2, // Increase scale for better resolution
+        useCORS: true,
+        backgroundColor: '#ffffff', // Ensure background for JPEG
+        onclone: (document) => {
+          // Attempt to make sure styles are fully applied in the cloned document
+          // This might be needed if some dynamic styles aren't captured
+        }
+      });
+      
+      // Restore original size
+      // chartRef.current.style.width = originalWidth;
+      // chartRef.current.style.height = originalHeight;
+
+      const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
+
+      if (format === 'pdf') {
+        const pdf = new jsPDF({
+          orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
+          unit: 'px',
+          format: [canvas.width, canvas.height],
+        });
+        pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+        pdf.save('weather-chart.pdf');
+      } else {
+        const link = document.createElement('a');
+        link.download = `weather-chart.${format}`;
+        link.href = imgData;
+        link.click();
+      }
+    } catch (error) {
+      console.error('Error exporting chart:', error);
+      // Add user feedback, e.g., a toast message
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+
   if (isLoading) {
     return (
       <Card className="shadow-lg">
@@ -91,9 +153,11 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
   if (!data || data.length === 0) {
     return (
       <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle className="font-headline">Historical Data Trends</CardTitle>
-          <CardDescription>No data available for the selected range or metrics. Use date picker above.</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="font-headline">Historical Data Trends</CardTitle>
+            <CardDescription>No data available for the selected range or metrics. Use date picker above.</CardDescription>
+          </div>
         </CardHeader>
         <CardContent className="h-[450px] flex items-center justify-center">
           <p className="text-muted-foreground">Please select a date range and metrics to view data, or check data source.</p>
@@ -104,14 +168,38 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
 
   return (
     <Card className="shadow-lg">
-      <CardHeader>
-        <CardTitle className="font-headline">Historical Data Trends</CardTitle>
-        <CardDescription>
-          Interactive chart displaying selected weather metrics. 
-          Click a point on the chart to use it for AI forecast, or use the button in the &quot;Historical Data Analysis&quot; section below the date picker to use all currently displayed data.
-        </CardDescription>
+      <CardHeader className="flex flex-row items-start justify-between">
+        <div>
+          <CardTitle className="font-headline">Historical Data Trends</CardTitle>
+          <CardDescription>
+            Interactive chart displaying selected weather metrics. 
+            Click a point on the chart to use it for AI forecast, or use the button in the &quot;Historical Data Analysis&quot; section below the date picker to use all currently displayed data.
+          </CardDescription>
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="icon" disabled={isExporting}>
+              {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              <span className="sr-only">Export Chart</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => exportChart('png')}>
+              <FileImage className="mr-2 h-4 w-4" />
+              Export as PNG
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => exportChart('jpeg')}>
+              <FileImage className="mr-2 h-4 w-4" />
+              Export as JPEG
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => exportChart('pdf')}>
+              <FileText className="mr-2 h-4 w-4" />
+              Export as PDF
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </CardHeader>
-      <CardContent>
+      <CardContent ref={chartRef}> {/* Apply ref here to capture the content area */}
         <ChartContainer config={chartConfig} className="h-[450px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart 
@@ -154,7 +242,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
                     activeDot={{ r: 5, strokeWidth: 1, stroke: metricConfig.color }}
                     name={metricConfig.name}
                     unit={metricConfig.unit}
-                    connectNulls={false}
+                    connectNulls={false} // Set to true if you want to connect lines over null/missing data points
                   />
                 );
               })}
@@ -167,3 +255,5 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
 };
 
 export default WeatherChart;
+
+```
