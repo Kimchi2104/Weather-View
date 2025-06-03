@@ -11,7 +11,7 @@ const firebaseConfig = {
   // 4. Copy the config values from the "SDK setup and configuration" (usually "Config" option)
   //    and paste them below, replacing ALL "YOUR_..." placeholders.
 
-  apiKey: "YOUR_API_KEY", // Replace with your actual API key
+  apiKey: "AIzaSyBR-Bjxx8tw3kOrvDB5TCi_mQcX9bBci_w", // User provided
   authDomain: "YOUR_AUTH_DOMAIN", // Replace with your actual auth domain
   
   // CRITICAL: THIS IS THE MOST LIKELY SOURCE OF THE RECURRING ERROR.
@@ -25,7 +25,7 @@ const firebaseConfig = {
   // ENSURE THIS IS THE CORRECT AND COMPLETE URL.
   databaseURL: "https://weather-station-25716-default-rtdb.asia-southeast1.firebasedatabase.app/", 
   
-  projectId: "YOUR_PROJECT_ID", // Replace with your actual project ID
+  projectId: "weather-station-25716", // User provided
   storageBucket: "YOUR_STORAGE_BUCKET", // Replace with your actual storage bucket
   messagingSenderId: "YOUR_MESSAGING_SENDER_ID", // Replace with your actual messaging sender ID
   appId: "YOUR_APP_ID" // Replace with your actual app ID
