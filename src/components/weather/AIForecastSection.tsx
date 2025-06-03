@@ -13,17 +13,16 @@ import { Wand2, Thermometer, CloudDrizzle, WindIcon, CheckCircle, Leaf, Calendar
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from '@/components/ui/skeleton';
 import type { WeatherDataPoint } from '@/types/weather';
-import AIForecastChart from './AIForecastChart'; // Import the new chart component
+import AIForecastChart from './AIForecastChart';
 
-// Sample data for the AI flow input, notice `aqi` is the numerical PPM value.
-const sampleHistoricalDataForAI: Omit<WeatherDataPoint, 'airQuality' | 'aqiPpm'> & { aqi: number }[] = [
+const sampleHistoricalDataForAI: { timestamp: number; temperature: number; humidity: number; precipitation: string; aqi: number; lux: number; pressure?: number }[] = [
   { timestamp: Date.now() - 86400000 * 2, temperature: 22, humidity: 70, precipitation: "Rain", aqi: 60, lux: 100, pressure: 1010 },
   { timestamp: Date.now() - 86400000, temperature: 24, humidity: 65, precipitation: "No Rain", aqi: 45, lux: 150, pressure: 1012 },
   { timestamp: Date.now(), temperature: 25, humidity: 60, precipitation: "No Rain", aqi: 50, lux: 120, pressure: 1011 },
 ];
 
 interface AIForecastSectionProps {
-  initialDataForForecast?: WeatherDataPoint[] | null; 
+  initialDataForForecast?: WeatherDataPoint[] | null;
 }
 
 const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast }) => {
@@ -35,7 +34,7 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
 
   useEffect(() => {
     if (initialDataForForecast === null) {
-       setCustomHistoricalData('');
+       setCustomHistoricalData(''); // Clear textarea if selection is explicitly cleared
        toast({
          title: "Chart Selection Cleared",
          description: "Historical data input for AI forecast has been cleared.",
@@ -46,8 +45,8 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
         timestamp: p.timestamp,
         temperature: p.temperature,
         humidity: p.humidity,
-        precipitation: p.precipitation, 
-        aqi: p.aqiPpm, 
+        precipitation: p.precipitation,
+        aqi: p.aqiPpm, // Use aqiPpm for the 'aqi' field expected by the AI flow
         lux: p.lux,
         pressure: p.pressure,
       }));
@@ -62,7 +61,8 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
           </div>
         ),
       });
-    } else if (initialDataForForecast && initialDataForForecast.length === 0 && customHistoricalData !== '') {
+    } else if (initialDataForForecast && initialDataForForecast.length === 0) {
+       // This case handles when brush selection is cleared or an empty range is selected
        setCustomHistoricalData('');
        toast({
          title: "Chart Selection Cleared or Empty",
@@ -70,7 +70,7 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
          duration: 3000,
        });
     }
-  }, [initialDataForForecast, toast, customHistoricalData]);
+  }, [initialDataForForecast, toast]);
 
 
   const handleGenerateForecast = async () => {
@@ -81,17 +81,17 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
     try {
       const dataToParse = customHistoricalData.trim() === '' ? JSON.stringify(sampleHistoricalDataForAI, null, 2) : customHistoricalData;
       const parsedData = JSON.parse(dataToParse);
-      
+
       if (!Array.isArray(parsedData) || !parsedData.every(item =>
         typeof item.timestamp === 'number' &&
         typeof item.temperature === 'number' &&
         typeof item.humidity === 'number' &&
         typeof item.precipitation === 'string' &&
-        typeof item.aqi === 'number' &&
+        typeof item.aqi === 'number' && // AI flow expects 'aqi' as the numerical PPM value
         typeof item.lux === 'number' &&
         (item.pressure === undefined || typeof item.pressure === 'number')
       )) {
-        throw new Error("Data does not conform to AI's expected historical data structure (aqi should be number (PPM), precipitation should be string).");
+        throw new Error("Data does not conform to AI's expected historical data structure (ensure 'aqi' is numerical PPM, 'precipitation' is string).");
       }
       historicalDataToUse = dataToParse;
        if (customHistoricalData.trim() === '') {
@@ -113,21 +113,58 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
       location: location || 'Local Area',
     };
 
-    try {
-      const result = await generateWeatherForecast(input);
-      setForecast(result);
-    } catch (error) {
-      console.error('Error generating forecast:', error);
-      toast({
-        title: "Forecast Generation Error",
-        description: `Could not generate forecast. ${error instanceof Error ? error.message : 'Please check console for details.'}`,
-        variant: "destructive",
-      });
-      setForecast(null);
-    } finally {
-      setIsLoading(false);
+    const MAX_RETRIES = 3;
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        console.log(`[AIForecastSection] Attempt ${attempt} to generate forecast.`);
+        const result = await generateWeatherForecast(input);
+        setForecast(result);
+        setIsLoading(false);
+        return; // Success, exit
+      } catch (error: any) {
+        console.error(`Error generating forecast (attempt ${attempt}):`, error);
+
+        const is503Error = error.message && (error.message.includes('503 Service Unavailable') || error.message.includes('503') || error.message.includes('model is overloaded'));
+
+        if (is503Error) {
+          if (attempt < MAX_RETRIES) {
+            const delay = attempt * 1500; // Slightly longer, e.g., 1.5s, 3s
+            toast({
+              title: `Forecast Attempt ${attempt} Failed (Model Overloaded)`,
+              description: `Retrying in ${delay / 1000}s...`,
+              duration: delay + 500,
+            });
+            await new Promise(resolve => setTimeout(resolve, delay));
+            // Continue to next iteration for retry
+          } else {
+            // Last attempt for 503 error failed
+            toast({
+              title: "Forecast Generation Failed",
+              description: `The AI model is currently overloaded. Please try again later. (Failed after ${MAX_RETRIES} attempts)`,
+              variant: "destructive",
+            });
+            setForecast(null);
+            setIsLoading(false);
+            return; // All retries for 503 failed
+          }
+        } else {
+          // Non-503 error, fail immediately
+          toast({
+            title: "Forecast Generation Error",
+            description: `An unexpected error occurred: ${error instanceof Error ? error.message : 'Please check console.'}`,
+            variant: "destructive",
+          });
+          setForecast(null);
+          setIsLoading(false);
+          return; // Exit for non-retryable errors
+        }
+      }
     }
+    // Fallback if loop finishes without returning (should not happen with the current logic, but good for safety)
+    setIsLoading(false);
   };
+
 
   return (
     <section className="mb-8">
@@ -177,14 +214,14 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
                 <Skeleton className="h-20 w-full" />
                 <Skeleton className="h-20 w-full" />
               </div>
-              <Skeleton className="h-40 w-full mt-4" />
+              <Skeleton className="h-40 w-full mt-4" /> {/* Placeholder for AI forecast chart loading */}
             </div>
           )}
 
           {forecast && !isLoading && (
             <div className="space-y-4 pt-4 mt-4 border-t">
               <h3 className="text-xl font-semibold text-primary mb-2">Forecast for {location}:</h3>
-              
+
               <p className="text-sm bg-secondary/50 p-3 rounded-md"><strong className="font-medium">Overall Summary:</strong> {forecast.overallSummary}</p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
@@ -197,7 +234,7 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
                   <strong className="font-medium">AQI Outlook:</strong>&nbsp;{forecast.aqiOutlook}
                 </div>
               </div>
-              
+
               {forecast.dailyForecasts && forecast.dailyForecasts.length > 0 && (
                 <AIForecastChart dailyForecasts={forecast.dailyForecasts} />
               )}
@@ -252,3 +289,4 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
 };
 
 export default AIForecastSection;
+
