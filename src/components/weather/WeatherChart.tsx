@@ -21,7 +21,7 @@ import {
   ChartLegendContent,
   type ChartConfig,
 } from '@/components/ui/chart';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, ScatterChart, Scatter, ZAxis } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar, ScatterChart, Scatter, ZAxis } from 'recharts';
 import type { WeatherDataPoint, MetricKey, MetricConfig } from '@/types/weather';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Download, FileImage, FileText, Loader2 } from 'lucide-react';
@@ -68,6 +68,9 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
       const canvas = await html2canvas(chartRef.current, {
         scale: 2,
         useCORS: true,
+        // Ensure the background of the captured chart is consistent
+        // by temporarily setting it if not already the card background.
+        // However, since chartRef points to CardContent which has bg-card, this should be fine.
       });
       
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
@@ -109,14 +112,20 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
   }
 
   const chartConfig = Object.fromEntries(
-    selectedMetrics.map(key => [
-      key,
-      {
-        label: metricConfigs[key]?.name || key,
-        color: metricConfigs[key]?.color || 'hsl(var(--chart-1))',
-        icon: metricConfigs[key]?.Icon,
-      },
-    ])
+    selectedMetrics
+      .map(key => {
+        const config = metricConfigs[key];
+        if (!config) return null; // Handle case where metricConfig might be missing
+        return [
+          key,
+          {
+            label: config.name,
+            color: config.color || 'hsl(var(--chart-1))',
+            icon: config.Icon,
+          },
+        ];
+      })
+      .filter(Boolean) as [MetricKey, ChartConfig[MetricKey]][]
   ) as ChartConfig;
   
   const formattedData = data.map(point => ({
@@ -154,7 +163,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
   const renderChart = () => {
     const commonProps = {
       data: formattedData,
-      margin: { top: 10, right: 30, left: 40, bottom: 30 }, // Increased left and bottom margins
+      margin: { top: 10, right: 30, left: 40, bottom: 30 },
       onClick: handleChartClick,
     };
 
@@ -166,7 +175,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
           axisLine={{ stroke: 'hsl(var(--muted-foreground))' }}
           tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
           tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-          dy={10} // Offset tick labels down slightly
+          dy={10}
         />
         <YAxis
           axisLine={{ stroke: 'hsl(var(--muted-foreground))' }}
@@ -276,9 +285,8 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
       </CardHeader>
       <CardContent ref={chartRef} className="bg-card"> 
         <ChartContainer config={chartConfig} className="h-[450px] w-full aspect-auto">
-          <ResponsiveContainer width="100%" height="100%">
-            {renderChart()}
-          </ResponsiveContainer>
+           {/* The ResponsiveContainer is now handled by ChartContainer itself */}
+           {renderChart()}
         </ChartContainer>
       </CardContent>
       <CardFooter className="flex justify-center p-4">
@@ -314,3 +322,4 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
 };
 
 export default WeatherChart;
+
