@@ -16,16 +16,15 @@ import {
 import {
   ChartContainer,
   ChartTooltip,
-  // ChartTooltipContent, // Temporarily comment out
+  ChartTooltipContent,
   ChartLegend,
   ChartLegendContent,
   type ChartConfig,
 } from '@/components/ui/chart';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar, ScatterChart, Scatter, ZAxis } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import type { WeatherDataPoint, MetricKey, MetricConfig } from '@/types/weather';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Download, FileImage, FileText, Loader2 } from 'lucide-react';
-import type { ChartType } from './HistoricalDataSection';
 
 export const formatTimestampToDdMmHhMmUTC = (timestamp: number): string => {
   const date = new Date(timestamp);
@@ -53,10 +52,9 @@ interface WeatherChartProps {
   metricConfigs: Record<MetricKey, MetricConfig>;
   isLoading: boolean;
   onPointClick?: (point: WeatherDataPoint) => void;
-  chartType: ChartType;
 }
 
-const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConfigs, isLoading, onPointClick, chartType }) => {
+const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConfigs, isLoading, onPointClick }) => {
   const chartRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -68,8 +66,6 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
       const canvas = await html2canvas(chartRef.current, {
         scale: 2,
         useCORS: true,
-        // Ensure the background matches the card's background
-        // html2canvas captures the current state, so bg-card on CardContent should be picked up.
       });
       
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
@@ -145,7 +141,6 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
     }
   };
   
-
   if (!data || data.length === 0) {
     return (
       <Card className="shadow-lg">
@@ -162,125 +157,81 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
     );
   }
 
-  const renderChart = () => {
-    const commonProps = {
-      data: formattedData,
-      margin: { top: 20, right: 30, left: 20, bottom: 20 }, // Simplified margins
-      onClick: handleChartClick,
-    };
-
-    // Simplified axes
-    const commonXAxis = <XAxis dataKey="timestampDisplay" />;
-    const commonYAxis = <YAxis />;
-    
-    const commonComponents = (
-      <>
-        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-        {commonXAxis}
-        {commonYAxis}
-        <Tooltip
-          // content={ // Temporarily use default tooltip
-          //   <ChartTooltipContent
-          //     indicator={chartType === 'line' ? "line" : "dot"}
-          //     labelFormatter={(_label, payload) => { 
-          //       try {
-          //         if (payload && payload.length > 0 && payload[0] && payload[0].payload && typeof payload[0].payload.tooltipTimestampFull === 'string') {
-          //           return payload[0].payload.tooltipTimestampFull;
-          //         }
-          //       } catch (e) { console.error("Tooltip labelFormatter error:", e); }
-          //       return 'Details'; 
-          //     }}
-          //   />
-          // }
-          cursor={chartType === 'bar' ? { fill: 'hsl(var(--accent) / 0.3)'} : { stroke: 'hsl(var(--accent))', strokeWidth: 1, strokeDasharray: '3 3' }}
-          wrapperStyle={{ outline: 'none', zIndex: 100 }}
-        />
-        <ChartLegend content={<ChartLegendContent />} />
-      </>
-    );
-
-    switch (chartType) {
-      case 'bar':
-        return (
-          <BarChart {...commonProps}>
-            {commonComponents}
-            {selectedMetrics.map((key) => {
-              const metricConfig = metricConfigs[key];
-              if (!metricConfig || metricConfig.isString) return null;
-              return (
-                <Bar
-                  key={key}
-                  dataKey={key}
-                  fill={metricConfig.color || chartConfig[key]?.color}
-                  name={metricConfig.name}
-                  unit={metricConfig.unit}
-                  radius={[4, 4, 0, 0]}
-                />
-              );
-            })}
-          </BarChart>
-        );
-      case 'scatter':
-        return (
-          <ScatterChart {...commonProps}>
-            {commonComponents}
-            {selectedMetrics.map((key) => {
-              const metricConfig = metricConfigs[key];
-              if (!metricConfig || metricConfig.isString) return null;
-              return (
-                <Scatter
-                  key={key}
-                  dataKey={key}
-                  fill={metricConfig.color || chartConfig[key]?.color}
-                  name={metricConfig.name}
-                />
-              );
-            })}
-             <ZAxis type="number" range={[50, 200]} dataKey="timestamp" name="timestamp for size (optional)" />
-          </ScatterChart>
-        );
-      case 'line':
-      default:
-        return (
-          <LineChart {...commonProps}>
-            {commonComponents}
-            {selectedMetrics.map((key) => {
-              const metricConfig = metricConfigs[key];
-              if (!metricConfig || metricConfig.isString) return null;
-              return (
-                <Line
-                  key={key}
-                  type="monotone"
-                  dataKey={key}
-                  stroke={metricConfig.color || chartConfig[key]?.color}
-                  strokeWidth={2}
-                  dot={{ r: 2, strokeWidth: 0 }} // Simplified dot
-                  activeDot={{ r: 5, strokeWidth: 1 }} // Simplified activeDot
-                  name={metricConfig.name}
-                  unit={metricConfig.unit}
-                  connectNulls={false}
-                />
-              );
-            })}
-          </LineChart>
-        );
-    }
-  };
-
   return (
     <Card className="shadow-lg">
       <CardHeader>
         <div>
           <CardTitle className="font-headline">Historical Data Trends</CardTitle>
           <CardDescription>
-            Interactive chart displaying selected weather metrics. Chart type: {chartType.charAt(0).toUpperCase() + chartType.slice(1)}.
+            Interactive line chart displaying selected weather metrics.
             Click a point on the chart to use it for AI forecast, or use the button in the &quot;Historical Data Analysis&quot; section below the date picker to use all currently displayed data.
           </CardDescription>
         </div>
       </CardHeader>
-      <CardContent ref={chartRef} className="bg-card p-2"> {/* Reduced padding to give chart more space */}
-        <ChartContainer config={chartConfig} className="h-[450px] w-full">
-           {renderChart()}
+      <CardContent ref={chartRef} className="bg-card p-2">
+        <ChartContainer config={chartConfig} className="h-[450px] w-full aspect-auto">
+            <LineChart 
+                data={formattedData}
+                margin={{ top: 20, right: 30, left: 40, bottom: 30 }}
+                onClick={handleChartClick}
+            >
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis 
+                    dataKey="timestampDisplay" 
+                    stroke="hsl(var(--muted-foreground))"
+                    tickLine={{ stroke: "hsl(var(--muted-foreground))" }}
+                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                    angle={-30}
+                    textAnchor="end"
+                    minTickGap={20}
+                    height={50} 
+                    dy={10}
+                />
+                <YAxis 
+                    stroke="hsl(var(--muted-foreground))"
+                    tickLine={{ stroke: "hsl(var(--muted-foreground))" }}
+                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                    tickFormatter={(value) => typeof value === 'number' ? value.toFixed(1) : String(value)}
+                    domain={['auto', 'auto']}
+                    width={60}
+                />
+                <Tooltip
+                  content={
+                    <ChartTooltipContent
+                      indicator={"line"}
+                      labelFormatter={(_label, payload) => { 
+                        try {
+                          if (payload && payload.length > 0 && payload[0] && payload[0].payload && typeof payload[0].payload.tooltipTimestampFull === 'string') {
+                            return payload[0].payload.tooltipTimestampFull;
+                          }
+                        } catch (e) { console.error("Tooltip labelFormatter error:", e); }
+                        return 'Details'; 
+                      }}
+                    />
+                  }
+                  cursor={{ stroke: 'hsl(var(--accent))', strokeWidth: 1, strokeDasharray: '3 3' }}
+                  wrapperStyle={{ outline: 'none', zIndex: 100 }}
+                />
+                <ChartLegend content={<ChartLegendContent />} />
+                {selectedMetrics.map((key) => {
+                  const metricConfig = metricConfigs[key];
+                  if (!metricConfig || metricConfig.isString) return null;
+                  return (
+                    <Line
+                      key={key}
+                      type="monotone"
+                      dataKey={key}
+                      stroke={metricConfig.color || chartConfig[key]?.color || 'hsl(var(--chart-1))'}
+                      strokeWidth={2}
+                      dot={{ r: 2, strokeWidth: 1, fill: 'hsl(var(--background))' }}
+                      activeDot={{ r: 5, strokeWidth: 2, fill: 'hsl(var(--background))', stroke: metricConfig.color || chartConfig[key]?.color || 'hsl(var(--chart-1))' }}
+                      name={metricConfig.name}
+                      unit={metricConfig.unit}
+                      connectNulls={false}
+                    />
+                  );
+                })}
+            </LineChart>
         </ChartContainer>
       </CardContent>
       <CardFooter className="flex justify-center p-4">
@@ -316,4 +267,3 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
 };
 
 export default WeatherChart;
-

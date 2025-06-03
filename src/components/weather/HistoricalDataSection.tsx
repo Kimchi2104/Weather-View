@@ -16,7 +16,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { transformRawDataToWeatherDataPoint } from '@/lib/utils';
 import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge, ShieldCheck } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const HISTORICAL_AVAILABLE_METRICS: { key: MetricKey; name: string }[] = [
   { key: 'temperature', name: 'Temperature' },
@@ -36,8 +35,6 @@ const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
   pressure: { name: 'Pressure', unit: 'hPa', Icon: Gauge, color: 'hsl(120, 60%, 45%)', healthyMin: 980, healthyMax: 1040 },
 };
 
-export type ChartType = 'line' | 'bar' | 'scatter';
-
 interface HistoricalDataSectionProps {
   onChartPointClick?: (point: WeatherDataPoint) => void;
   onChartRangeSelect?: (points: WeatherDataPoint[]) => void;
@@ -54,7 +51,6 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
   const [allFetchedData, setAllFetchedData] = useState<WeatherDataPoint[]>([]);
   const [displayedData, setDisplayedData] = useState<WeatherDataPoint[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedChartType, setSelectedChartType] = useState<ChartType>('line');
 
   const firebaseDataPath = 'devices/TGkMhLL4k4ZFBwgOyRVNKe5mTQq1/records/';
 
@@ -186,20 +182,8 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           selectedMetrics={selectedMetrics}
           onSelectionChange={setSelectedMetrics}
         />
-        <div className="pt-4 flex flex-col sm:flex-row sm:items-end gap-4">
-          <div>
-            <Label htmlFor="chart-type-selector" className="text-sm font-medium text-muted-foreground mb-1 block">Chart Type:</Label>
-            <Select value={selectedChartType} onValueChange={(value: ChartType) => setSelectedChartType(value)}>
-              <SelectTrigger id="chart-type-selector" className="w-full max-w-xs">
-                <SelectValue placeholder="Select chart type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="line">Line Chart</SelectItem>
-                <SelectItem value="bar">Bar Chart</SelectItem>
-                <SelectItem value="scatter">Scatter Chart</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+        <div className="pt-4 flex flex-col sm:flex-row sm:items-center sm:justify-start gap-4">
+          {/* Removed Chart Type Selector and its Label */}
           <Button onClick={handleUseAllDataForForecast} className="w-full sm:w-auto" disabled={isLoading && displayedData.length === 0}>
             Use All Displayed Data for AI Forecast
           </Button>
@@ -212,7 +196,6 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           metricConfigs={METRIC_CONFIGS}
           isLoading={isLoading && allFetchedData.length === 0}
           onPointClick={onChartPointClick}
-          chartType={selectedChartType}
         />
       </div>
     </section>
