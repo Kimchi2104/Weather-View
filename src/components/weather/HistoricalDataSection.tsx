@@ -20,8 +20,7 @@ import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge, ShieldCheck } fr
 const HISTORICAL_AVAILABLE_METRICS: { key: MetricKey; name: string }[] = [
   { key: 'temperature', name: 'Temperature' },
   { key: 'humidity', name: 'Humidity' },
-  { key: 'precipitation', name: 'Precipitation' },
-  // { key: 'airQuality', name: 'Air Quality (Status)' }, // Removed as per user request
+  // { key: 'precipitation', name: 'Precipitation' }, // Removed as it's text-based
   { key: 'aqiPpm', name: 'AQI (ppm)' },
   { key: 'lux', name: 'Light (Lux)' },
   { key: 'pressure', name: 'Pressure' },
@@ -44,8 +43,8 @@ interface HistoricalDataSectionProps {
 
 const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointClick, onChartRangeSelect }) => {
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: subDays(new Date(), 7), // Default from date (start of day)
-    to: new Date(), // Default to date (end of day)
+    from: subDays(new Date(), 7),
+    to: new Date(),
   });
   const [startTime, setStartTime] = useState<string>("00:00");
   const [endTime, setEndTime] = useState<string>("23:59");
@@ -108,7 +107,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
 
     const toDate = new Date(dateRange.to);
     const [endH, endM] = endTime.split(':').map(Number);
-    toDate.setHours(endH, endM, 59, 999); // Inclusive of the last minute
+    toDate.setHours(endH, endM, 59, 999);
     const toTimestamp = toDate.getTime();
     
     console.log(`[HistoricalDataSection] Filtering data for datetime range: ${new Date(fromTimestamp).toISOString()} to ${new Date(toTimestamp).toISOString()}`);
