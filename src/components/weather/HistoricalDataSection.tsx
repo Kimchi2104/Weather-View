@@ -8,9 +8,8 @@ import WeatherChart from './WeatherChart';
 import type { DateRange } from 'react-day-picker';
 import { subDays, startOfDay, endOfDay } from 'date-fns';
 import type { WeatherDataPoint, MetricKey, MetricConfig } from '@/types/weather';
-// TODO: Uncomment when firebase is configured
-// import { database } from '@/lib/firebase';
-// import { ref, query, orderByChild, startAt, endAt, get } from "firebase/database";
+import { database } from '@/lib/firebase';
+import { ref, query, orderByChild, startAt, endAt, get, type DataSnapshot } from "firebase/database";
 import { CloudRain, Thermometer, Droplets, SunDim, Wind } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -47,59 +46,35 @@ const HistoricalDataSection: FC = () => {
     }
     setIsLoading(true);
 
-    // TODO: Replace with actual Firebase data fetching
-    // This is a mock implementation.
-    // Example Firebase query:
-    /*
     try {
-      const historicalRef = ref(database, 'your-historical-data-path'); // Replace
+      // TODO: Replace 'weather/historical/station1' with the actual path to your historical weather data in Firebase.
+      // Ensure your Firebase Realtime Database rules allow reading this path and that it's indexed on 'timestamp'.
+      const historicalRef = ref(database, 'weather/historical/station1');
       const q = query(
         historicalRef,
-        orderByChild('timestamp'),
+        orderByChild('timestamp'), // Make sure 'timestamp' is indexed in your Firebase rules
         startAt(dateRange.from.getTime()),
         endAt(dateRange.to.getTime())
       );
-      const snapshot = await get(q);
+      
+      const snapshot: DataSnapshot = await get(q);
+      
       if (snapshot.exists()) {
         const rawData = snapshot.val();
-        // Process rawData into WeatherDataPoint[] format
-        const processedData = Object.values(rawData) as WeatherDataPoint[]; 
-        setHistoricalData(processedData);
+        // Firebase returns an object when data is fetched this way. Convert it to an array.
+        // This assumes each child under 'weather/historical/station1' is a WeatherDataPoint.
+        // You might need to adjust this based on your exact data structure.
+        const processedData: WeatherDataPoint[] = Object.values(rawData) as WeatherDataPoint[];
+        setHistoricalData(processedData.sort((a, b) => a.timestamp - b.timestamp)); // Ensure data is sorted by time
       } else {
         setHistoricalData([]);
       }
     } catch (error) {
       console.error("Firebase historical data fetching error:", error);
-      setHistoricalData([]);
+      setHistoricalData([]); // Set to empty array on error
     } finally {
       setIsLoading(false);
     }
-    */
-
-    // Mock data generation
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    const generateMockData = (from: Date, to: Date): WeatherDataPoint[] => {
-      const data: WeatherDataPoint[] = [];
-      let currentTime = from.getTime();
-      const endTime = to.getTime();
-      const interval = 3600 * 1000 * 3; // 3 hours
-
-      while (currentTime <= endTime) {
-        data.push({
-          timestamp: currentTime,
-          temperature: 15 + Math.random() * 15, // 15-30°C
-          humidity: 40 + Math.random() * 40, // 40-80%
-          precipitation: Math.random() > 0.8 ? Math.random() * 5 : 0, // mm
-          airQualityIndex: 10 + Math.random() * 90, // 10-100 AQI
-          lightPollution: Math.random() * 500, // lux
-        });
-        currentTime += interval;
-      }
-      return data;
-    };
-    
-    setHistoricalData(generateMockData(dateRange.from, dateRange.to));
-    setIsLoading(false);
   }, [dateRange, selectedMetrics]);
 
 
@@ -118,7 +93,7 @@ const HistoricalDataSection: FC = () => {
             <DateRangePicker onDateChange={setDateRange} initialRange={dateRange} id="date-range-picker"/>
           </div>
           <Button onClick={fetchHistoricalData} disabled={isLoading} className="w-full md:w-auto">
-            {isLoading ? 'Loading...' : 'Load Data'}
+            {isLoading ? 'Loading Data...' : 'Load Data'}
           </Button>
         </div>
         <DataSelector

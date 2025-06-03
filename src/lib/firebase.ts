@@ -1,61 +1,49 @@
-// TODO: Add your Firebase SDK configuration and initialization code here.
-// This file is a placeholder. You should replace it with your actual
-// Firebase setup.
 
-// Example (replace with your actual config):
-/*
-import { initializeApp, getApp, getApps } from "firebase/app";
-import { getDatabase } from "firebase/database";
+// IMPORTANT: Replace with your actual Firebase project configuration!
+// You can find this in your Firebase project settings.
+import { initializeApp, getApp, getApps, type FirebaseApp } from "firebase/app";
+import { getDatabase, type Database } from "firebase/database";
 
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  databaseURL: "YOUR_DATABASE_URL", // Crucial for Realtime Database
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  // 1. Go to your Firebase project settings (gear icon).
+  // 2. Under the "General" tab, find the "Your apps" section.
+  // 3. Select your Web app (or create one if it doesn't exist).
+  // 4. Copy the config values from the "SDK setup and configuration" (usually "Config" option)
+  //    and paste them below, replacing ALL "YOUR_..." placeholders.
+
+  apiKey: "YOUR_API_KEY", // Replace with your actual API key
+  authDomain: "YOUR_AUTH_DOMAIN", // Replace with your actual auth domain
+  
+  // CRITICAL: THIS IS THE MOST LIKELY SOURCE OF THE RECURRING ERROR.
+  // REPLACE "YOUR_DATABASE_URL_GOES_HERE_SEE_FIREBASE_CONSOLE_REALTIME_DATABASE_SECTION"
+  // with your ACTUAL Realtime Database URL from the Firebase Console.
+  // To find it: Firebase Console -> Build -> Realtime Database -> URL at the top.
+  // It MUST start with https:// and look like:
+  //   https://your-project-id.firebaseio.com
+  // OR for newer projects/different regions:
+  //   https://your-project-id-default-rtdb.region.firebasedatabase.app
+  // ENSURE THIS IS THE CORRECT AND COMPLETE URL.
+  databaseURL: "YOUR_DATABASE_URL_GOES_HERE_SEE_FIREBASE_CONSOLE_REALTIME_DATABASE_SECTION", 
+  
+  projectId: "YOUR_PROJECT_ID", // Replace with your actual project ID
+  storageBucket: "YOUR_STORAGE_BUCKET", // Replace with your actual storage bucket
+  messagingSenderId: "YOUR_MESSAGING_SENDER_ID", // Replace with your actual messaging sender ID
+  appId: "YOUR_APP_ID" // Replace with your actual app ID
 };
 
 // Initialize Firebase
-let app;
+let app: FirebaseApp;
 if (!getApps().length) {
   app = initializeApp(firebaseConfig);
 } else {
   app = getApp();
 }
 
-const database = getDatabase(app);
+const database: Database = getDatabase(app);
 
 export { app, database };
-*/
 
-// For now, we'll export dummy objects so the app can compile.
-// Replace these with your actual Firebase exports.
-export const app = {};
-export const database = {};
-
-// You will also need functions to fetch data from Firebase Realtime Database.
-// For example:
-// export const getRealtimeWeatherData = (callback) => {
-//   const weatherRef = ref(database, 'weather/realtime/station1'); // Adjust path
-//   onValue(weatherRef, (snapshot) => {
-//     const data = snapshot.val();
-//     callback(data);
-//   });
-// };
-
-// export const getHistoricalWeatherData = async (startDate, endDate) => {
-//   const weatherRef = query(
-//     ref(database, 'weather/historical/station1'), // Adjust path
-//     orderByChild('timestamp'),
-//     startAt(startDate.getTime()),
-//     endAt(endDate.getTime())
-//   );
-//   const snapshot = await get(weatherRef);
-//   return snapshot.val();
-// };
-
-console.warn(
-  "Firebase is not configured. Please update src/lib/firebase.ts with your Firebase project details."
-);
+// Note: If you haven't configured ALL your Firebase details above,
+// especially the databaseURL, the application will not be able to connect.
+// Please ensure all "YOUR_..." placeholders are correctly filled.
+// The error you are seeing is specifically related to an invalid `databaseURL`.

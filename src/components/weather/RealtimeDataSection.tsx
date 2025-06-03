@@ -4,9 +4,8 @@ import type { FC } from 'react';
 import { useEffect, useState } from 'react';
 import RealtimeDataCard from './RealtimeDataCard';
 import type { WeatherDataPoint, MetricKey, MetricConfig } from '@/types/weather';
-// TODO: Uncomment when firebase is configured
-// import { database } from '@/lib/firebase'; 
-// import { ref, onValue } from "firebase/database";
+import { database } from '@/lib/firebase'; 
+import { ref, onValue, type Unsubscribe } from "firebase/database";
 import { CloudRain, Thermometer, Droplets, SunDim, Wind } from 'lucide-react';
 
 const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
@@ -23,41 +22,27 @@ const RealtimeDataSection: FC = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // TODO: Replace with actual Firebase Realtime Database listener
-    // This is a mock implementation.
-    // Example Firebase listener:
-    /*
-    const weatherDataRef = ref(database, 'your-realtime-data-path'); // Replace 'your-realtime-data-path'
-    const unsubscribe = onValue(weatherDataRef, (snapshot) => {
+    // TODO: Replace 'weather/realtime/station1' with the actual path to your realtime weather data in Firebase.
+    const weatherDataRef = ref(database, 'weather/realtime/station1');
+    
+    const unsubscribe: Unsubscribe = onValue(weatherDataRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        setRealtimeData(data);
+        // Assuming data is a WeatherDataPoint object or can be cast to it.
+        // You might need to transform it if the structure is different.
+        setRealtimeData(data as WeatherDataPoint);
       } else {
         setRealtimeData(null);
       }
       setIsLoading(false);
     }, (error) => {
-      console.error("Firebase data fetching error:", error);
+      console.error("Firebase realtime data fetching error:", error);
       setIsLoading(false);
       setRealtimeData(null);
     });
+
+    // Cleanup subscription on unmount
     return () => unsubscribe();
-    */
-
-    // Mock data fetching
-    const mockFetch = setTimeout(() => {
-      setRealtimeData({
-        timestamp: Date.now(),
-        temperature: 28.5,
-        humidity: 65,
-        precipitation: 0.2,
-        airQualityIndex: 45,
-        lightPollution: 300,
-      });
-      setIsLoading(false);
-    }, 1500);
-
-    return () => clearTimeout(mockFetch);
   }, []);
 
   const metricsOrder: MetricKey[] = ['temperature', 'humidity', 'precipitation', 'airQualityIndex', 'lightPollution'];
