@@ -2,7 +2,7 @@
 "use client";
 
 import type { FC } from 'react';
-import { useRef, useState, useMemo, useEffect } from 'react';
+import { useRef, useState, useMemo } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -58,6 +58,8 @@ const WeatherChart: FC<WeatherChartProps> = ({
   const chartRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
 
+  // console.log("[WeatherChart] Props:", { dataLength: data?.length, selectedMetrics, chartType, isLoading });
+
   const formattedData = useMemo(() => {
     if (!data) return [];
     const processed = data.map((point) => ({
@@ -65,7 +67,6 @@ const WeatherChart: FC<WeatherChartProps> = ({
       timestampDisplay: formatTimestampToDdMmHhMmUTC(point.timestamp),
       tooltipTimestampFull: formatTimestampToFullUTC(point.timestamp),
     }));
-    // console.log("[WeatherChart] Props:", { dataLength: data?.length, selectedMetrics, chartType, isLoading });
     // console.log("[WeatherChart] Formatted Data (first 3):", processed.slice(0,3));
     return processed;
   }, [data]);
@@ -73,7 +74,6 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
   const exportChart = async (format: 'png' | 'jpeg' | 'pdf') => {
     if (!chartRef.current) return;
-    // Target the ResponsiveContainer's direct child (the recharts-wrapper div)
     const chartWrapper = chartRef.current.querySelector('.recharts-wrapper');
     if (!chartWrapper) {
       console.error("Recharts wrapper not found for export.");
@@ -84,7 +84,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
       const canvas = await html2canvas(chartWrapper as HTMLElement, {
         scale: 2,
         useCORS: true,
-        backgroundColor: 'hsl(var(--card))',
+        backgroundColor: 'hsl(var(--card))', 
       });
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
       if (format === 'pdf') {
@@ -139,7 +139,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
   }
   
   const commonCartesianProps = { 
-    margin: { top: 20, right: 40, left: 20, bottom: 80 }, // Adjusted top margin for legend, bottom margin for X-axis labels
+    margin: { top: 5, right: 40, left: 20, bottom: 80 }, // Reduced top margin
   };
 
   const renderChartSpecificElements = () => {
@@ -163,6 +163,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
   };
   
   const ChartComponent = chartType === 'bar' ? BarChart : chartType === 'scatter' ? ScatterChart : LineChart;
+  // Using a key ensures React remounts the chart if these crucial aspects change, helping with Recharts re-rendering
   const chartDynamicKey = `${chartType}-${selectedMetrics.join('-')}-${formattedData.length}`;
 
   const renderChart = () => (
@@ -174,7 +175,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           tick={{ fill: "#555555", fontSize: 11 }} 
           angle={-45} 
           textAnchor="end" 
-          dy={10} // Keep this for label positioning
+          dy={10} 
           minTickGap={5} 
           interval="preserveStartEnd"
         />
@@ -184,7 +185,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           tickFormatter={(value) => (typeof value === 'number' ? value.toFixed(0) : String(value))} 
         />
         <Tooltip 
-          wrapperStyle={{ zIndex: 1000, backgroundColor: "#ffffff", border: "1px solid #cccccc", borderRadius: "3px", padding: "10px", color: "#000000", boxShadow: '2px 2px 5px rgba(0,0,0,0.1)' }} 
+          wrapperStyle={{ backgroundColor: "#ffffff", border: "1px solid #cccccc", borderRadius: "3px", padding: "10px", color: "#000000", boxShadow: '2px 2px 5px rgba(0,0,0,0.1)', zIndex: 1000 }} 
           labelStyle={{ fontWeight: "bold", color: "#333333", marginBottom: "4px" }} 
           itemStyle={{ color: "#333333" }} 
           labelFormatter={(label, payload) => payload?.[0]?.payload?.tooltipTimestampFull || label} 
@@ -195,11 +196,11 @@ const WeatherChart: FC<WeatherChartProps> = ({
           }} 
         />
         <Legend 
-          wrapperStyle={{ paddingBottom: '20px', paddingTop: '5px' }} // Adjusted padding for top alignment
+          wrapperStyle={{ paddingTop: '0px', paddingBottom: '20px' }} // Reduced paddingTop
           iconSize={14} 
           layout="horizontal" 
           align="center" 
-          verticalAlign="top" // Changed to top
+          verticalAlign="top" 
         />
         {renderChartSpecificElements()}
       </ChartComponent>
@@ -216,12 +217,12 @@ const WeatherChart: FC<WeatherChartProps> = ({
         </div>
       </CardHeader>
       <CardContent className="p-4">
-        <div ref={chartRef} className="w-full h-[550px] bg-card"> {/* Ensure chartRef points to this div */}
+        <div ref={chartRef} className="w-full h-[550px] bg-card">
           <ResponsiveContainer width="100%" height="100%">
             {renderChart()}
           </ResponsiveContainer>
         </div>
-        <div className="flex justify-center pt-2"> {/* Adjusted padding, no negative margin needed now */}
+        <div className="flex justify-center pt-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="default" disabled={isExporting || !formattedData || formattedData.length === 0} className="min-w-[150px]">
@@ -255,3 +256,4 @@ const WeatherChart: FC<WeatherChartProps> = ({
 };
 
 export default WeatherChart;
+
