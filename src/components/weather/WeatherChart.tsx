@@ -2,7 +2,7 @@
 "use client";
 
 import type { FC } from 'react';
-import { useRef, useState } from 'react';
+import { useRef, useState, useMemo } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -13,13 +13,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
-  type ChartConfig,
-} from '@/components/ui/chart';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar, ScatterChart, Scatter } from 'recharts';
+// ChartContainer is removed for this test
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar, ScatterChart, Scatter, ResponsiveContainer, Legend } from 'recharts';
 import type { WeatherDataPoint, MetricKey, MetricConfig } from '@/types/weather';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Download, FileImage, FileText, Loader2 } from 'lucide-react';
@@ -27,7 +22,7 @@ import { Download, FileImage, FileText, Loader2 } from 'lucide-react';
 export const formatTimestampToDdMmHhMmUTC = (timestamp: number): string => {
   const date = new Date(timestamp);
   const day = date.getUTCDate().toString().padStart(2, '0');
-  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0'); // Month is 0-indexed
   const hours = date.getUTCHours().toString().padStart(2, '0');
   const minutes = date.getUTCMinutes().toString().padStart(2, '0');
   return `${day}/${month} ${hours}:${minutes}`;
@@ -36,7 +31,7 @@ export const formatTimestampToDdMmHhMmUTC = (timestamp: number): string => {
 export const formatTimestampToFullUTC = (timestamp: number): string => {
   const date = new Date(timestamp);
   const day = date.getUTCDate().toString().padStart(2, '0');
-  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0'); // Month is 0-indexed
   const year = date.getUTCFullYear();
   const hours = date.getUTCHours().toString().padStart(2, '0');
   const minutes = date.getUTCMinutes().toString().padStart(2, '0');
@@ -59,19 +54,31 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
   const chartRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
 
+  const formattedData = useMemo(() => {
+    if (!data) return [];
+    return data.map(point => ({
+      ...point,
+      timestampDisplay: typeof point.timestamp === 'number' ? formatTimestampToDdMmHhMmUTC(point.timestamp) : 'Invalid Date',
+      tooltipTimestampFull: typeof point.timestamp === 'number' ? formatTimestampToFullUTC(point.timestamp) : 'Invalid Date',
+    }));
+  }, [data]);
+  
+  console.log("[WeatherChart] Props: data length:", data?.length, "selectedMetrics:", selectedMetrics, "isLoading:", isLoading, "chartType:", chartType);
+  if (formattedData.length > 0 && selectedMetrics.length > 0) {
+    console.log("[WeatherChart] Formatted Data (first 3):", JSON.stringify(formattedData.slice(0, 3), null, 2));
+  }
+
+
   const exportChart = async (format: 'png' | 'jpeg' | 'pdf') => {
     if (!chartRef.current) return;
     setIsExporting(true);
-
     try {
       const canvas = await html2canvas(chartRef.current, {
         scale: 2,
         useCORS: true,
-        backgroundColor: null, 
+        backgroundColor: '#ffffff', 
       });
-      
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
-
       if (format === 'pdf') {
         const pdf = new jsPDF({
           orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
@@ -92,7 +99,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
       setIsExporting(false);
     }
   };
-  
+
   if (isLoading) {
     return (
       <Card className="shadow-lg">
@@ -107,41 +114,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
     );
   }
   
-  const chartConfig = Object.fromEntries(
-    selectedMetrics
-      .map(key => {
-        const config = metricConfigs[key];
-        if (!config) {
-            return null;
-        }
-        return [
-          key,
-          {
-            label: config.name,
-            color: config.color || 'hsl(var(--chart-1))',
-            icon: config.Icon,
-          },
-        ];
-      })
-      .filter(Boolean) as [MetricKey, ChartConfig[MetricKey]][]
-  ) as ChartConfig;
-  
-  const formattedData = data.map(point => ({
-    ...point,
-    timestampDisplay: typeof point.timestamp === 'number' ? formatTimestampToDdMmHhMmUTC(point.timestamp) : 'Invalid Date',
-    tooltipTimestampFull: typeof point.timestamp === 'number' ? formatTimestampToFullUTC(point.timestamp) : 'Invalid Date',
-  }));
-
-  const handleChartClick = (event: any) => {
-    if (onPointClick && event && event.activePayload && event.activePayload.length > 0) {
-      const clickedPointData = event.activePayload[0].payload;
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { timestampDisplay, tooltipTimestampFull, ...originalPoint } = clickedPointData;
-      onPointClick(originalPoint as WeatherDataPoint);
-    }
-  };
-  
-  if ((!data || data.length === 0 || selectedMetrics.length === 0) && !isLoading) {
+  if (!data || data.length === 0 || !selectedMetrics || selectedMetrics.length === 0) {
     return (
       <Card className="shadow-lg">
         <CardHeader className="flex flex-row items-center justify-between">
@@ -157,38 +130,53 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
     );
   }
 
+  const handleChartClick = (event: any) => {
+    if (onPointClick && event && event.activePayload && event.activePayload.length > 0) {
+      const clickedPointData = event.activePayload[0].payload;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { timestampDisplay, tooltipTimestampFull, ...originalPoint } = clickedPointData;
+      onPointClick(originalPoint as WeatherDataPoint);
+    }
+  };
+  
   const commonCartesianProps = {
     data: formattedData,
-    margin:{ top: 40, right: 50, left: 50, bottom: 120 },
+    margin:{ top: 20, right: 30, left: 20, bottom: 80 }, 
     onClick: handleChartClick,
   };
 
   const commonAxisAndGridComponents = (
     <>
-      <CartesianGrid stroke="#eeeeee" strokeDasharray="3 3" />
+      <CartesianGrid stroke="#e0e0e0" strokeDasharray="3 3" />
       <XAxis
         dataKey="timestampDisplay"
         stroke="#888888" 
-        tick={{ fill: "#333333", fontSize: 12 }}
+        tick={{ fill: "#555555", fontSize: 11 }} 
         angle={-45}
         textAnchor="end"
-        dy={10}
+        dy={10} 
+        interval="preserveStartEnd" 
+        minTickGap={5} 
       />
       <YAxis
         stroke="#888888" 
-        tick={{ fill: "#333333", fontSize: 12 }}
+        tick={{ fill: "#555555", fontSize: 12 }}
         tickFormatter={(value) => (typeof value === 'number' ? value.toFixed(0) : String(value))}
       />
       <Tooltip
-        wrapperStyle={{ backgroundColor: "#ffffff", border: "1px solid #cccccc", borderRadius: "3px", padding: "10px", zIndex: 1000 }}
+        wrapperStyle={{ backgroundColor: "#ffffff", border: "1px solid #cccccc", borderRadius: "3px", padding: "10px", zIndex: 1000, boxShadow: '2px 2px 5px rgba(0,0,0,0.1)' }}
         labelStyle={{ fontWeight: "bold", color: "#333333", marginBottom: "4px" }}
         itemStyle={{ color: "#333333" }}
         formatter={(value: any, name: any, entry: any) => {
-            const metricKey = name as MetricKey;
-            const config = metricConfigs[metricKey];
+            // The 'name' prop from Line/Bar/Scatter is directly the metric's configured name
+            const metricKeyFromConfiguredName = Object.keys(metricConfigs).find(
+              (key) => metricConfigs[key as MetricKey].name === name
+            ) as MetricKey | undefined;
+            
+            const config = metricKeyFromConfiguredName ? metricConfigs[metricKeyFromConfiguredName] : undefined;
             const unit = config?.unit || '';
             const formattedValue = typeof value === 'number' ? value.toFixed(1) : String(value);
-            return [`${formattedValue}${unit}`, config?.name || name];
+            return [`${formattedValue}${unit}`, name]; // Use 'name' directly as it's from metricConfig.name
         }}
         labelFormatter={(label: any, payload: any) => {
             if (payload && payload.length > 0 && payload[0] && payload[0].payload && typeof payload[0].payload.tooltipTimestampFull === 'string') {
@@ -198,18 +186,15 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
         }}
         cursor={{ stroke: 'hsl(var(--accent))', strokeWidth: 1, strokeDasharray: '3 3' }}
       />
-      <ChartLegend 
-        content={<ChartLegendContent />} 
-        wrapperStyle={{ paddingTop: "40px" }}
-      />
+      <Legend wrapperStyle={{ paddingTop: "20px", paddingBottom: "10px" }} />
     </>
   );
 
   const renderChartSpecificElements = () => {
     return selectedMetrics.map((key) => {
       const metricConfig = metricConfigs[key];
-      if (!metricConfig || metricConfig.isString) return null;
-      const color = metricConfig.color || chartConfig[key]?.color || 'hsl(var(--chart-1))';
+      if (!metricConfig || metricConfig.isString) return null; 
+      const color = metricConfig.color || 'hsl(var(--primary))';
 
       if (chartType === 'line') {
         return (
@@ -219,8 +204,8 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
             dataKey={key}
             stroke={color}
             strokeWidth={2}
-            dot={false} // Keep dots off for performance with potentially many points
-            name={metricConfig.name}
+            dot={false}
+            name={metricConfig.name} // Use the configured name for the legend
             connectNulls={false} 
           />
         );
@@ -230,8 +215,8 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
             key={key}
             dataKey={key}
             fill={color}
-            name={metricConfig.name}
-            radius={[4, 4, 0, 0]} // Keep rounded bars for aesthetics
+            name={metricConfig.name} // Use the configured name for the legend
+            radius={[4, 4, 0, 0]}
           />
         );
       } else if (chartType === 'scatter') {
@@ -240,7 +225,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
             key={key}
             dataKey={key}
             fill={color}
-            name={metricConfig.name}
+            name={metricConfig.name} // Use the configured name for the legend
           />
         );
       }
@@ -258,13 +243,11 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
     } else if (chartType === 'scatter') {
       return <ScatterChart {...chartSpecificProps}>{commonAxisAndGridComponents}{renderChartSpecificElements()}</ScatterChart>;
     }
-    // Default to LineChart if chartType is somehow invalid, though the select should prevent this.
     return <LineChart {...chartSpecificProps}>{commonAxisAndGridComponents}{renderChartSpecificElements()}</LineChart>; 
   };
 
-  // The key prop here is crucial for forcing a re-render when chartType or selectedMetrics change,
-  // which can help Recharts correctly initialize and render.
-  const chartContainerKey = `${chartType}-${selectedMetrics.join('-')}`;
+  // The key for ResponsiveContainer helps ensure it re-renders properly if underlying structure changes significantly.
+  const responsiveContainerKey = `${chartType}-${selectedMetrics.join('-')}-${data.length}`;
 
   return (
     <Card className="shadow-lg">
@@ -278,16 +261,12 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
         </div>
       </CardHeader>
       <CardContent className="p-4">
-        <div ref={chartRef}>
-          <ChartContainer
-            key={chartContainerKey}
-            config={chartConfig}
-            className="h-[550px] w-full" 
-          >
+        <div ref={chartRef} className="w-full h-[550px]">
+          <ResponsiveContainer width="100%" height="100%" key={responsiveContainerKey}>
             {renderChart()}
-          </ChartContainer>
+          </ResponsiveContainer>
         </div>
-        <div className="flex justify-center -mt-10">
+        <div className="flex justify-center -mt-10"> {/* Keep button close to chart */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="default" disabled={isExporting} className="min-w-[150px]">
@@ -321,3 +300,5 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
 };
 
 export default WeatherChart;
+
+    
