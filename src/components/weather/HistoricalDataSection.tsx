@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { transformRawDataToWeatherDataPoint } from '@/lib/utils';
 import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge, ShieldCheck } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const HISTORICAL_AVAILABLE_METRICS: { key: MetricKey; name: string }[] = [
   { key: 'temperature', name: 'Temperature' },
@@ -35,6 +36,8 @@ const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
   pressure: { name: 'Pressure', unit: 'hPa', Icon: Gauge, color: 'hsl(120, 60%, 45%)', healthyMin: 980, healthyMax: 1040 },
 };
 
+export type ChartType = 'line' | 'bar' | 'scatter';
+
 interface HistoricalDataSectionProps {
   onChartPointClick?: (point: WeatherDataPoint) => void;
   onChartRangeSelect?: (points: WeatherDataPoint[]) => void;
@@ -51,6 +54,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
   const [allFetchedData, setAllFetchedData] = useState<WeatherDataPoint[]>([]);
   const [displayedData, setDisplayedData] = useState<WeatherDataPoint[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedChartType, setSelectedChartType] = useState<ChartType>('line');
 
   const firebaseDataPath = 'devices/TGkMhLL4k4ZFBwgOyRVNKe5mTQq1/records/';
 
@@ -100,7 +104,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
     }
 
     const [startH, startM] = startTime.split(':').map(Number);
-    const fromDateObj = dateRange.from; // This is a Date object for local midnight
+    const fromDateObj = dateRange.from; 
     const fromTimestamp = Date.UTC(
       fromDateObj.getFullYear(),
       fromDateObj.getMonth(),
@@ -109,7 +113,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
     );
 
     const [endH, endM] = endTime.split(':').map(Number);
-    const toDateObj = dateRange.to; // This is a Date object for local midnight
+    const toDateObj = dateRange.to; 
     const toTimestamp = Date.UTC(
       toDateObj.getFullYear(),
       toDateObj.getMonth(),
@@ -152,7 +156,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
       <h2 className="text-2xl font-headline font-semibold mb-4 text-primary">Historical Data Analysis</h2>
       <div className="bg-card p-4 sm:p-6 rounded-lg shadow-md space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-          <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+          <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
             <div>
               <Label htmlFor="date-range-picker" className="text-sm font-medium text-muted-foreground mb-1 block">Select Date Range:</Label>
               <DateRangePicker onDateChange={setDateRange} initialRange={dateRange} id="date-range-picker"/>
@@ -179,6 +183,19 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
                     />
                 </div>
             </div>
+            <div>
+                <Label htmlFor="chart-type-selector" className="text-sm font-medium text-muted-foreground mb-1 block">Chart Type:</Label>
+                <Select value={selectedChartType} onValueChange={(value: ChartType) => setSelectedChartType(value)}>
+                  <SelectTrigger id="chart-type-selector" className="w-full">
+                    <SelectValue placeholder="Select chart type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="line">Line Chart</SelectItem>
+                    <SelectItem value="bar">Bar Chart</SelectItem>
+                    <SelectItem value="scatter">Scatter Chart</SelectItem>
+                  </SelectContent>
+                </Select>
+            </div>
           </div>
           <Button onClick={fetchAllHistoricalData} disabled={isLoading} className="w-full md:w-auto">
             {isLoading ? 'Loading...' : 'Refresh All Data'}
@@ -203,6 +220,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           metricConfigs={METRIC_CONFIGS}
           isLoading={isLoading && allFetchedData.length === 0}
           onPointClick={onChartPointClick}
+          chartType={selectedChartType}
         />
       </div>
     </section>
@@ -210,4 +228,3 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
 };
 
 export default HistoricalDataSection;
-
