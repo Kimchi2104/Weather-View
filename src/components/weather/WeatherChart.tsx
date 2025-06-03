@@ -66,8 +66,9 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
 
     try {
       const canvas = await html2canvas(chartRef.current, {
-        scale: 2, 
+        scale: 2,
         useCORS: true,
+        // backgroundColor: null, // Allow chart's own background
       });
       
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
@@ -126,11 +127,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
   }));
 
   const handleChartClick = (event: any) => {
-    // For BarChart, activePayload is an array of objects, each corresponding to a bar in the clicked group.
-    // For LineChart/ScatterChart, activePayload is an array with one object.
     if (onPointClick && event && event.activePayload && event.activePayload.length > 0) {
-      // Use the first payload item, which should contain the relevant data point.
-      // The structure of `payload.payload` contains the original data point.
       const clickedPointData = event.activePayload[0].payload;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { timestampDisplay, tooltipTimestampFull, ...originalPoint } = clickedPointData;
@@ -231,7 +228,6 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
                   dataKey={key}
                   fill={metricConfig.color}
                   name={metricConfig.name}
-                  // shape="circle" // or triangle, square, etc.
                 />
               );
             })}
@@ -278,7 +274,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
         </div>
       </CardHeader>
       <CardContent ref={chartRef}> 
-        <ChartContainer config={chartConfig} className="h-[450px] w-full bg-card">
+        <ChartContainer config={chartConfig} className="h-[450px] w-full bg-card aspect-auto">
           <ResponsiveContainer width="100%" height="100%">
             {renderChart()}
           </ResponsiveContainer>
