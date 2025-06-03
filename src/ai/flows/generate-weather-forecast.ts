@@ -15,7 +15,7 @@ import {z} from 'genkit';
 const GenerateWeatherForecastInputSchema = z.object({
   historicalData: z
     .string()
-    .describe('Historical weather data in JSON format. Each entry should be an object with: timestamp (number), temperature (number), humidity (number), precipitation (string, e.g., "No Rain", "Rain"), aqi (number, Air Quality Index in PPM), lux (number), pressure (number, optional).'),
+    .describe('Historical weather data in JSON format. Each entry should be an object with: timestamp (number), temperature (number), humidity (number), precipitation (string, e.g., "No Rain", "Rain"), aqi (number, Air Quality Index in PPM from an MQ135 sensor), lux (number), pressure (number, optional).'),
   location: z.string().describe('The location for which to generate the weather forecast.'),
 });
 export type GenerateWeatherForecastInput = z.infer<typeof GenerateWeatherForecastInputSchema>;
@@ -75,3 +75,4 @@ const generateWeatherForecastFlow = ai.defineFlow(
     return output;
   }
 );
+

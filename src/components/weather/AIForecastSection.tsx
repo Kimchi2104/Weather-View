@@ -2,7 +2,7 @@
 "use client";
 
 import type { FC } from 'react';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,37 +14,45 @@ import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from '@/components/ui/skeleton';
 import type { WeatherDataPoint } from '@/types/weather';
 
-const sampleHistoricalData: WeatherDataPoint[] = [
+// Sample data for the AI flow input, notice `aqi` is the numerical PPM value.
+const sampleHistoricalDataForAI: Omit<WeatherDataPoint, 'airQuality' | 'aqiPpm'> & { aqi: number }[] = [
   { timestamp: Date.now() - 86400000 * 2, temperature: 22, humidity: 70, precipitation: "Rain", aqi: 60, lux: 100, pressure: 1010 },
   { timestamp: Date.now() - 86400000, temperature: 24, humidity: 65, precipitation: "No Rain", aqi: 45, lux: 150, pressure: 1012 },
   { timestamp: Date.now(), temperature: 25, humidity: 60, precipitation: "No Rain", aqi: 50, lux: 120, pressure: 1011 },
 ];
 
 interface AIForecastSectionProps {
-  initialDataForForecast?: WeatherDataPoint[] | null;
+  initialDataForForecast?: WeatherDataPoint[] | null; // This comes from chart selection (WeatherDashboard)
 }
 
 const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast }) => {
   const [location, setLocation] = useState<string>('Local Area');
   const [forecast, setForecast] = useState<GenerateWeatherForecastOutput | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [customHistoricalData, setCustomHistoricalData] = useState<string>(JSON.stringify(sampleHistoricalData, null, 2));
+  // customHistoricalData is a string representation of data for the AI flow (expects 'aqi' as PPM)
+  const [customHistoricalData, setCustomHistoricalData] = useState<string>(JSON.stringify(sampleHistoricalDataForAI, null, 2));
   const { toast } = useToast();
 
   useEffect(() => {
     if (initialDataForForecast === null) {
-       // Clear textarea if explicitly set to null (e.g. brush cleared)
        setCustomHistoricalData('');
        toast({
          title: "Chart Selection Cleared",
          description: "Historical data input for AI forecast has been cleared.",
          duration: 3000,
        });
-    } else if (initialDataForForecast === undefined) {
-      // No specific data passed, do nothing or revert to sample if current isn't default
-      // For now, we do nothing to preserve manual input unless prop changes.
-    } else if (initialDataForForecast.length > 0) {
-      setCustomHistoricalData(JSON.stringify(initialDataForForecast, null, 2));
+    } else if (initialDataForForecast && initialDataForForecast.length > 0) {
+      // Map WeatherDataPoint (with aqiPpm) to the structure expected by the AI (with aqi for PPM)
+      const aiInputData = initialDataForForecast.map(p => ({
+        timestamp: p.timestamp,
+        temperature: p.temperature,
+        humidity: p.humidity,
+        precipitation: p.precipitation,
+        aqi: p.aqiPpm, // Map aqiPpm to aqi for the AI
+        lux: p.lux,
+        pressure: p.pressure,
+      }));
+      setCustomHistoricalData(JSON.stringify(aiInputData, null, 2));
       toast({
         title: "Historical Data Populated for AI Forecast",
         description: `${initialDataForForecast.length} data point(s) from chart ${initialDataForForecast.length === 1 ? 'click' : 'selection'} loaded.`,
@@ -55,9 +63,7 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
           </div>
         ),
       });
-    } else if (initialDataForForecast.length === 0 && customHistoricalData !== '') {
-       // This case handles when the brush selection results in empty array
-       // and textarea wasn't already empty
+    } else if (initialDataForForecast && initialDataForForecast.length === 0 && customHistoricalData !== '') {
        setCustomHistoricalData(''); 
        toast({
          title: "Chart Selection Cleared or Empty",
@@ -65,6 +71,7 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
          duration: 3000,
        });
     }
+    // If initialDataForForecast is undefined, do nothing to preserve manual input.
   }, [initialDataForForecast, toast, customHistoricalData]);
 
 
@@ -74,19 +81,20 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
 
     let historicalDataToUse: string;
     try {
-      const dataToParse = customHistoricalData.trim() === '' ? JSON.stringify(sampleHistoricalData, null, 2) : customHistoricalData;
+      const dataToParse = customHistoricalData.trim() === '' ? JSON.stringify(sampleHistoricalDataForAI, null, 2) : customHistoricalData;
       const parsedData = JSON.parse(dataToParse);
       
+      // Validation for the AI input structure (expects 'aqi' for PPM)
       if (!Array.isArray(parsedData) || !parsedData.every(item =>
         typeof item.timestamp === 'number' &&
         typeof item.temperature === 'number' &&
         typeof item.humidity === 'number' &&
-        typeof item.precipitation === 'string' &&
-        typeof item.aqi === 'number' && // Check for aqi as number
+        typeof item.precipitation === 'string' && // This is correct for AI input
+        typeof item.aqi === 'number' && // Expects 'aqi' as number (PPM) for AI
         typeof item.lux === 'number' &&
         (item.pressure === undefined || typeof item.pressure === 'number')
       )) {
-        throw new Error("Data does not conform to expected WeatherDataPoint structure (aqi should be number, precipitation should be string).");
+        throw new Error("Data does not conform to AI's expected historical data structure (aqi should be number (PPM), precipitation should be string).");
       }
       historicalDataToUse = dataToParse;
        if (customHistoricalData.trim() === '') {
@@ -94,12 +102,12 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
       }
     } catch (error: any) {
       toast({
-        title: "Invalid JSON or Data Structure",
-        description: `The historical data is not valid or does not match the required structure. Error: ${error.message}. Using sample data instead.`,
+        title: "Invalid JSON or Data Structure for AI",
+        description: `The historical data is not valid or does not match AI's required structure. Error: ${error.message}. Using sample data instead.`,
         variant: "destructive",
         duration: 7000,
       });
-      historicalDataToUse = JSON.stringify(sampleHistoricalData, null, 2);
+      historicalDataToUse = JSON.stringify(sampleHistoricalDataForAI, null, 2);
       setCustomHistoricalData(historicalDataToUse);
     }
 
@@ -134,7 +142,7 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
             Generate Forecast
           </CardTitle>
           <CardDescription>
-            Use AI to predict upcoming weather. Click a point or drag on the chart above to auto-fill historical data, or manually input a JSON array of WeatherDataPoint objects.
+            Use AI to predict upcoming weather. Click a point or drag on the chart above to auto-fill historical data, or manually input a JSON array. The AI expects 'aqi' to be the numerical PPM value.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -150,7 +158,7 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
             />
           </div>
           <div>
-            <Label htmlFor="historical-data" className="text-sm font-medium">Historical Data (JSON array of WeatherDataPoint)</Label>
+            <Label htmlFor="historical-data" className="text-sm font-medium">Historical Data (JSON array)</Label>
             <Textarea
               id="historical-data"
               value={customHistoricalData}
@@ -226,3 +234,4 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
 };
 
 export default AIForecastSection;
+

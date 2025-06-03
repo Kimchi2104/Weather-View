@@ -59,6 +59,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
   const handleChartClick = (event: any) => {
     if (onPointClick && event && event.activePayload && event.activePayload.length > 0) {
       const clickedPointData = event.activePayload[0].payload;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { timestampDisplay, ...originalPoint } = clickedPointData;
       onPointClick(originalPoint as WeatherDataPoint);
     }
@@ -68,16 +69,16 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
     if (onRangeSelect && e && typeof e.startIndex === 'number' && typeof e.endIndex === 'number') {
       const selectedSlice = formattedData.slice(e.startIndex, e.endIndex + 1);
       const originalPoints = selectedSlice.map(pointWithDisplay => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { timestampDisplay, ...rest } = pointWithDisplay;
         return rest as WeatherDataPoint; 
       });
       if (originalPoints.length > 0) {
         onRangeSelect(originalPoints);
-      } else { // If selection results in no points (e.g., startIndex === endIndex for some reason, or data issue)
+      } else { 
         onRangeSelect([]);
       }
     } else if (onRangeSelect && (!e || typeof e.startIndex !== 'number' || e.startIndex === undefined || e.endIndex === undefined) ) {
-      // This case handles when the brush is cleared or the event data is malformed
       onRangeSelect([]); 
     }
   };
@@ -110,7 +111,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
           <ResponsiveContainer width="100%" height="100%">
             <LineChart 
               data={formattedData} 
-              margin={{ top: 5, right: 30, left: 0, bottom: 50 }} // Increased bottom margin
+              margin={{ top: 5, right: 30, left: 0, bottom: 50 }}
               onClick={handleChartClick}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -133,32 +134,37 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
                 wrapperStyle={{ outline: 'none', zIndex: 100 }}
               />
               <ChartLegend content={<ChartLegendContent />} />
-              {selectedMetrics.map((key) => (
-                <Line
-                  key={key}
-                  type="monotone"
-                  dataKey={key}
-                  stroke={metricConfigs[key].color}
-                  strokeWidth={2}
-                  dot={{ r: 2, fill: metricConfigs[key].color, strokeWidth: 0 }}
-                  activeDot={{ r: 5, strokeWidth: 1, stroke: metricConfigs[key].color }}
-                  name={metricConfigs[key].name}
-                  unit={metricConfigs[key].unit}
-                  connectNulls={false}
-                />
-              ))}
+              {selectedMetrics.map((key) => {
+                const metricConfig = metricConfigs[key];
+                if (metricConfig.isString) return null; // Don't plot string-based metrics as lines
+
+                return (
+                  <Line
+                    key={key}
+                    type="monotone"
+                    dataKey={key}
+                    stroke={metricConfig.color}
+                    strokeWidth={2}
+                    dot={{ r: 2, fill: metricConfig.color, strokeWidth: 0 }}
+                    activeDot={{ r: 5, strokeWidth: 1, stroke: metricConfig.color }}
+                    name={metricConfig.name}
+                    unit={metricConfig.unit}
+                    connectNulls={false}
+                  />
+                );
+              })}
               <Brush 
                 dataKey="timestampDisplay" 
                 height={20} 
                 stroke="hsl(var(--primary))"
                 onChange={handleBrushChange}
-                tickFormatter={(index) => { // Simplify ticks inside the brush
+                tickFormatter={(index) => { 
                   if (formattedData[index]?.timestampDisplay) {
-                    return formattedData[index].timestampDisplay.split(',')[0]; // Show only date part
+                    return formattedData[index].timestampDisplay.split(',')[0]; 
                   }
                   return '';
                 }}
-                className="recharts-brush" // For custom CSS styling
+                className="recharts-brush" 
               />
             </LineChart>
           </ResponsiveContainer>
@@ -169,3 +175,4 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
 };
 
 export default WeatherChart;
+

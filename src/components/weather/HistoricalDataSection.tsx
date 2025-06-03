@@ -14,13 +14,14 @@ import { ref, get, type DataSnapshot } from "firebase/database";
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { transformRawDataToWeatherDataPoint } from '@/lib/utils';
-import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge } from 'lucide-react';
+import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge, ShieldCheck } from 'lucide-react';
 
 const AVAILABLE_METRICS: { key: MetricKey; name: string }[] = [
   { key: 'temperature', name: 'Temperature' },
   { key: 'humidity', name: 'Humidity' },
   { key: 'precipitation', name: 'Precipitation' },
-  { key: 'aqi', name: 'AQI (ppm)' },
+  { key: 'airQuality', name: 'Air Quality (Status)' },
+  { key: 'aqiPpm', name: 'AQI (ppm)' },
   { key: 'lux', name: 'Light (Lux)' },
   { key: 'pressure', name: 'Pressure' },
 ];
@@ -28,9 +29,10 @@ const AVAILABLE_METRICS: { key: MetricKey; name: string }[] = [
 const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
   temperature: { name: 'Temperature', unit: '°C', Icon: Thermometer, color: 'hsl(var(--chart-1))', healthyMin: 0, healthyMax: 35 },
   humidity: { name: 'Humidity', unit: '%', Icon: Droplets, color: 'hsl(var(--chart-2))', healthyMin: 30, healthyMax: 70 },
-  precipitation: { name: 'Precipitation', unit: '', Icon: CloudRain, color: 'hsl(var(--chart-3))' },
-  aqi: { name: 'AQI', unit: 'ppm', Icon: Wind, color: 'hsl(var(--chart-4))', healthyMin: 0, healthyMax: 300 }, // Example range for MQ135 general air quality
-  lux: { name: 'Light Level', unit: 'lux', Icon: SunDim, color: 'hsl(var(--chart-5))' },
+  precipitation: { name: 'Precipitation', unit: '', Icon: CloudRain, color: 'hsl(var(--chart-3))', isString: true },
+  airQuality: { name: 'Air Quality', unit: '', Icon: ShieldCheck, color: 'hsl(var(--chart-4))', isString: true },
+  aqiPpm: { name: 'AQI (ppm)', unit: 'ppm', Icon: Wind, color: 'hsl(var(--chart-5))', healthyMin: 0, healthyMax: 300 },
+  lux: { name: 'Light Level', unit: 'lux', Icon: SunDim, color: 'hsl(30, 80%, 55%)' }, // Example new color
   pressure: { name: 'Pressure', unit: 'hPa', Icon: Gauge, color: 'hsl(120, 60%, 45%)', healthyMin: 980, healthyMax: 1040 },
 };
 
@@ -44,7 +46,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
     from: subDays(startOfDay(new Date()), 7),
     to: endOfDay(new Date()),
   });
-  const [selectedMetrics, setSelectedMetrics] = useState<MetricKey[]>(['temperature', 'humidity', 'aqi']);
+  const [selectedMetrics, setSelectedMetrics] = useState<MetricKey[]>(['temperature', 'humidity', 'aqiPpm']);
   const [allFetchedData, setAllFetchedData] = useState<WeatherDataPoint[]>([]);
   const [displayedData, setDisplayedData] = useState<WeatherDataPoint[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -188,3 +190,4 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
 };
 
 export default HistoricalDataSection;
+

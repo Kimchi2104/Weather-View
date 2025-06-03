@@ -7,15 +7,16 @@ import RealtimeDataCard from './RealtimeDataCard';
 import type { WeatherDataPoint, MetricKey, MetricConfig, RawFirebaseDataPoint } from '@/types/weather';
 import { database } from '@/lib/firebase';
 import { ref, onValue, type Unsubscribe } from "firebase/database";
-import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge } from 'lucide-react';
+import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge, ShieldCheck } from 'lucide-react';
 import { transformRawDataToWeatherDataPoint } from '@/lib/utils';
 
 const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
   temperature: { name: 'Temperature', unit: '°C', Icon: Thermometer, color: 'var(--chart-1)', healthyMin: 0, healthyMax: 35 },
   humidity: { name: 'Humidity', unit: '%', Icon: Droplets, color: 'var(--chart-2)', healthyMin: 30, healthyMax: 70 },
-  precipitation: { name: 'Precipitation', unit: '', Icon: CloudRain, color: 'var(--chart-3)' }, 
-  aqi: { name: 'AQI', unit: 'ppm', Icon: Wind, color: 'var(--chart-4)', healthyMin: 0, healthyMax: 300 }, // Example range
-  lux: { name: 'Light Level', unit: 'lux', Icon: SunDim, color: 'var(--chart-5)' },
+  precipitation: { name: 'Precipitation', unit: '', Icon: CloudRain, color: 'var(--chart-3)', isString: true },
+  airQuality: { name: 'Air Quality', unit: '', Icon: ShieldCheck, color: 'var(--chart-4)', isString: true },
+  aqiPpm: { name: 'AQI (ppm)', unit: 'ppm', Icon: Wind, color: 'var(--chart-5)', healthyMin: 0, healthyMax: 300 },
+  lux: { name: 'Light Level', unit: 'lux', Icon: SunDim, color: 'hsl(30, 80%, 55%)' },
   pressure: { name: 'Pressure', unit: 'hPa', Icon: Gauge, color: 'hsl(120, 60%, 45%)', healthyMin: 980, healthyMax: 1040 },
 };
 
@@ -79,7 +80,7 @@ const RealtimeDataSection: FC = () => {
     };
   }, [firebaseDataPath]);
 
-  const metricsOrder: MetricKey[] = ['temperature', 'humidity', 'precipitation', 'aqi', 'lux', 'pressure'];
+  const metricsOrder: MetricKey[] = ['temperature', 'humidity', 'precipitation', 'airQuality', 'aqiPpm', 'lux', 'pressure'];
 
   return (
     <section className="mb-8">
@@ -87,24 +88,29 @@ const RealtimeDataSection: FC = () => {
        <p className="text-xs text-muted-foreground mb-4">
             Data is fetched from Firebase path: `{firebaseDataPath}`.
         </p>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-7 gap-4"> {/* Adjusted grid for 7 items */}
         {metricsOrder.map((key) => {
           const config = METRIC_CONFIGS[key];
           if (!config) {
             console.warn(`[RealtimeDataSection] Missing metric config for key: ${key}`);
             return null;
           }
-          const value = realtimeData ? realtimeData[key as keyof WeatherDataPoint] : null;
+          let value: number | string | null = null;
+          if (realtimeData) {
+             if (key === 'aqiPpm') value = realtimeData.aqiPpm;
+             else if (key === 'airQuality') value = realtimeData.airQuality;
+             else value = realtimeData[key as Exclude<MetricKey, 'aqiPpm' | 'airQuality'>];
+          }
           
           return (
             <RealtimeDataCard
               key={key}
               metricKey={key}
-              value={value as number | string | null}
+              value={value}
               unit={config.unit}
               label={config.name}
-              healthyMin={config.healthyMin}
-              healthyMax={config.healthyMax}
+              healthyMin={config.isString ? undefined : config.healthyMin} // No healthy range for string metrics
+              healthyMax={config.isString ? undefined : config.healthyMax} // No healthy range for string metrics
               isLoading={isLoading}
             />
           );
@@ -115,3 +121,4 @@ const RealtimeDataSection: FC = () => {
 };
 
 export default RealtimeDataSection;
+

@@ -1,7 +1,7 @@
 
 import type { FC } from 'react';
 import type { LucideProps } from 'lucide-react';
-import { CloudRain, Thermometer, Droplets, SunDim, Wind, AlertTriangle, HelpCircle, Gauge } from 'lucide-react';
+import { CloudRain, Thermometer, Droplets, SunDim, Wind, AlertTriangle, HelpCircle, Gauge, ShieldCheck } from 'lucide-react';
 import type { MetricKey } from '@/types/weather';
 
 interface MetricIconProps extends Omit<LucideProps, 'color'> {
@@ -14,7 +14,8 @@ const iconMap: Record<MetricKey | 'alert' | 'unknown', React.ElementType> = {
   temperature: Thermometer,
   humidity: Droplets,
   lux: SunDim,
-  aqi: Wind, 
+  airQuality: ShieldCheck, // Icon for string-based "Safe Air" etc.
+  aqiPpm: Wind, // Icon for numerical PPM AQI
   pressure: Gauge,
   alert: AlertTriangle,
   unknown: HelpCircle,
@@ -28,3 +29,4 @@ const MetricIcon: FC<MetricIconProps> = ({ metric, className, isAlerting, ...pro
 };
 
 export default MetricIcon;
+

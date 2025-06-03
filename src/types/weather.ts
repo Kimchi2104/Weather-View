@@ -5,16 +5,17 @@ export interface WeatherDataPoint {
   temperature: number; // °C
   humidity: number; // %
   lux: number; // lux
-  aqi: number; // Air Quality Index from MQ135, in PPM
+  airQuality: string; // e.g., "Safe Air", from rawData.airQuality
+  aqiPpm: number; // Air Quality Index from MQ135, in PPM, from rawData.mq135PPM
   pressure?: number; // hPa
 }
 
 // Represents the raw data structure from Firebase before transformation
 export interface RawFirebaseDataPoint {
-  airQuality?: string; // This might be legacy or a different sensor's output, main AQI source is mq135PPM
+  airQuality?: string; // This is the string representation like "Safe Air"
   humidity?: number;
   lux?: number;
-  mq135PPM?: number; // Source for AQI
+  mq135PPM?: number; // Source for numerical AQI in PPM
   pressure?: number; // e.g., 1007.10968
   rainAnalog?: number;
   rainStatus?: string; // e.g., "No Rain"
@@ -33,7 +34,7 @@ export interface RealtimeData {
   [key: string]: WeatherDataPoint;
 }
 
-export type MetricKey = 'temperature' | 'humidity' | 'precipitation' | 'lux' | 'aqi' | 'pressure';
+export type MetricKey = 'temperature' | 'humidity' | 'precipitation' | 'lux' | 'airQuality' | 'aqiPpm' | 'pressure';
 
 export interface MetricConfig {
   name: string;
@@ -42,4 +43,6 @@ export interface MetricConfig {
   color: string;
   healthyMin?: number;
   healthyMax?: number;
+  isString?: boolean; // Flag to indicate if the metric value is a string
 }
+

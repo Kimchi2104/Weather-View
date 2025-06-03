@@ -68,9 +68,13 @@ export function transformRawDataToWeatherDataPoint(rawData: RawFirebaseDataPoint
   const humidityValue = typeof rawData.humidity === 'number' ? rawData.humidity : 0;
   const luxValue = typeof rawData.lux === 'number' ? rawData.lux : 0;
   
-  const aqiValue = typeof rawData.mq135PPM === 'number' ? rawData.mq135PPM : 0;
-  if (typeof rawData.mq135PPM !== 'number') console.warn(`[transformRawDataToWeatherDataPoint] mq135PPM (for AQI) is not a number for (key: ${recordKey || 'N/A'}). Defaulting to 0. Value:`, rawData.mq135PPM);
-  console.log(`[transformRawDataToWeatherDataPoint] AQI (from mq135PPM) for (key: ${recordKey || 'N/A'}):`, aqiValue);
+  const airQualityStringValue = typeof rawData.airQuality === 'string' ? rawData.airQuality : "Unknown";
+  if (typeof rawData.airQuality !== 'string') console.warn(`[transformRawDataToWeatherDataPoint] airQuality (string) is not a string for (key: ${recordKey || 'N/A'}). Defaulting to "Unknown". Value:`, rawData.airQuality);
+  console.log(`[transformRawDataToWeatherDataPoint] Air Quality (string) for (key: ${recordKey || 'N/A'}):`, airQualityStringValue);
+  
+  const aqiPpmValue = typeof rawData.mq135PPM === 'number' ? rawData.mq135PPM : 0;
+  if (typeof rawData.mq135PPM !== 'number') console.warn(`[transformRawDataToWeatherDataPoint] mq135PPM (for AQI PPM) is not a number for (key: ${recordKey || 'N/A'}). Defaulting to 0. Value:`, rawData.mq135PPM);
+  console.log(`[transformRawDataToWeatherDataPoint] AQI PPM (from mq135PPM) for (key: ${recordKey || 'N/A'}):`, aqiPpmValue);
 
   const pressureValue = typeof rawData.pressure === 'number' ? rawData.pressure : undefined; 
 
@@ -85,7 +89,8 @@ export function transformRawDataToWeatherDataPoint(rawData: RawFirebaseDataPoint
     temperature: temperatureValue,
     humidity: humidityValue,
     precipitation: precipitationValue,
-    aqi: aqiValue,
+    airQuality: airQualityStringValue,
+    aqiPpm: aqiPpmValue,
     lux: luxValue,
     ...(pressureValue !== undefined && { pressure: pressureValue }),
   };
@@ -93,3 +98,4 @@ export function transformRawDataToWeatherDataPoint(rawData: RawFirebaseDataPoint
   console.log(`[transformRawDataToWeatherDataPoint] Successfully transformed point for (key: ${recordKey || 'N/A'}):`, JSON.parse(JSON.stringify(transformedPoint)));
   return transformedPoint;
 }
+

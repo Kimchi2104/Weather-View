@@ -28,7 +28,7 @@ const DataSelector: FC<DataSelectorProps> = ({
   return (
     <div className="space-y-2">
       <h3 className="text-sm font-medium text-muted-foreground">Select Metrics to Display:</h3>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-x-4 gap-y-2">
         {availableMetrics.map((metric) => (
           <div key={metric.key} className="flex items-center space-x-2">
             <Checkbox
@@ -49,3 +49,4 @@ const DataSelector: FC<DataSelectorProps> = ({
 };
 
 export default DataSelector;
+
