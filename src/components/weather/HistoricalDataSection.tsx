@@ -22,7 +22,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 const WeatherChart = dynamic(() => import('./WeatherChart'), {
   ssr: false,
-  loading: () => <div className="mt-6"><Skeleton className="h-[550px] w-full" /></div>, // Adjusted height to include potential export button space
+  loading: () => <div className="mt-6"><Skeleton className="h-[550px] w-full" /></div>,
 });
 
 
@@ -58,26 +58,20 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
   const [selectedMetrics, setSelectedMetrics] = useState<MetricKey[]>(['temperature', 'humidity']);
   const [allFetchedData, setAllFetchedData] = useState<WeatherDataPoint[]>([]);
   const [displayedData, setDisplayedData] = useState<WeatherDataPoint[]>([]);
-  const [isLoading, setIsLoading] = useState(true); // Start with true to show initial loading state
+  const [isLoading, setIsLoading] = useState(true); 
   const [selectedChartType, setSelectedChartType] = useState<ChartType>('line');
 
   const firebaseDataPath = 'devices/TGkMhLL4k4ZFBwgOyRVNKe5mTQq1/records/';
 
   useEffect(() => {
-    // Initialize date range on the client side to avoid hydration mismatch
     setDateRange({
       from: subDays(new Date(), 7),
       to: new Date(),
     });
-    // Fetch data once the component mounts and date range is set
-    // The actual fetching will be triggered by the allFetchedData dependency in filterDataByDateRange effect
   }, []);
 
   const fetchAllHistoricalData = useCallback(async () => {
     setIsLoading(true);
-    // Don't clear allFetchedData here, allow current data to be shown while refreshing
-    // setAllFetchedData([]); 
-    // setDisplayedData([]);
     try {
       const dataRef = ref(database, firebaseDataPath);
       const snapshot: DataSnapshot = await get(dataRef);
@@ -101,17 +95,16 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
       console.error("[HistoricalDataSection] Firebase historical data fetching error:", error);
       setAllFetchedData([]);
     } finally {
-      setIsLoading(false); // Set loading to false after fetch attempt
+      setIsLoading(false); 
     }
   }, [firebaseDataPath]);
 
   const filterDataByDateRange = useCallback(() => {
-    // if (isLoading) return; // Allow filtering even if a refresh is in progress using old data
     if (!dateRange?.from || !dateRange?.to) {
       setDisplayedData([]);
       return;
     }
-    if (allFetchedData.length === 0 && !isLoading) { // if no data and not currently loading new data
+    if (allFetchedData.length === 0 && !isLoading) { 
       setDisplayedData([]);
       return;
     }
@@ -134,13 +127,13 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
   }, [allFetchedData, dateRange, startTime, endTime, isLoading]);
 
   useEffect(() => {
-    fetchAllHistoricalData(); // Fetch initial data
+    fetchAllHistoricalData(); 
   }, [fetchAllHistoricalData]);
 
   useEffect(() => {
-    if (dateRange && allFetchedData.length > 0) { // Ensure allFetchedData has content before filtering
+    if (dateRange && allFetchedData.length > 0) { 
       filterDataByDateRange();
-    } else if (dateRange && !isLoading) { // If no data and not loading, ensure displayedData is empty
+    } else if (dateRange && !isLoading) { 
       setDisplayedData([]);
     }
   }, [dateRange, allFetchedData, filterDataByDateRange, startTime, endTime, isLoading]);
@@ -160,7 +153,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
       <h2 className="text-2xl font-headline font-semibold mb-4 text-primary">Historical Data Analysis</h2>
       <div className="bg-card p-4 sm:p-6 rounded-lg shadow-md space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-          <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+          <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
             <div>
               <Label htmlFor="date-range-picker" className="text-sm font-medium text-muted-foreground mb-1 block">Date Range:</Label>
               <DateRangePicker onDateChange={setDateRange} initialRange={dateRange} id="date-range-picker"/>
@@ -187,19 +180,6 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
                     />
                 </div>
             </div>
-             <div>
-                <Label htmlFor="chart-type-select" className="text-sm font-medium text-muted-foreground mb-1 block">Chart Type:</Label>
-                <Select value={selectedChartType} onValueChange={(value) => setSelectedChartType(value as ChartType)}>
-                  <SelectTrigger id="chart-type-select" className="w-full">
-                    <SelectValue placeholder="Select chart type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="line">Line Chart</SelectItem>
-                    <SelectItem value="bar">Bar Chart</SelectItem>
-                    <SelectItem value="scatter">Scatter Chart</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
           </div>
           <Button onClick={fetchAllHistoricalData} disabled={isLoading} className="w-full md:w-auto">
             {isLoading ? 'Loading...' : 'Refresh All Data'}
@@ -213,6 +193,19 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           selectedMetrics={selectedMetrics}
           onSelectionChange={setSelectedMetrics}
         />
+        <div className="mt-4">
+          <Label htmlFor="chart-type-select" className="text-sm font-medium text-muted-foreground mb-1 block">Chart Type:</Label>
+          <Select value={selectedChartType} onValueChange={(value) => setSelectedChartType(value as ChartType)}>
+            <SelectTrigger id="chart-type-select" className="w-full sm:w-auto sm:min-w-[200px]">
+              <SelectValue placeholder="Select chart type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="line">Line Chart</SelectItem>
+              <SelectItem value="bar">Bar Chart</SelectItem>
+              <SelectItem value="scatter">Scatter Chart</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         <div className="pt-4 flex flex-col sm:flex-row sm:items-center sm:justify-start gap-4">
           <Button onClick={handleUseAllDataForForecast} className="w-full sm:w-auto" disabled={isLoading && displayedData.length === 0}>
             Use All Displayed Data for AI Forecast
@@ -224,7 +217,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           data={displayedData}
           selectedMetrics={selectedMetrics}
           metricConfigs={METRIC_CONFIGS}
-          isLoading={isLoading && allFetchedData.length === 0 && displayedData.length === 0} // More precise loading state for chart
+          isLoading={isLoading && allFetchedData.length === 0 && displayedData.length === 0} 
           onPointClick={onChartPointClick}
           chartType={selectedChartType}
         />
