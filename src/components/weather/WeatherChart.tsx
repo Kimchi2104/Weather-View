@@ -26,14 +26,6 @@ import type { WeatherDataPoint, MetricKey, MetricConfig } from '@/types/weather'
 import { Skeleton } from '@/components/ui/skeleton';
 import { Download, FileImage, FileText, Loader2 } from 'lucide-react';
 
-interface WeatherChartProps {
-  data: WeatherDataPoint[];
-  selectedMetrics: MetricKey[];
-  metricConfigs: Record<MetricKey, MetricConfig>;
-  isLoading: boolean;
-  onPointClick?: (point: WeatherDataPoint) => void;
-}
-
 const formatTimestampToDdMmHhMmUTC = (timestamp: number): string => {
   const date = new Date(timestamp);
   const day = date.getUTCDate().toString().padStart(2, '0');
@@ -51,9 +43,17 @@ const formatTimestampToFullUTC = (timestamp: number): string => {
   const hours = date.getUTCHours().toString().padStart(2, '0');
   const minutes = date.getUTCMinutes().toString().padStart(2, '0');
   const seconds = date.getUTCSeconds().toString().padStart(2, '0');
-  return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+  return `${day}/${month}/${year} ${hours}:${minutes}:${seconds} UTC`;
 };
 
+
+interface WeatherChartProps {
+  data: WeatherDataPoint[];
+  selectedMetrics: MetricKey[];
+  metricConfigs: Record<MetricKey, MetricConfig>;
+  isLoading: boolean;
+  onPointClick?: (point: WeatherDataPoint) => void;
+}
 
 const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConfigs, isLoading, onPointClick }) => {
   const chartRef = useRef<HTMLDivElement>(null);
@@ -67,7 +67,6 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
       const canvas = await html2canvas(chartRef.current, {
         scale: 2, 
         useCORS: true,
-        // Remove explicit backgroundColor and onclone that set it to white
       });
       
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
@@ -162,7 +161,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
         </div>
       </CardHeader>
       <CardContent ref={chartRef}> 
-        <ChartContainer config={chartConfig} className="h-[450px] w-full bg-card"> {/* Changed bg-background to bg-card */}
+        <ChartContainer config={chartConfig} className="h-[450px] w-full bg-card">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart 
               data={formattedData} 
@@ -184,7 +183,17 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
                 domain={['auto', 'auto']}
               />
               <Tooltip
-                content={<ChartTooltipContent indicator="line" labelKey="tooltipTimestampFull" />}
+                content={
+                  <ChartTooltipContent
+                    indicator="line"
+                    labelFormatter={(_label, payload) => { // _label is the X-axis value (timestampDisplay)
+                      if (payload && payload.length > 0 && payload[0].payload) {
+                        return payload[0].payload.tooltipTimestampFull;
+                      }
+                      return ''; // Or return _label as a fallback if preferred
+                    }}
+                  />
+                }
                 cursor={{ stroke: 'hsl(var(--accent))', strokeWidth: 1, strokeDasharray: '3 3' }}
                 wrapperStyle={{ outline: 'none', zIndex: 100 }}
               />
@@ -245,4 +254,3 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
 };
 
 export default WeatherChart;
-
