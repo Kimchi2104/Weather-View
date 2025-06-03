@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { transformRawDataToWeatherDataPoint } from '@/lib/utils';
 import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge, ShieldCheck } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const HISTORICAL_AVAILABLE_METRICS: { key: MetricKey; name: string }[] = [
   { key: 'temperature', name: 'Temperature' },
@@ -35,6 +36,8 @@ const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
   pressure: { name: 'Pressure', unit: 'hPa', Icon: Gauge, color: 'hsl(120, 60%, 45%)', healthyMin: 980, healthyMax: 1040 },
 };
 
+type ChartType = 'line' | 'bar' | 'scatter';
+
 interface HistoricalDataSectionProps {
   onChartPointClick?: (point: WeatherDataPoint) => void;
   onChartRangeSelect?: (points: WeatherDataPoint[]) => void;
@@ -48,11 +51,11 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
   const [allFetchedData, setAllFetchedData] = useState<WeatherDataPoint[]>([]);
   const [displayedData, setDisplayedData] = useState<WeatherDataPoint[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedChartType, setSelectedChartType] = useState<ChartType>('line');
 
   const firebaseDataPath = 'devices/TGkMhLL4k4ZFBwgOyRVNKe5mTQq1/records/';
 
   useEffect(() => {
-    // Initialize date range on the client side to avoid hydration mismatch
     setDateRange({
       from: subDays(new Date(), 7),
       to: new Date(),
@@ -63,8 +66,6 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
     setIsLoading(true);
     setAllFetchedData([]);
     setDisplayedData([]);
-    console.log(`[HistoricalDataSection] Attempting to fetch all historical data from Firebase path: ${firebaseDataPath}`);
-
     try {
       const dataRef = ref(database, firebaseDataPath);
       const snapshot: DataSnapshot = await get(dataRef);
@@ -112,15 +113,12 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
     const [endH, endM] = endTime.split(':').map(Number);
     const toTimestamp = Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), endH, endM, 59, 999);
     
-    console.log(`[HistoricalDataSection] Filtering data for UTC datetime range: ${new Date(fromTimestamp).toISOString()} to ${new Date(toTimestamp).toISOString()}`);
-
     const filtered = allFetchedData.filter(point => {
       const pointTime = point.timestamp;
       return pointTime >= fromTimestamp && pointTime <= toTimestamp;
     });
 
     setDisplayedData(filtered);
-    console.log(`[HistoricalDataSection] Filtering complete. Displaying ${filtered.length} of ${allFetchedData.length} total fetched points.`);
 
   }, [allFetchedData, dateRange, isLoading, startTime, endTime]);
 
@@ -129,7 +127,6 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
   }, [fetchAllHistoricalData]);
 
   useEffect(() => {
-    // Only filter if dateRange is set (which happens client-side)
     if (dateRange) {
       filterDataByDateRange();
     }
@@ -150,12 +147,12 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
       <h2 className="text-2xl font-headline font-semibold mb-4 text-primary">Historical Data Analysis</h2>
       <div className="bg-card p-4 sm:p-6 rounded-lg shadow-md space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-          <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+          <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
             <div>
-              <Label htmlFor="date-range-picker" className="text-sm font-medium text-muted-foreground mb-1 block">Select Date Range:</Label>
+              <Label htmlFor="date-range-picker" className="text-sm font-medium text-muted-foreground mb-1 block">Date Range:</Label>
               <DateRangePicker onDateChange={setDateRange} initialRange={dateRange} id="date-range-picker"/>
             </div>
-             <div className="grid grid-cols-2 gap-2 items-end">
+            <div className="grid grid-cols-2 gap-2 items-end">
                 <div>
                     <Label htmlFor="start-time-hist" className="text-sm font-medium text-muted-foreground mb-1 block">Start Time:</Label>
                     <Input 
@@ -177,6 +174,19 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
                     />
                 </div>
             </div>
+             <div>
+                <Label htmlFor="chart-type-select" className="text-sm font-medium text-muted-foreground mb-1 block">Chart Type:</Label>
+                <Select value={selectedChartType} onValueChange={(value) => setSelectedChartType(value as ChartType)}>
+                  <SelectTrigger id="chart-type-select" className="w-full">
+                    <SelectValue placeholder="Select chart type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="line">Line Chart</SelectItem>
+                    <SelectItem value="bar">Bar Chart</SelectItem>
+                    <SelectItem value="scatter">Scatter Chart</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
           </div>
           <Button onClick={fetchAllHistoricalData} disabled={isLoading} className="w-full md:w-auto">
             {isLoading ? 'Loading...' : 'Refresh All Data'}
@@ -203,6 +213,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           metricConfigs={METRIC_CONFIGS}
           isLoading={isLoading && allFetchedData.length === 0}
           onPointClick={onChartPointClick}
+          chartType={selectedChartType}
         />
       </div>
     </section>

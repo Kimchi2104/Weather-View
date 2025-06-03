@@ -21,7 +21,7 @@ import {
   ChartLegendContent,
   type ChartConfig,
 } from '@/components/ui/chart';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar, ScatterChart, Scatter } from 'recharts';
 import type { WeatherDataPoint, MetricKey, MetricConfig } from '@/types/weather';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Download, FileImage, FileText, Loader2 } from 'lucide-react';
@@ -46,15 +46,18 @@ export const formatTimestampToFullUTC = (timestamp: number): string => {
   return `${day}/${month}/${year} ${hours}:${minutes}:${seconds} UTC`;
 };
 
+type ChartType = 'line' | 'bar' | 'scatter';
+
 interface WeatherChartProps {
   data: WeatherDataPoint[];
   selectedMetrics: MetricKey[];
   metricConfigs: Record<MetricKey, MetricConfig>;
   isLoading: boolean;
   onPointClick?: (point: WeatherDataPoint) => void;
+  chartType: ChartType;
 }
 
-const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConfigs, isLoading, onPointClick }) => {
+const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConfigs, isLoading, onPointClick, chartType }) => {
   const chartRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -111,7 +114,6 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
       .map(key => {
         const config = metricConfigs[key];
         if (!config) {
-            console.warn(`[WeatherChart] No metricConfig found for key: ${key}. Skipping in chartConfig.`);
             return null;
         }
         return [
@@ -157,84 +159,133 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
     );
   }
 
+  const commonCartesianProps = {
+    data: formattedData,
+    margin: { top: 20, right: 30, left: 20, bottom: 90 },
+    onClick: handleChartClick,
+  };
+
+  const commonAxisAndGridComponents = (
+    <>
+      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+      <XAxis 
+          dataKey="timestampDisplay" 
+          stroke="hsl(var(--muted-foreground))"
+          axisLine={{ stroke: "hsl(var(--muted-foreground))" }}
+          tickLine={{ stroke: "hsl(var(--muted-foreground))" }}
+          tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+          angle={-30}
+          textAnchor="end"
+          minTickGap={20}
+          dy={10}
+      />
+      <YAxis 
+          stroke="hsl(var(--muted-foreground))"
+          axisLine={{ stroke: "hsl(var(--muted-foreground))" }}
+          tickLine={{ stroke: "hsl(var(--muted-foreground))" }}
+          tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+          tickFormatter={(value) => typeof value === 'number' ? value.toFixed(1) : String(value)}
+          width={60}
+      />
+      <Tooltip
+        content={
+          <ChartTooltipContent
+            indicator={chartType === 'line' ? "line" : "dot"} // line for line, dot for bar/scatter
+            labelFormatter={(_label, payload) => { 
+              try {
+                if (payload && payload.length > 0 && payload[0] && payload[0].payload && typeof payload[0].payload.tooltipTimestampFull === 'string') {
+                  return payload[0].payload.tooltipTimestampFull;
+                }
+              } catch (e) { console.error("Tooltip labelFormatter error:", e); }
+              return 'Details'; 
+            }}
+          />
+        }
+        cursor={{ stroke: 'hsl(var(--accent))', strokeWidth: 1, strokeDasharray: '3 3' }}
+        wrapperStyle={{ outline: 'none', zIndex: 100 }}
+      />
+      <ChartLegend 
+        content={<ChartLegendContent />} 
+        wrapperStyle={{ paddingTop: "40px" }} 
+      />
+    </>
+  );
+
+  const renderChartSpecificElements = () => {
+    return selectedMetrics.map((key) => {
+      const metricConfig = metricConfigs[key];
+      if (!metricConfig || metricConfig.isString) return null;
+      const color = metricConfig.color || chartConfig[key]?.color || 'hsl(var(--chart-1))';
+
+      if (chartType === 'line') {
+        return (
+          <Line
+            key={key}
+            type="monotone"
+            dataKey={key}
+            stroke={color}
+            strokeWidth={2}
+            dot={{ r: 2, strokeWidth: 1, fill: 'hsl(var(--background))' }}
+            activeDot={{ r: 5, strokeWidth: 2, fill: 'hsl(var(--background))', stroke: color }}
+            name={metricConfig.name}
+            unit={metricConfig.unit}
+            connectNulls={false} // Consider making this configurable if needed
+          />
+        );
+      } else if (chartType === 'bar') {
+        return (
+          <Bar
+            key={key}
+            dataKey={key}
+            fill={color}
+            name={metricConfig.name}
+            unit={metricConfig.unit}
+            radius={[4, 4, 0, 0]} // Rounded top corners for bars
+          />
+        );
+      } else if (chartType === 'scatter') {
+        return (
+          <Scatter
+            key={key}
+            dataKey={key} // For Scatter, dataKey refers to the Y-axis value
+            fill={color}
+            name={metricConfig.name}
+            // shape="circle" // Default is circle, can customize
+          />
+        );
+      }
+      return null;
+    });
+  };
+  
+  const renderChart = () => {
+    if (chartType === 'line') {
+      return <LineChart {...commonCartesianProps}>{commonAxisAndGridComponents}{renderChartSpecificElements()}</LineChart>;
+    } else if (chartType === 'bar') {
+      return <BarChart {...commonCartesianProps}>{commonAxisAndGridComponents}{renderChartSpecificElements()}</BarChart>;
+    } else if (chartType === 'scatter') {
+      // ScatterChart needs XAxis to be numeric if dataKey for X is also a metric.
+      // Here, XAxis is time, so it's fine.
+      return <ScatterChart {...commonCartesianProps}>{commonAxisAndGridComponents}{renderChartSpecificElements()}</ScatterChart>;
+    }
+    return <LineChart {...commonCartesianProps}>{commonAxisAndGridComponents}{renderChartSpecificElements()}</LineChart>; // Default to line
+  };
+
+
   return (
     <Card className="shadow-lg">
       <CardHeader>
         <div>
-          <CardTitle className="font-headline">Historical Data Trends</CardTitle>
+          <CardTitle className="font-headline">Historical Data Trends ({chartType.charAt(0).toUpperCase() + chartType.slice(1)} Chart)</CardTitle>
           <CardDescription>
-            Interactive line chart displaying selected weather metrics.
-            Click a point on the chart to use it for AI forecast, or use the button in the &quot;Historical Data Analysis&quot; section below the date picker to use all currently displayed data.
+            Interactive {chartType} chart displaying selected weather metrics.
+            Click a point on the chart to use it for AI forecast, or use the button in the section above to use all currently displayed data.
           </CardDescription>
         </div>
       </CardHeader>
       <CardContent className="p-4">
         <ChartContainer ref={chartRef} config={chartConfig} className="h-[450px] w-full aspect-auto">
-            <LineChart 
-                data={formattedData}
-                margin={{ top: 20, right: 30, left: 20, bottom: 90 }} 
-                onClick={handleChartClick}
-            >
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis 
-                    dataKey="timestampDisplay" 
-                    stroke="hsl(var(--muted-foreground))"
-                    axisLine={{ stroke: "hsl(var(--muted-foreground))" }}
-                    tickLine={{ stroke: "hsl(var(--muted-foreground))" }}
-                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-                    angle={-30}
-                    textAnchor="end"
-                    minTickGap={20}
-                    dy={10} 
-                />
-                <YAxis 
-                    stroke="hsl(var(--muted-foreground))"
-                    axisLine={{ stroke: "hsl(var(--muted-foreground))" }}
-                    tickLine={{ stroke: "hsl(var(--muted-foreground))" }}
-                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-                    tickFormatter={(value) => typeof value === 'number' ? value.toFixed(1) : String(value)}
-                    width={60}
-                />
-                <Tooltip
-                  content={
-                    <ChartTooltipContent
-                      indicator={"line"}
-                      labelFormatter={(_label, payload) => { 
-                        try {
-                          if (payload && payload.length > 0 && payload[0] && payload[0].payload && typeof payload[0].payload.tooltipTimestampFull === 'string') {
-                            return payload[0].payload.tooltipTimestampFull;
-                          }
-                        } catch (e) { console.error("Tooltip labelFormatter error:", e); }
-                        return 'Details'; 
-                      }}
-                    />
-                  }
-                  cursor={{ stroke: 'hsl(var(--accent))', strokeWidth: 1, strokeDasharray: '3 3' }}
-                  wrapperStyle={{ outline: 'none', zIndex: 100 }}
-                />
-                <ChartLegend 
-                  content={<ChartLegendContent />} 
-                  wrapperStyle={{ paddingTop: "40px" }} 
-                />
-                {selectedMetrics.map((key) => {
-                  const metricConfig = metricConfigs[key];
-                  if (!metricConfig || metricConfig.isString) return null;
-                  return (
-                    <Line
-                      key={key}
-                      type="monotone"
-                      dataKey={key}
-                      stroke={metricConfig.color || chartConfig[key]?.color || 'hsl(var(--chart-1))'}
-                      strokeWidth={2}
-                      dot={{ r: 2, strokeWidth: 1, fill: 'hsl(var(--background))' }}
-                      activeDot={{ r: 5, strokeWidth: 2, fill: 'hsl(var(--background))', stroke: metricConfig.color || chartConfig[key]?.color || 'hsl(var(--chart-1))' }}
-                      name={metricConfig.name}
-                      unit={metricConfig.unit}
-                      connectNulls={false}
-                    />
-                  );
-                })}
-            </LineChart>
+            {renderChart()}
         </ChartContainer>
         <div className="flex justify-center -mt-10">
           <DropdownMenu>
@@ -270,4 +321,3 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
 };
 
 export default WeatherChart;
-
