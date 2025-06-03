@@ -185,7 +185,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
                     angle={-30}
                     textAnchor="end"
                     minTickGap={20}
-                    dy={10}
+                    dy={10} 
                 />
                 <YAxis 
                     stroke="hsl(var(--muted-foreground))"
@@ -214,7 +214,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
                 />
                 <ChartLegend 
                   content={<ChartLegendContent />} 
-                  wrapperStyle={{ paddingTop: "20px" }} 
+                  wrapperStyle={{ paddingTop: "30px" }} 
                 />
                 {selectedMetrics.map((key) => {
                   const metricConfig = metricConfigs[key];
