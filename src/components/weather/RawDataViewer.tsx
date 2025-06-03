@@ -218,11 +218,11 @@ const RawDataViewer: FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
             {/* Date/Time Selectors Group - Takes 2/3 on lg screens */}
             <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
-              <div className="sm:col-span-2">
+              <div className="sm:col-span-1"> {/* Date Range Picker now takes 1/3 on sm+ */}
                 <Label htmlFor="raw-data-date-range" className="text-sm font-medium text-muted-foreground mb-1 block">Select Date Range:</Label>
                 <DateRangePicker onDateChange={setDateRange} initialRange={dateRange} id="raw-data-date-range" />
               </div>
-              <div className="sm:col-span-1 grid grid-cols-2 gap-2 items-end">
+              <div className="sm:col-span-2 grid grid-cols-2 gap-2 items-end"> {/* Time inputs now take 2/3 on sm+ */}
                 <div>
                   <Label htmlFor="start-time-raw" className="text-sm font-medium text-muted-foreground mb-1 block">Start Time:</Label>
                   <Input
