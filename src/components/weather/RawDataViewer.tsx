@@ -103,15 +103,25 @@ const RawDataViewer: FC = () => {
       return;
     }
 
-    const fromDate = new Date(dateRange.from);
     const [startH, startM] = startTime.split(':').map(Number);
-    fromDate.setHours(startH, startM, 0, 0);
-    const fromTimestamp = fromDate.getTime();
+    const fromDateObj = dateRange.from; // This is a Date object for local midnight
+    const fromTimestamp = Date.UTC(
+      fromDateObj.getFullYear(),
+      fromDateObj.getMonth(),
+      fromDateObj.getDate(),
+      startH, startM, 0, 0
+    );
 
-    const toDate = new Date(dateRange.to);
     const [endH, endM] = endTime.split(':').map(Number);
-    toDate.setHours(endH, endM, 59, 999);
-    const toTimestamp = toDate.getTime();
+    const toDateObj = dateRange.to; // This is a Date object for local midnight
+    const toTimestamp = Date.UTC(
+      toDateObj.getFullYear(),
+      toDateObj.getMonth(),
+      toDateObj.getDate(),
+      endH, endM, 59, 999
+    );
+
+    console.log(`[RawDataViewer] Filtering data for UTC datetime range: ${new Date(fromTimestamp).toISOString()} to ${new Date(toTimestamp).toISOString()}`);
 
     const filtered = allFetchedRawData.filter(point => {
       if (point.parsedTimestamp === null) return false;

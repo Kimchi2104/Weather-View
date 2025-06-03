@@ -20,7 +20,6 @@ import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge, ShieldCheck } fr
 const HISTORICAL_AVAILABLE_METRICS: { key: MetricKey; name: string }[] = [
   { key: 'temperature', name: 'Temperature' },
   { key: 'humidity', name: 'Humidity' },
-  // { key: 'precipitation', name: 'Precipitation' }, // Removed as it's text-based
   { key: 'aqiPpm', name: 'AQI (ppm)' },
   { key: 'lux', name: 'Light (Lux)' },
   { key: 'pressure', name: 'Pressure' },
@@ -100,17 +99,25 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
       return;
     }
 
-    const fromDate = new Date(dateRange.from);
     const [startH, startM] = startTime.split(':').map(Number);
-    fromDate.setHours(startH, startM, 0, 0);
-    const fromTimestamp = fromDate.getTime();
+    const fromDateObj = dateRange.from; // This is a Date object for local midnight
+    const fromTimestamp = Date.UTC(
+      fromDateObj.getFullYear(),
+      fromDateObj.getMonth(),
+      fromDateObj.getDate(),
+      startH, startM, 0, 0
+    );
 
-    const toDate = new Date(dateRange.to);
     const [endH, endM] = endTime.split(':').map(Number);
-    toDate.setHours(endH, endM, 59, 999);
-    const toTimestamp = toDate.getTime();
+    const toDateObj = dateRange.to; // This is a Date object for local midnight
+    const toTimestamp = Date.UTC(
+      toDateObj.getFullYear(),
+      toDateObj.getMonth(),
+      toDateObj.getDate(),
+      endH, endM, 59, 999
+    );
     
-    console.log(`[HistoricalDataSection] Filtering data for datetime range: ${new Date(fromTimestamp).toISOString()} to ${new Date(toTimestamp).toISOString()}`);
+    console.log(`[HistoricalDataSection] Filtering data for UTC datetime range: ${new Date(fromTimestamp).toISOString()} to ${new Date(toTimestamp).toISOString()}`);
 
     const filtered = allFetchedData.filter(point => {
       const pointTime = point.timestamp;
