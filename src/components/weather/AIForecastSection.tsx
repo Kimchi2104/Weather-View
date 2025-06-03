@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { FC } from 'react';
@@ -11,16 +12,17 @@ import { generateWeatherForecast, type GenerateWeatherForecastInput } from '@/ai
 import { Wand2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from '@/components/ui/skeleton';
+import type { WeatherDataPoint } from '@/types/weather'; // Import WeatherDataPoint type
 
-// Sample historical data for the AI model (replace with actual data fetching if needed)
-const sampleHistoricalData = [
-  { timestamp: Date.now() - 86400000 * 2, temperature: 22, humidity: 70, precipitation: 0, airQualityIndex: 30, lightPollution: 100 },
-  { timestamp: Date.now() - 86400000, temperature: 24, humidity: 65, precipitation: 2, airQualityIndex: 40, lightPollution: 150 },
-  { timestamp: Date.now(), temperature: 25, humidity: 60, precipitation: 0, airQualityIndex: 35, lightPollution: 120 },
+// Sample historical data for the AI model, reflecting WeatherDataPoint structure
+const sampleHistoricalData: WeatherDataPoint[] = [
+  { timestamp: Date.now() - 86400000 * 2, temperature: 22, humidity: 70, precipitation: 4000, airQualityIndex: 30, lux: 100 },
+  { timestamp: Date.now() - 86400000, temperature: 24, humidity: 65, precipitation: 2000, airQualityIndex: 40, lux: 150 },
+  { timestamp: Date.now(), temperature: 25, humidity: 60, precipitation: 0, airQualityIndex: 35, lux: 120 },
 ];
 
 const AIForecastSection: FC = () => {
-  const [location, setLocation] = useState<string>('Local Area'); // Default or user input
+  const [location, setLocation] = useState<string>('Local Area');
   const [forecast, setForecast] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [customHistoricalData, setCustomHistoricalData] = useState<string>(JSON.stringify(sampleHistoricalData, null, 2));
@@ -32,17 +34,28 @@ const AIForecastSection: FC = () => {
 
     let historicalDataToUse: string;
     try {
-      // Validate if customHistoricalData is valid JSON
-      JSON.parse(customHistoricalData);
+      // Validate if customHistoricalData is valid JSON and conforms to WeatherDataPoint[]
+      const parsedData = JSON.parse(customHistoricalData);
+      if (!Array.isArray(parsedData) || !parsedData.every(item => 
+        typeof item.timestamp === 'number' &&
+        typeof item.temperature === 'number' &&
+        typeof item.humidity === 'number' &&
+        typeof item.precipitation === 'number' &&
+        typeof item.airQualityIndex === 'number' &&
+        typeof item.lux === 'number'
+      )) {
+        throw new Error("Data does not conform to expected WeatherDataPoint structure.");
+      }
       historicalDataToUse = customHistoricalData;
-    } catch (error) {
+    } catch (error: any) {
       toast({
-        title: "Invalid JSON",
-        description: "The provided historical data is not valid JSON. Using sample data instead.",
+        title: "Invalid JSON or Data Structure",
+        description: `The provided historical data is not valid or does not match the required structure. Error: ${error.message}. Using sample data instead.`,
         variant: "destructive",
+        duration: 7000,
       });
       historicalDataToUse = JSON.stringify(sampleHistoricalData, null, 2);
-      setCustomHistoricalData(historicalDataToUse); // Update textarea with sample data
+      setCustomHistoricalData(historicalDataToUse); 
     }
     
     const input: GenerateWeatherForecastInput = {
@@ -55,12 +68,12 @@ const AIForecastSection: FC = () => {
       setForecast(result.forecast);
     } catch (error) {
       console.error('Error generating forecast:', error);
-      setForecast('Failed to generate forecast. Please try again.');
       toast({
-        title: "Forecast Error",
+        title: "Forecast Generation Error",
         description: "Could not generate forecast. Check console for details.",
         variant: "destructive",
       });
+      setForecast('Failed to generate forecast. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -76,7 +89,7 @@ const AIForecastSection: FC = () => {
             Generate Forecast
           </CardTitle>
           <CardDescription>
-            Use AI to predict upcoming weather conditions based on historical data.
+            Use AI to predict upcoming weather conditions based on historical data. Ensure the data matches the structure: timestamp (number), temperature, humidity, precipitation, airQualityIndex, lux.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -92,17 +105,17 @@ const AIForecastSection: FC = () => {
             />
           </div>
           <div>
-            <Label htmlFor="historical-data" className="text-sm font-medium">Historical Data (JSON)</Label>
+            <Label htmlFor="historical-data" className="text-sm font-medium">Historical Data (JSON array of WeatherDataPoint)</Label>
             <Textarea
               id="historical-data"
               value={customHistoricalData}
               onChange={(e) => setCustomHistoricalData(e.target.value)}
               placeholder="Enter historical weather data as JSON array..."
               rows={8}
-              className="mt-1 font-code text-xs"
+              className="mt-1 font-mono text-xs"
             />
             <p className="text-xs text-muted-foreground mt-1">
-              Provide an array of data points. Each point should include: timestamp, temperature, humidity, precipitation, airQualityIndex, lightPollution.
+              Provide an array of data points. Each point should include numerical fields: timestamp, temperature, humidity, precipitation, airQualityIndex, lux.
             </p>
           </div>
           

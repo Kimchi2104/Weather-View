@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { FC } from 'react';
@@ -35,8 +36,9 @@ const DataSelector: FC<DataSelectorProps> = ({
               checked={selectedMetrics.includes(metric.key)}
               onCheckedChange={(checked) => handleCheckboxChange(metric.key, !!checked)}
               className="border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
+              aria-label={`Select ${metric.name}`}
             />
-            <Label htmlFor={`metric-${metric.key}`} className="text-sm">
+            <Label htmlFor={`metric-${metric.key}`} className="text-sm cursor-pointer">
               {metric.name}
             </Label>
           </div>

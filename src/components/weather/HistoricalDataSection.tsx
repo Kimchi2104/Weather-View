@@ -8,27 +8,28 @@ import DataSelector from './DataSelector';
 import WeatherChart from './WeatherChart';
 import type { DateRange } from 'react-day-picker';
 import { subDays, startOfDay, endOfDay } from 'date-fns';
-import type { WeatherDataPoint, MetricKey, MetricConfig } from '@/types/weather';
+import type { WeatherDataPoint, MetricKey, MetricConfig, RawFirebaseDataPoint } from '@/types/weather';
 import { database } from '@/lib/firebase';
-import { ref, query, orderByChild, startAt, endAt, get, type DataSnapshot } from "firebase/database";
+import { ref, get, type DataSnapshot, query, orderByChild, limitToLast } from "firebase/database"; // Keep query, orderByChild, limitToLast for future potential use or if structure changes
 import { CloudRain, Thermometer, Droplets, SunDim, Wind } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { transformRawDataToWeatherDataPoint } from '@/lib/utils';
 
 const AVAILABLE_METRICS: { key: MetricKey; name: string }[] = [
   { key: 'temperature', name: 'Temperature' },
   { key: 'humidity', name: 'Humidity' },
   { key: 'precipitation', name: 'Precipitation' },
   { key: 'airQualityIndex', name: 'AQI' },
-  { key: 'lightPollution', name: 'Light Pollution' },
+  { key: 'lux', name: 'Light (Lux)' },
 ];
 
 const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
   temperature: { name: 'Temperature', unit: '°C', Icon: Thermometer, color: 'hsl(var(--chart-1))' },
   humidity: { name: 'Humidity', unit: '%', Icon: Droplets, color: 'hsl(var(--chart-2))' },
-  precipitation: { name: 'Precipitation', unit: 'mm', Icon: CloudRain, color: 'hsl(var(--chart-3))' },
+  precipitation: { name: 'Precipitation', unit: 'val', Icon: CloudRain, color: 'hsl(var(--chart-3))' }, // Unit changed as rainAnalog is a raw value
   airQualityIndex: { name: 'Air Quality Index', unit: 'AQI', Icon: Wind, color: 'hsl(var(--chart-4))' },
-  lightPollution: { name: 'Light Pollution', unit: 'lux', Icon: SunDim, color: 'hsl(var(--chart-5))' },
+  lux: { name: 'Light Level', unit: 'lux', Icon: SunDim, color: 'hsl(var(--chart-5))' },
 };
 
 const HistoricalDataSection: FC = () => {
@@ -37,67 +38,78 @@ const HistoricalDataSection: FC = () => {
     to: endOfDay(new Date()),
   });
   const [selectedMetrics, setSelectedMetrics] = useState<MetricKey[]>(['temperature', 'humidity']);
-  const [historicalData, setHistoricalData] = useState<WeatherDataPoint[]>([]);
+  const [allFetchedData, setAllFetchedData] = useState<WeatherDataPoint[]>([]);
+  const [displayedData, setDisplayedData] = useState<WeatherDataPoint[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const fetchHistoricalData = useCallback(async () => {
-    if (!dateRange?.from || !dateRange?.to) {
-      console.warn('[HistoricalDataSection] Date range is not fully selected. Aborting fetch.');
-      setHistoricalData([]);
-      return;
-    }
+  // TODO: IMPORTANT! Update this path to the correct location of your weather data in Firebase.
+  // This path should point to the parent node containing all your timestamped records.
+  // Example: if your data is at /myWeatherStation/logs/, use 'myWeatherStation/logs'.
+  const firebaseDataPath = 'allWeatherData'; // <<< --- USER NEEDS TO VERIFY AND CHANGE THIS
+
+  const fetchAllHistoricalData = useCallback(async () => {
     setIsLoading(true);
-
-    // TODO: Replace 'weather/historical/station1' with the actual path to your historical weather data in Firebase.
-    // Ensure your Firebase Realtime Database rules allow reading this path and that it's indexed on 'timestamp'.
-    const historicalPath = 'weather/historical/station1'; 
-    const historicalRef = ref(database, historicalPath);
+    console.log(`[HistoricalDataSection] Fetching all historical data from: ${firebaseDataPath}`);
     
-    console.log(`[HistoricalDataSection] Fetching historical data from: ${historicalRef.toString()}`);
-    console.log(`[HistoricalDataSection] Date range: From ${dateRange.from.toISOString()} To ${dateRange.to.toISOString()}`);
-    console.log(`[HistoricalDataSection] Timestamps: Start ${dateRange.from.getTime()}, End ${dateRange.to.getTime()}`);
-
     try {
-      const q = query(
-        historicalRef,
-        orderByChild('timestamp'), 
-        startAt(dateRange.from.getTime()),
-        endAt(dateRange.to.getTime())
-      );
-      
-      const snapshot: DataSnapshot = await get(q);
-      console.log('[HistoricalDataSection] Fetched historical data snapshot:', snapshot);
+      const dataRef = ref(database, firebaseDataPath);
+      const snapshot: DataSnapshot = await get(dataRef);
       
       if (snapshot.exists()) {
-        const rawData = snapshot.val();
-        console.log('[HistoricalDataSection] Raw historical data value:', rawData);
-        // Firebase returns an object when data is fetched this way. Convert it to an array.
-        // This assumes each child under 'weather/historical/station1' is a WeatherDataPoint.
-        const processedData: WeatherDataPoint[] = Object.values(rawData).filter(Boolean) as WeatherDataPoint[];
-        
-        // Additional check for data structure if needed
-        if (processedData.length > 0 && typeof processedData[0].timestamp !== 'number') {
-            console.warn('[HistoricalDataSection] Timestamp in fetched data is not a number. This might cause issues. Data:', processedData[0]);
-        }
+        const rawDataContainer = snapshot.val(); // This will be an object like {'2025-06-03_16:08:39': {...}, ...}
+        console.log('[HistoricalDataSection] Raw historical data container:', rawDataContainer);
 
-        setHistoricalData(processedData.sort((a, b) => a.timestamp - b.timestamp)); // Ensure data is sorted by time
-        console.log('[HistoricalDataSection] Processed historical data points:', processedData.length);
+        const processedData: WeatherDataPoint[] = Object.values(rawDataContainer as Record<string, RawFirebaseDataPoint>)
+          .map(transformRawDataToWeatherDataPoint)
+          .filter((point): point is WeatherDataPoint => point !== null) // Remove nulls from failed transformations
+          .sort((a, b) => a.timestamp - b.timestamp); // Ensure data is sorted by time
+
+        setAllFetchedData(processedData);
+        console.log('[HistoricalDataSection] Processed all historical data points:', processedData.length);
       } else {
-        setHistoricalData([]);
-        console.warn(`[HistoricalDataSection] No historical data found for the selected range at path: ${historicalPath}`);
+        setAllFetchedData([]);
+        console.warn(`[HistoricalDataSection] No historical data found at path: ${firebaseDataPath}`);
       }
     } catch (error) {
       console.error("[HistoricalDataSection] Firebase historical data fetching error:", error);
-      setHistoricalData([]); 
+      setAllFetchedData([]); 
     } finally {
       setIsLoading(false);
     }
-  }, [dateRange]);
+  }, [firebaseDataPath]);
 
+  const filterDataByDateRange = useCallback(() => {
+    if (!dateRange?.from || !dateRange?.to) {
+      setDisplayedData([]);
+      return;
+    }
+    if (allFetchedData.length === 0) {
+      setDisplayedData([]);
+      return;
+    }
 
+    const fromTime = dateRange.from.getTime();
+    const toTime = dateRange.to.getTime();
+
+    const filtered = allFetchedData.filter(point => 
+      point.timestamp >= fromTime && point.timestamp <= toTime
+    );
+    setDisplayedData(filtered);
+    console.log(`[HistoricalDataSection] Filtered data for range. Displaying ${filtered.length} of ${allFetchedData.length} points.`);
+
+  }, [allFetchedData, dateRange]);
+
+  // Fetch all data once on component mount or if path changes
   useEffect(() => {
-    fetchHistoricalData();
-  }, [fetchHistoricalData]);
+    fetchAllHistoricalData();
+  }, [fetchAllHistoricalData]);
+
+  // Re-filter data when dateRange or allFetchedData changes
+  useEffect(() => {
+    if (!isLoading) { // Only filter if not currently loading all data
+      filterDataByDateRange();
+    }
+  }, [dateRange, allFetchedData, isLoading, filterDataByDateRange]);
 
 
   return (
@@ -109,10 +121,17 @@ const HistoricalDataSection: FC = () => {
             <Label htmlFor="date-range-picker" className="text-sm font-medium text-muted-foreground mb-1 block">Select Date Range:</Label>
             <DateRangePicker onDateChange={setDateRange} initialRange={dateRange} id="date-range-picker"/>
           </div>
-          <Button onClick={fetchHistoricalData} disabled={isLoading || !dateRange?.from || !dateRange?.to} className="w-full md:w-auto">
-            {isLoading ? 'Loading Data...' : 'Load Data'}
+          {/* The button now re-triggers filtering, not re-fetching all data unless needed.
+              Consider if a "Refresh All Data" button is needed if data updates frequently in this historical path.
+              For now, data is fetched once.
+           */}
+          <Button onClick={filterDataByDateRange} disabled={isLoading || !dateRange?.from || !dateRange?.to || allFetchedData.length === 0} className="w-full md:w-auto">
+            {isLoading ? 'Loading...' : (allFetchedData.length === 0 ? 'No Data Loaded' : 'Apply Date Filter')}
           </Button>
         </div>
+         <p className="text-xs text-muted-foreground">
+            Ensure the Firebase path in the code (`HistoricalDataSection.tsx`) points to your data collection. Currently: `{firebaseDataPath}`.
+          </p>
         <DataSelector
           availableMetrics={AVAILABLE_METRICS}
           selectedMetrics={selectedMetrics}
@@ -121,10 +140,10 @@ const HistoricalDataSection: FC = () => {
       </div>
       <div className="mt-6">
         <WeatherChart 
-          data={historicalData} 
+          data={displayedData} 
           selectedMetrics={selectedMetrics} 
           metricConfigs={METRIC_CONFIGS}
-          isLoading={isLoading}
+          isLoading={isLoading && allFetchedData.length === 0} // Show loading skeleton only if initial full load is happening
         />
       </div>
     </section>
