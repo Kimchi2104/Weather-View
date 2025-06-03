@@ -84,7 +84,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
       const canvas = await html2canvas(chartWrapper as HTMLElement, {
         scale: 2,
         useCORS: true,
-        backgroundColor: 'hsl(var(--card))', 
+        backgroundColor: 'hsl(var(--card))',
       });
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
       if (format === 'pdf') {
@@ -139,7 +139,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
   }
   
   const commonCartesianProps = { 
-    margin: { top: 20, right: 40, left: 20, bottom: 180 }, // Increased bottom margin
+    margin: { top: 20, right: 40, left: 20, bottom: 80 }, // Adjusted top margin for legend, bottom margin for X-axis labels
   };
 
   const renderChartSpecificElements = () => {
@@ -174,8 +174,8 @@ const WeatherChart: FC<WeatherChartProps> = ({
           tick={{ fill: "#555555", fontSize: 11 }} 
           angle={-45} 
           textAnchor="end" 
-          dy={10} 
-          minTickGap={5} // Adjust if labels overlap too much
+          dy={10} // Keep this for label positioning
+          minTickGap={5} 
           interval="preserveStartEnd"
         />
         <YAxis 
@@ -195,11 +195,11 @@ const WeatherChart: FC<WeatherChartProps> = ({
           }} 
         />
         <Legend 
-          wrapperStyle={{ paddingTop: '40px', paddingBottom: '10px' }} // Increased paddingTop
+          wrapperStyle={{ paddingBottom: '20px', paddingTop: '5px' }} // Adjusted padding for top alignment
           iconSize={14} 
           layout="horizontal" 
           align="center" 
-          verticalAlign="bottom" 
+          verticalAlign="top" // Changed to top
         />
         {renderChartSpecificElements()}
       </ChartComponent>
@@ -216,12 +216,12 @@ const WeatherChart: FC<WeatherChartProps> = ({
         </div>
       </CardHeader>
       <CardContent className="p-4">
-        <div ref={chartRef} className="w-full h-[550px] bg-card">
+        <div ref={chartRef} className="w-full h-[550px] bg-card"> {/* Ensure chartRef points to this div */}
           <ResponsiveContainer width="100%" height="100%">
             {renderChart()}
           </ResponsiveContainer>
         </div>
-        <div className="flex justify-center -mt-10"> {/* Keep button slightly overlapping for style */}
+        <div className="flex justify-center pt-2"> {/* Adjusted padding, no negative margin needed now */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="default" disabled={isExporting || !formattedData || formattedData.length === 0} className="min-w-[150px]">
@@ -255,4 +255,3 @@ const WeatherChart: FC<WeatherChartProps> = ({
 };
 
 export default WeatherChart;
-
