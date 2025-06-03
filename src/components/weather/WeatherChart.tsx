@@ -67,14 +67,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
       const canvas = await html2canvas(chartRef.current, {
         scale: 2, 
         useCORS: true,
-        backgroundColor: '#ffffff',
-        onclone: (document) => {
-          // Ensures that the background of the chart container is explicitly white for export
-          const chartContainer = document.querySelector('[data-chart]');
-          if (chartContainer && chartContainer instanceof HTMLElement) {
-            chartContainer.style.backgroundColor = 'white';
-          }
-        }
+        // Remove explicit backgroundColor and onclone that set it to white
       });
       
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
@@ -169,7 +162,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
         </div>
       </CardHeader>
       <CardContent ref={chartRef}> 
-        <ChartContainer config={chartConfig} className="h-[450px] w-full bg-background"> {/* Added bg-background for consistent export */}
+        <ChartContainer config={chartConfig} className="h-[450px] w-full bg-card"> {/* Changed bg-background to bg-card */}
           <ResponsiveContainer width="100%" height="100%">
             <LineChart 
               data={formattedData} 
@@ -252,3 +245,4 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
 };
 
 export default WeatherChart;
+
