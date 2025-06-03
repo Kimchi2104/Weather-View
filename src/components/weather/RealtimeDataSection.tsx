@@ -9,9 +9,9 @@ import { database } from '@/lib/firebase';
 import { ref, onValue, type Unsubscribe } from "firebase/database";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge, ShieldCheck, Sun, HelpCircle } from 'lucide-react';
+import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge, ShieldCheck, Sun, HelpCircle, CloudSun, CloudFog } from 'lucide-react'; // Added CloudSun, CloudFog
 import { transformRawDataToWeatherDataPoint } from '@/lib/utils';
-import { startOfDay, endOfDay, isWithinInterval } from 'date-fns'; // format removed as we use raw string
+import { startOfDay, endOfDay, isWithinInterval } from 'date-fns';
 
 const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
   temperature: { name: 'Temperature', unit: '°C', Icon: Thermometer, color: 'hsl(var(--chart-1))', healthyMin: 0, healthyMax: 35 },
@@ -33,26 +33,65 @@ interface DailyMetricTrend {
 type RealtimeSectionState = {
   [key in MetricKey]?: DailyMetricTrend;
 } & {
-  lastUpdatedRawString?: string | null; // Store the raw string of the latest timestamp
+  lastUpdatedRawString?: string | null;
 };
 
-const getPrecipitationStyle = (status: string | null) => {
-  if (!status) return { Icon: HelpCircle, color: 'text-muted-foreground', label: 'Unknown' };
+interface WeatherStatusStyle {
+  Icon: React.ElementType;
+  statusTextColorClass: string;
+  label: string;
+  backgroundClass: string;
+}
+
+const getPrecipitationStyle = (status: string | null): WeatherStatusStyle => {
+  if (!status) {
+    return { Icon: HelpCircle, statusTextColorClass: 'text-muted-foreground', label: 'Unknown', backgroundClass: 'bg-card' };
+  }
   const s = status.toLowerCase();
-  if (s.includes('rain')) return { Icon: CloudRain, color: 'text-blue-500', label: status };
-  if (s.includes('no rain')) return { Icon: Sun, color: 'text-yellow-500', label: status };
-  return { Icon: HelpCircle, color: 'text-muted-foreground', label: status };
+  if (s.includes('no rain')) {
+    return { 
+      Icon: Sun, 
+      statusTextColorClass: 'text-yellow-700 dark:text-yellow-300', 
+      label: status, 
+      backgroundClass: 'bg-gradient-to-br from-sky-300 via-yellow-200 to-orange-300 dark:from-sky-700 dark:via-yellow-600 dark:to-orange-700' 
+    };
+  }
+  if (s.includes('rain')) {
+    return { 
+      Icon: CloudRain, 
+      statusTextColorClass: 'text-blue-800 dark:text-blue-200', 
+      label: status, 
+      backgroundClass: 'bg-gradient-to-br from-slate-400 via-gray-400 to-blue-500 dark:from-slate-600 dark:via-gray-600 dark:to-blue-800' 
+    };
+  }
+   if (s.includes('cloudy') || s.includes('clouds')) {
+    return {
+      Icon: CloudSun,
+      statusTextColorClass: 'text-gray-700 dark:text-gray-300',
+      label: status,
+      backgroundClass: 'bg-gradient-to-br from-gray-300 via-slate-300 to-gray-400 dark:from-gray-500 dark:via-slate-500 dark:to-gray-600'
+    };
+  }
+  if (s.includes('fog') || s.includes('mist')) {
+    return {
+      Icon: CloudFog,
+      statusTextColorClass: 'text-slate-600 dark:text-slate-300',
+      label: status,
+      backgroundClass: 'bg-gradient-to-br from-slate-300 via-neutral-300 to-slate-400 dark:from-slate-500 dark:via-neutral-500 dark:to-slate-600'
+    };
+  }
+  return { Icon: HelpCircle, statusTextColorClass: 'text-muted-foreground', label: status, backgroundClass: 'bg-card' };
 };
 
 const getAirQualityStyle = (status: string | null) => {
   if (!status) return { Icon: HelpCircle, color: 'text-muted-foreground', label: 'Unknown' };
   const s = status.toLowerCase();
-  if (s.includes('safe') || s.includes('good')) return { Icon: ShieldCheck, color: 'text-green-500', label: status };
-  if (s.includes('moderate')) return { Icon: ShieldCheck, color: 'text-yellow-600', label: status };
-  if (s.includes('unhealthy for sensitive')) return { Icon: ShieldCheck, color: 'text-orange-500', label: status };
-  if (s.includes('unhealthy')) return { Icon: ShieldCheck, color: 'text-red-500', label: status };
-  if (s.includes('very unhealthy')) return { Icon: ShieldCheck, color: 'text-purple-500', label: status };
-  if (s.includes('hazardous')) return { Icon: ShieldCheck, color: 'text-red-700', label: status };
+  if (s.includes('safe') || s.includes('good')) return { Icon: ShieldCheck, color: 'text-green-600 dark:text-green-400', label: status };
+  if (s.includes('moderate')) return { Icon: ShieldCheck, color: 'text-yellow-600 dark:text-yellow-400', label: status };
+  if (s.includes('unhealthy for sensitive')) return { Icon: ShieldCheck, color: 'text-orange-600 dark:text-orange-400', label: status };
+  if (s.includes('unhealthy')) return { Icon: ShieldCheck, color: 'text-red-600 dark:text-red-400', label: status };
+  if (s.includes('very unhealthy')) return { Icon: ShieldCheck, color: 'text-purple-600 dark:text-purple-400', label: status };
+  if (s.includes('hazardous')) return { Icon: ShieldCheck, color: 'text-red-700 dark:text-red-500', label: status };
   return { Icon: HelpCircle, color: 'text-muted-foreground', label: status };
 };
 
@@ -65,10 +104,7 @@ const RealtimeDataSection: FC = () => {
 
   useEffect(() => {
     const dataRef = ref(database, firebaseDataPath);
-    // console.log('[RealtimeDataSection] Setting up listener for realtime data at Firebase path:', dataRef.toString());
-
     const unsubscribe: Unsubscribe = onValue(dataRef, (snapshot) => {
-      // console.log('[RealtimeDataSection] Realtime data snapshot received from Firebase');
       const rawDataContainer = snapshot.val();
 
       if (rawDataContainer && typeof rawDataContainer === 'object') {
@@ -77,7 +113,7 @@ const RealtimeDataSection: FC = () => {
         const transformedRecords: WeatherDataPoint[] = allRecords
           .map(([key, rawPoint]) => transformRawDataToWeatherDataPoint(rawPoint as RawFirebaseDataPoint, key))
           .filter((point): point is WeatherDataPoint => point !== null && point.timestamp !== null && point.rawTimestampString !== undefined)
-          .sort((a, b) => a.timestamp - b.timestamp); // Sort ascending by numerical timestamp
+          .sort((a, b) => a.timestamp - b.timestamp); 
 
         if (transformedRecords.length > 0) {
           const latestRecord = transformedRecords[transformedRecords.length - 1];
@@ -90,7 +126,7 @@ const RealtimeDataSection: FC = () => {
           );
 
           const newProcessedData: RealtimeSectionState = {
-            lastUpdatedRawString: latestRecord.rawTimestampString, // Use raw string from latest record
+            lastUpdatedRawString: latestRecord.rawTimestampString, 
           };
 
           (Object.keys(METRIC_CONFIGS) as MetricKey[]).forEach(key => {
@@ -106,7 +142,6 @@ const RealtimeDataSection: FC = () => {
             if (!config.isString && todayRecords.length > 0) {
               const numericValues = todayRecords.map(p => {
                 if (key === 'aqiPpm') return p.aqiPpm;
-                // Ensure we are accessing a numeric property for min/max
                 const val = p[key as Exclude<MetricKey, 'aqiPpm' | 'airQuality' | 'precipitation'>];
                 return typeof val === 'number' ? val : undefined;
               }).filter((v): v is number => typeof v === 'number');
@@ -131,7 +166,6 @@ const RealtimeDataSection: FC = () => {
         }
       } else {
         setProcessedData({ lastUpdatedRawString: null });
-        // console.warn(`[RealtimeDataSection] No data or invalid data structure found at Firebase path: ${firebaseDataPath}`);
       }
       setIsLoading(false);
     }, (error) => {
@@ -141,7 +175,6 @@ const RealtimeDataSection: FC = () => {
     });
 
     return () => {
-      // console.log('[RealtimeDataSection] Unsubscribing from realtime data listener.');
       unsubscribe();
     };
   }, [firebaseDataPath]);
@@ -172,30 +205,30 @@ const RealtimeDataSection: FC = () => {
 
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-        <Card className="shadow-lg">
+        <Card className={`shadow-lg transition-all duration-500 ${precipStyle.backgroundClass}`}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium font-headline">Current Status</CardTitle>
+            <CardTitle className={`text-sm font-medium font-headline ${precipStyle.statusTextColorClass}`}>Current Status</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 pt-2">
             {isLoading ? (
               <>
                 <div className="flex items-center space-x-2 py-1">
-                  <Skeleton className="h-6 w-6 rounded-full" />
-                  <Skeleton className="h-6 w-28" />
+                  <Skeleton className="h-6 w-6 rounded-full bg-current opacity-20" />
+                  <Skeleton className="h-6 w-28 bg-current opacity-20" />
                 </div>
                 <div className="flex items-center space-x-2 py-1">
-                  <Skeleton className="h-6 w-6 rounded-full" />
-                  <Skeleton className="h-6 w-32" />
+                  <Skeleton className="h-6 w-6 rounded-full bg-current opacity-20" />
+                  <Skeleton className="h-6 w-32 bg-current opacity-20" />
                 </div>
               </>
             ) : (
               <>
                 <div className="flex items-center space-x-2">
-                  <precipStyle.Icon className={`h-6 w-6 ${precipStyle.color}`} />
-                  <span className={`text-md font-semibold ${precipStyle.color}`}>{precipStyle.label}</span>
+                  <precipStyle.Icon className={`h-6 w-6 ${precipStyle.statusTextColorClass}`} />
+                  <span className={`text-md font-semibold ${precipStyle.statusTextColorClass}`}>{precipStyle.label}</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <aqStyle.Icon className={`h-6 w-6 ${aqStyle.color}`} />
+                  <aqStyle.Icon className={`h-6 w-6 ${aqStyle.color}`} /> {/* Air quality uses its own color scheme based on severity */}
                   <span className={`text-md font-semibold ${aqStyle.color}`}>{aqStyle.label}</span>
                 </div>
               </>
@@ -231,3 +264,4 @@ const RealtimeDataSection: FC = () => {
 };
 
 export default RealtimeDataSection;
+
