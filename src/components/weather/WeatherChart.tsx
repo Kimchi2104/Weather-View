@@ -16,7 +16,7 @@ import {
 import {
   ChartContainer,
   ChartTooltip,
-  ChartTooltipContent,
+  // ChartTooltipContent, // Temporarily comment out
   ChartLegend,
   ChartLegendContent,
   type ChartConfig,
@@ -30,7 +30,7 @@ import type { ChartType } from './HistoricalDataSection';
 export const formatTimestampToDdMmHhMmUTC = (timestamp: number): string => {
   const date = new Date(timestamp);
   const day = date.getUTCDate().toString().padStart(2, '0');
-  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0'); // UTC month is 0-indexed
+  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
   const hours = date.getUTCHours().toString().padStart(2, '0');
   const minutes = date.getUTCMinutes().toString().padStart(2, '0');
   return `${day}/${month} ${hours}:${minutes}`;
@@ -39,7 +39,7 @@ export const formatTimestampToDdMmHhMmUTC = (timestamp: number): string => {
 export const formatTimestampToFullUTC = (timestamp: number): string => {
   const date = new Date(timestamp);
   const day = date.getUTCDate().toString().padStart(2, '0');
-  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0'); // UTC month is 0-indexed
+  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
   const year = date.getUTCFullYear();
   const hours = date.getUTCHours().toString().padStart(2, '0');
   const minutes = date.getUTCMinutes().toString().padStart(2, '0');
@@ -68,9 +68,8 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
       const canvas = await html2canvas(chartRef.current, {
         scale: 2,
         useCORS: true,
-        // Ensure the background of the captured chart is consistent
-        // by temporarily setting it if not already the card background.
-        // However, since chartRef points to CardContent which has bg-card, this should be fine.
+        // Ensure the background matches the card's background
+        // html2canvas captures the current state, so bg-card on CardContent should be picked up.
       });
       
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
@@ -110,12 +109,15 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
       </Card>
     );
   }
-
+  
   const chartConfig = Object.fromEntries(
     selectedMetrics
       .map(key => {
         const config = metricConfigs[key];
-        if (!config) return null; // Handle case where metricConfig might be missing
+        if (!config) {
+            console.warn(`[WeatherChart] No metricConfig found for key: ${key}. Skipping in chartConfig.`);
+            return null;
+        }
         return [
           key,
           {
@@ -163,40 +165,33 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
   const renderChart = () => {
     const commonProps = {
       data: formattedData,
-      margin: { top: 10, right: 30, left: 40, bottom: 30 },
+      margin: { top: 20, right: 30, left: 20, bottom: 20 }, // Simplified margins
       onClick: handleChartClick,
     };
 
+    // Simplified axes
+    const commonXAxis = <XAxis dataKey="timestampDisplay" />;
+    const commonYAxis = <YAxis />;
+    
     const commonComponents = (
       <>
         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-        <XAxis
-          dataKey="timestampDisplay"
-          axisLine={{ stroke: 'hsl(var(--muted-foreground))' }}
-          tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
-          tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-          dy={10}
-        />
-        <YAxis
-          axisLine={{ stroke: 'hsl(var(--muted-foreground))' }}
-          tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
-          tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-          tickFormatter={(value) => typeof value === 'number' ? value.toLocaleString() : String(value)}
-        />
+        {commonXAxis}
+        {commonYAxis}
         <Tooltip
-          content={
-            <ChartTooltipContent
-              indicator={chartType === 'line' ? "line" : "dot"}
-              labelFormatter={(_label, payload) => { 
-                try {
-                  if (payload && payload.length > 0 && payload[0] && payload[0].payload && typeof payload[0].payload.tooltipTimestampFull === 'string') {
-                    return payload[0].payload.tooltipTimestampFull;
-                  }
-                } catch (e) { console.error("Tooltip labelFormatter error:", e); }
-                return 'Details'; 
-              }}
-            />
-          }
+          // content={ // Temporarily use default tooltip
+          //   <ChartTooltipContent
+          //     indicator={chartType === 'line' ? "line" : "dot"}
+          //     labelFormatter={(_label, payload) => { 
+          //       try {
+          //         if (payload && payload.length > 0 && payload[0] && payload[0].payload && typeof payload[0].payload.tooltipTimestampFull === 'string') {
+          //           return payload[0].payload.tooltipTimestampFull;
+          //         }
+          //       } catch (e) { console.error("Tooltip labelFormatter error:", e); }
+          //       return 'Details'; 
+          //     }}
+          //   />
+          // }
           cursor={chartType === 'bar' ? { fill: 'hsl(var(--accent) / 0.3)'} : { stroke: 'hsl(var(--accent))', strokeWidth: 1, strokeDasharray: '3 3' }}
           wrapperStyle={{ outline: 'none', zIndex: 100 }}
         />
@@ -216,7 +211,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
                 <Bar
                   key={key}
                   dataKey={key}
-                  fill={metricConfig.color}
+                  fill={metricConfig.color || chartConfig[key]?.color}
                   name={metricConfig.name}
                   unit={metricConfig.unit}
                   radius={[4, 4, 0, 0]}
@@ -236,7 +231,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
                 <Scatter
                   key={key}
                   dataKey={key}
-                  fill={metricConfig.color}
+                  fill={metricConfig.color || chartConfig[key]?.color}
                   name={metricConfig.name}
                 />
               );
@@ -257,10 +252,10 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
                   key={key}
                   type="monotone"
                   dataKey={key}
-                  stroke={metricConfig.color}
+                  stroke={metricConfig.color || chartConfig[key]?.color}
                   strokeWidth={2}
-                  dot={{ r: 2, fill: metricConfig.color, strokeWidth: 0 }}
-                  activeDot={{ r: 5, strokeWidth: 1, stroke: metricConfig.color }}
+                  dot={{ r: 2, strokeWidth: 0 }} // Simplified dot
+                  activeDot={{ r: 5, strokeWidth: 1 }} // Simplified activeDot
                   name={metricConfig.name}
                   unit={metricConfig.unit}
                   connectNulls={false}
@@ -283,9 +278,8 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
           </CardDescription>
         </div>
       </CardHeader>
-      <CardContent ref={chartRef} className="bg-card"> 
-        <ChartContainer config={chartConfig} className="h-[450px] w-full aspect-auto">
-           {/* The ResponsiveContainer is now handled by ChartContainer itself */}
+      <CardContent ref={chartRef} className="bg-card p-2"> {/* Reduced padding to give chart more space */}
+        <ChartContainer config={chartConfig} className="h-[450px] w-full">
            {renderChart()}
         </ChartContainer>
       </CardContent>
