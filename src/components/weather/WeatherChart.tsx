@@ -37,7 +37,7 @@ interface WeatherChartProps {
 const formatTimestampToDdMmHhMmUTC = (timestamp: number): string => {
   const date = new Date(timestamp);
   const day = date.getUTCDate().toString().padStart(2, '0');
-  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0'); // Months are 0-indexed
   const hours = date.getUTCHours().toString().padStart(2, '0');
   const minutes = date.getUTCMinutes().toString().padStart(2, '0');
   return `${day}/${month} ${hours}:${minutes}`;
@@ -46,7 +46,7 @@ const formatTimestampToDdMmHhMmUTC = (timestamp: number): string => {
 const formatTimestampToFullUTC = (timestamp: number): string => {
   const date = new Date(timestamp);
   const day = date.getUTCDate().toString().padStart(2, '0');
-  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0'); // Months are 0-indexed
   const year = date.getUTCFullYear();
   const hours = date.getUTCHours().toString().padStart(2, '0');
   const minutes = date.getUTCMinutes().toString().padStart(2, '0');
@@ -255,5 +255,3 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
 };
 
 export default WeatherChart;
-
-```
