@@ -1,0 +1,54 @@
+{
+  "rules": {
+    // Default deny all reads and writes at the root for security,
+    // unless explicitly allowed by more specific rules below.
+    ".read": false,
+    ".write": false,
+
+    // ---- USER'S ORIGINAL WILDCARD $uid RULE ----
+    // PLEASE INTEGRATE YOUR ORIGINAL WILDCARD $uid RULE HERE.
+    // How you integrate it depends on its original structure.
+    //
+    // Example 1: If your user data is under a 'users' node:
+    /*
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+        // ... any other rules for user-specific data ...
+      }
+    },
+    */
+    //
+    // Example 2: If your $uid rule is at the root level for other paths:
+    /*
+    "$other_top_level_node_governed_by_uid": {
+      "$uid": { // Or path might be $uid directly if user owns a root node
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    */
+    // Ensure your $uid rules are placed correctly and do not
+    // unintentionally override the 'devices' rule's public read access
+    // or the default deny rules.
+
+    // Rules for the publicly readable device data
+    "devices": {
+      "TGkMhLL4k4ZFBwgOyRVNKe5mTQq1": {
+        "records": {
+          ".read": true,  // Allows public read access to this specific path
+          // Write access to this path:
+          // Currently set to false for public write.
+          // If specific authenticated users (e.g., device owner) or your backend/device
+          // need to write here, you'll need to adjust this rule.
+          // For example, for an owner: ".write": "auth != null && auth.uid === 'DEVICE_OWNER_UID_HERE'"
+          // If writes are handled by a trusted server environment (e.g., using Admin SDK),
+          // then client-side write rules can be restrictive (false).
+          ".write": false
+        }
+      }
+    }
+    // You can add other top-level rules here if needed.
+  }
+}
