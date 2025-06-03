@@ -79,7 +79,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
       const canvas = await html2canvas(chartElementToCapture as HTMLElement, {
         scale: 2,
         useCORS: true,
-        backgroundColor: 'hsl(var(--card))', 
+        backgroundColor: 'hsl(var(--card))',
       });
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
       if (format === 'pdf') {
@@ -98,6 +98,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
       }
     } catch (error) {
       console.error('Error exporting chart:', error);
+      // Consider adding a user-facing toast notification here for export errors
     } finally {
       setIsExporting(false);
     }
@@ -116,7 +117,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
       </Card>
     );
   }
-  
+
   if (!formattedData || formattedData.length === 0 || !selectedMetrics || selectedMetrics.length === 0) {
     return (
       <Card className="shadow-lg">
@@ -132,8 +133,8 @@ const WeatherChart: FC<WeatherChartProps> = ({
       </Card>
     );
   }
-  
-  const commonCartesianProps = { 
+
+  const commonCartesianProps = {
     margin: { top: 5, right: 40, left: 20, bottom: 20 },
   };
 
@@ -158,7 +159,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
       }
     });
   };
-  
+
   const ChartComponent = chartType === 'bar' ? BarChart : chartType === 'scatter' ? ScatterChart : LineChart;
   const chartDynamicKey = `${chartType}-${selectedMetrics.join('-')}-${formattedData.length}`;
 
@@ -184,7 +185,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
     } else {
       displayValue = String(value);
     }
-    
+
     const unitString = (typeof value === 'number' && isFinite(value) && config?.unit) ? ` ${config.unit}` : '';
     return [`${displayValue}${unitString}`, config?.name || name];
   };
@@ -193,35 +194,35 @@ const WeatherChart: FC<WeatherChartProps> = ({
   const renderChart = () => (
       <ChartComponent key={chartDynamicKey} data={formattedData} {...commonCartesianProps}>
         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-        <XAxis 
-          dataKey="timestampDisplay" 
-          stroke="#888888" 
-          tick={{ fill: "hsl(var(--foreground))", fontSize: 11 }} 
-          angle={-45} 
-          textAnchor="end" 
-          dy={10} 
-          height={60} 
-          minTickGap={5} 
+        <XAxis
+          dataKey="timestampDisplay"
+          stroke="#888888"
+          tick={{ fill: "hsl(var(--foreground))", fontSize: 11 }}
+          // angle={-45} // Temporarily removed to test export
+          // textAnchor="end" // Temporarily removed
+          // dy={10} // Temporarily removed
+          height={60} // Keep height to ensure space, adjust if necessary
+          minTickGap={20} // Increased gap to reduce overlap for horizontal labels
           interval="preserveStartEnd"
         />
-        <YAxis 
-          stroke="#888888" 
-          tick={{ fill: "hsl(var(--foreground))", fontSize: 12 }} 
+        <YAxis
+          stroke="#888888"
+          tick={{ fill: "hsl(var(--foreground))", fontSize: 12 }}
           tickFormatter={yAxisTickFormatter}
         />
-        <Tooltip 
-          wrapperStyle={{ backgroundColor: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: "0.25rem", padding: "0.5rem", color: "hsl(var(--popover-foreground))", boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)', zIndex: 1000 }} 
-          labelStyle={{ fontWeight: "bold", color: "hsl(var(--popover-foreground))", marginBottom: "0.25rem" }} 
-          itemStyle={{ color: "hsl(var(--popover-foreground))" }} 
-          labelFormatter={(label, payload) => payload?.[0]?.payload?.tooltipTimestampFull || label} 
+        <Tooltip
+          wrapperStyle={{ backgroundColor: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: "0.25rem", padding: "0.5rem", color: "hsl(var(--popover-foreground))", boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)', zIndex: 1000 }}
+          labelStyle={{ fontWeight: "bold", color: "hsl(var(--popover-foreground))", marginBottom: "0.25rem" }}
+          itemStyle={{ color: "hsl(var(--popover-foreground))" }}
+          labelFormatter={(label, payload) => payload?.[0]?.payload?.tooltipTimestampFull || label}
           formatter={tooltipFormatter}
         />
-        <Legend 
-           wrapperStyle={{ paddingTop: '0px', paddingBottom: '20px' }} 
-           iconSize={14} 
-           layout="horizontal" 
-           align="center" 
-           verticalAlign="top" 
+        <Legend
+           wrapperStyle={{ paddingTop: '0px', paddingBottom: '20px' }}
+           iconSize={14}
+           layout="horizontal"
+           align="center"
+           verticalAlign="top"
         />
         {renderChartSpecificElements()}
       </ChartComponent>
