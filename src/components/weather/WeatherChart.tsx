@@ -2,7 +2,7 @@
 "use client";
 
 import type { FC } from 'react';
-import { useRef, useState, useMemo } from 'react';
+import { useRef, useState, useMemo, useEffect } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -73,12 +73,17 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
   const exportChart = async (format: 'png' | 'jpeg' | 'pdf') => {
     if (!chartRef.current) return;
+    const chartWrapper = chartRef.current.querySelector('.recharts-wrapper');
+    if (!chartWrapper) {
+      console.error("Recharts wrapper not found for export.");
+      return;
+    }
     setIsExporting(true);
     try {
-      const canvas = await html2canvas(chartRef.current.querySelector('.recharts-wrapper') || chartRef.current, {
+      const canvas = await html2canvas(chartWrapper as HTMLElement, {
         scale: 2,
         useCORS: true,
-        backgroundColor: 'hsl(var(--card))', // Ensures exported background matches card
+        backgroundColor: 'hsl(var(--card))', 
       });
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
       if (format === 'pdf') {
@@ -131,9 +136,9 @@ const WeatherChart: FC<WeatherChartProps> = ({
       </Card>
     );
   }
-
-  const commonCartesianProps = {
-    margin: { top: 20, right: 40, left: 20, bottom: 100 },
+  
+  const commonCartesianProps = { 
+    margin: { top: 20, right: 40, left: 20, bottom: 150 }, // Increased bottom margin
   };
 
   const renderChartSpecificElements = () => {
@@ -146,9 +151,9 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
       switch (chartType) {
         case 'bar':
-          return <Bar key={key} dataKey={key} fill={color} name={name} radius={[4, 4, 0, 0]} />;
+          return <Bar key={key} dataKey={key} fill={color} name={name} radius={[4, 4, 0, 0]} onClick={(payload) => onPointClick && payload && onPointClick(payload as unknown as WeatherDataPoint)} />;
         case 'scatter':
-          return <Scatter key={key} dataKey={key} fill={color} name={name} />;
+          return <Scatter key={key} dataKey={key} fill={color} name={name} onClick={(payload) => onPointClick && payload && onPointClick(payload as unknown as WeatherDataPoint)} />;
         case 'line':
         default:
           return <Line key={key} type="monotone" dataKey={key} stroke={color} name={name} dot={false} activeDot={{ r: 6 }} onClick={(payload) => onPointClick && payload && onPointClick(payload as unknown as WeatherDataPoint)}/>;
@@ -156,12 +161,11 @@ const WeatherChart: FC<WeatherChartProps> = ({
     });
   };
   
-  const renderChart = () => {
-    const chartComponentKey = `${chartType}-${selectedMetrics.join('-')}-${formattedData.length}`;
-    const ChartComponent = chartType === 'bar' ? BarChart : chartType === 'scatter' ? ScatterChart : LineChart;
+  const ChartComponent = chartType === 'bar' ? BarChart : chartType === 'scatter' ? ScatterChart : LineChart;
+  const chartKey = `${chartType}-${selectedMetrics.join('-')}-${formattedData.length}`;
 
-    return (
-      <ChartComponent key={chartComponentKey} data={formattedData} {...commonCartesianProps}>
+  const renderChart = () => (
+      <ChartComponent key={chartKey} data={formattedData} {...commonCartesianProps}>
         <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
         <XAxis 
           dataKey="timestampDisplay" 
@@ -171,7 +175,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           textAnchor="end" 
           dy={10} 
           minTickGap={5} 
-          interval="preserveStartEnd" 
+          interval="preserveStartEnd"
         />
         <YAxis 
           stroke="#888888" 
@@ -184,16 +188,15 @@ const WeatherChart: FC<WeatherChartProps> = ({
           itemStyle={{ color: "#333333" }} 
           labelFormatter={(label, payload) => payload?.[0]?.payload?.tooltipTimestampFull || label} 
           formatter={(value: any, name: any, entry: any) => { 
-            const dataKey = entry.dataKey; // Use entry.dataKey to get the correct metric key
+            const dataKey = entry.dataKey;
             const config = metricConfigs[dataKey as MetricKey]; 
             return [`${typeof value === 'number' ? value.toFixed(config?.isString ? 0 : (config?.unit === 'ppm' ? 0 : 2) ) : value}${config?.unit || ''}`, config?.name || name]; 
           }} 
         />
-        <Legend wrapperStyle={{ paddingTop: "20px", paddingBottom: "10px" }} />
+        <Legend wrapperStyle={{ paddingTop: "30px", paddingBottom: "10px" }} /> 
         {renderChartSpecificElements()}
       </ChartComponent>
-    );
-  };
+  );
 
   return (
     <Card className="shadow-lg">
@@ -201,17 +204,17 @@ const WeatherChart: FC<WeatherChartProps> = ({
         <div>
           <CardTitle className="font-headline">Historical Data Trends</CardTitle>
           <CardDescription>
-            Displaying {chartType.charAt(0).toUpperCase() + chartType.slice(1)} Chart for selected metrics.
+            Displaying {chartType.charAt(0).toUpperCase() + chartType.slice(1)} Chart for selected metrics. Click data points to use for AI forecast.
           </CardDescription>
         </div>
       </CardHeader>
       <CardContent className="p-4">
-        <div ref={chartRef} className="w-full h-[550px] bg-card"> {/* Changed bg-background to bg-card */}
+        <div ref={chartRef} className="w-full h-[550px] bg-card">
           <ResponsiveContainer width="100%" height="100%">
             {renderChart()}
           </ResponsiveContainer>
         </div>
-        <div className="flex justify-center -mt-10"> {/* Keep this positioning for the export button */}
+        <div className="flex justify-center -mt-10">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="default" disabled={isExporting || !formattedData || formattedData.length === 0} className="min-w-[150px]">
@@ -245,4 +248,3 @@ const WeatherChart: FC<WeatherChartProps> = ({
 };
 
 export default WeatherChart;
-
