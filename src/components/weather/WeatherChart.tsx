@@ -69,7 +69,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
       const canvas = await html2canvas(chartRef.current, {
         scale: 2,
         useCORS: true,
-        backgroundColor: null, 
+        backgroundColor: null,
       });
       
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
@@ -177,7 +177,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
           angle={-30}
           textAnchor="end"
           minTickGap={20}
-          dy={10}
+          dy={10} // Adjusted from height to dy for better control with angle
       />
       <YAxis 
           stroke="hsl(var(--muted-foreground))"
@@ -190,7 +190,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
       <Tooltip
         content={
           <ChartTooltipContent
-            indicator={chartType === 'line' ? "line" : "dot"} // line for line, dot for bar/scatter
+            indicator={chartType === 'line' ? "line" : "dot"}
             labelFormatter={(_label, payload) => { 
               try {
                 if (payload && payload.length > 0 && payload[0] && payload[0].payload && typeof payload[0].payload.tooltipTimestampFull === 'string') {
@@ -206,7 +206,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
       />
       <ChartLegend 
         content={<ChartLegendContent />} 
-        wrapperStyle={{ paddingTop: "40px" }} 
+        wrapperStyle={{ paddingTop: "40px" }}
       />
     </>
   );
@@ -229,7 +229,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
             activeDot={{ r: 5, strokeWidth: 2, fill: 'hsl(var(--background))', stroke: color }}
             name={metricConfig.name}
             unit={metricConfig.unit}
-            connectNulls={false} // Consider making this configurable if needed
+            connectNulls={false}
           />
         );
       } else if (chartType === 'bar') {
@@ -240,17 +240,16 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
             fill={color}
             name={metricConfig.name}
             unit={metricConfig.unit}
-            radius={[4, 4, 0, 0]} // Rounded top corners for bars
+            radius={[4, 4, 0, 0]}
           />
         );
       } else if (chartType === 'scatter') {
         return (
           <Scatter
             key={key}
-            dataKey={key} // For Scatter, dataKey refers to the Y-axis value
+            dataKey={key}
             fill={color}
             name={metricConfig.name}
-            // shape="circle" // Default is circle, can customize
           />
         );
       }
@@ -264,11 +263,9 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
     } else if (chartType === 'bar') {
       return <BarChart {...commonCartesianProps}>{commonAxisAndGridComponents}{renderChartSpecificElements()}</BarChart>;
     } else if (chartType === 'scatter') {
-      // ScatterChart needs XAxis to be numeric if dataKey for X is also a metric.
-      // Here, XAxis is time, so it's fine.
       return <ScatterChart {...commonCartesianProps}>{commonAxisAndGridComponents}{renderChartSpecificElements()}</ScatterChart>;
     }
-    return <LineChart {...commonCartesianProps}>{commonAxisAndGridComponents}{renderChartSpecificElements()}</LineChart>; // Default to line
+    return <LineChart {...commonCartesianProps}>{commonAxisAndGridComponents}{renderChartSpecificElements()}</LineChart>; 
   };
 
 
@@ -285,7 +282,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
       </CardHeader>
       <CardContent className="p-4">
         <ChartContainer ref={chartRef} config={chartConfig} className="h-[450px] w-full aspect-auto">
-            {renderChart()}
+           {renderChart()}
         </ChartContainer>
         <div className="flex justify-center -mt-10">
           <DropdownMenu>
