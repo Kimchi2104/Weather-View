@@ -165,37 +165,24 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
 
   const commonAxisAndGridComponents = (
     <>
-      <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+      <CartesianGrid stroke="#eeeeee" strokeDasharray="3 3" />
       <XAxis
         dataKey="timestampDisplay"
         stroke="#888888" 
-        axisLine={false}
-        tickLine={false}
-        tick={{ fill: '#333333', fontSize: 12 }}
+        tick={{ fill: "#333333", fontSize: 12 }}
         angle={-45}
         textAnchor="end"
         dy={10}
       />
       <YAxis
         stroke="#888888" 
-        axisLine={false}
-        tickLine={false}
-        tick={{ fill: '#333333', fontSize: 12 }}
+        tick={{ fill: "#333333", fontSize: 12 }}
         tickFormatter={(value) => (typeof value === 'number' ? value.toFixed(0) : String(value))}
       />
       <Tooltip
-        cursor={{ stroke: 'hsl(var(--accent))', strokeWidth: 1, strokeDasharray: '3 3' }}
-        wrapperStyle={{ 
-            zIndex: 1000, 
-            backgroundColor: '#ffffff', 
-            border: '1px solid #cccccc', 
-            borderRadius: 'var(--radius)', 
-            padding: '10px',
-            color: '#000000',
-            boxShadow: '2px 2px 5px rgba(0,0,0,0.1)'
-        }}
-        labelStyle={{ fontWeight: '600', marginBottom: '0.25rem', fontSize: '0.875rem' }}
-        itemStyle={{ fontSize: '0.875rem' }}
+        wrapperStyle={{ backgroundColor: "#ffffff", border: "1px solid #cccccc", borderRadius: "3px", padding: "10px", zIndex: 1000 }}
+        labelStyle={{ fontWeight: "bold", color: "#333333", marginBottom: "4px" }}
+        itemStyle={{ color: "#333333" }}
         formatter={(value: any, name: any, entry: any) => {
             const metricKey = name as MetricKey;
             const config = metricConfigs[metricKey];
@@ -209,6 +196,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
             }
             return String(label); 
         }}
+        cursor={{ stroke: 'hsl(var(--accent))', strokeWidth: 1, strokeDasharray: '3 3' }}
       />
       <ChartLegend 
         content={<ChartLegendContent />} 
@@ -231,9 +219,9 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
             dataKey={key}
             stroke={color}
             strokeWidth={2}
-            dot={false}
+            dot={false} // Keep dots off for performance with potentially many points
             name={metricConfig.name}
-            connectNulls={false}
+            connectNulls={false} 
           />
         );
       } else if (chartType === 'bar') {
@@ -243,7 +231,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
             dataKey={key}
             fill={color}
             name={metricConfig.name}
-            radius={[4, 4, 0, 0]}
+            radius={[4, 4, 0, 0]} // Keep rounded bars for aesthetics
           />
         );
       } else if (chartType === 'scatter') {
@@ -270,9 +258,12 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
     } else if (chartType === 'scatter') {
       return <ScatterChart {...chartSpecificProps}>{commonAxisAndGridComponents}{renderChartSpecificElements()}</ScatterChart>;
     }
+    // Default to LineChart if chartType is somehow invalid, though the select should prevent this.
     return <LineChart {...chartSpecificProps}>{commonAxisAndGridComponents}{renderChartSpecificElements()}</LineChart>; 
   };
 
+  // The key prop here is crucial for forcing a re-render when chartType or selectedMetrics change,
+  // which can help Recharts correctly initialize and render.
   const chartContainerKey = `${chartType}-${selectedMetrics.join('-')}`;
 
   return (
@@ -330,4 +321,3 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
 };
 
 export default WeatherChart;
-
