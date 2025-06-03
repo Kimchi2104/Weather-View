@@ -124,7 +124,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
         <CardHeader className="pb-3">
           <CardTitle className="font-headline">Historical Data Trends</CardTitle>
           <CardDescription>
-            Select metrics and a date range to display data. Current Chart: {chartType.charAt(0).toUpperCase() + chartType.slice(1)}
+            Displaying {chartType.charAt(0).toUpperCase() + chartType.slice(1)} Chart for selected metrics. Click data points to use for AI forecast.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-4 pt-0 h-[450px] flex items-center justify-center">
@@ -198,11 +198,11 @@ const WeatherChart: FC<WeatherChartProps> = ({
           dataKey="timestampDisplay"
           stroke="#888888"
           tick={{ fill: "hsl(var(--foreground))", fontSize: 11 }}
-          // angle={-45} // Temporarily removed to test export
-          // textAnchor="end" // Temporarily removed
-          // dy={10} // Temporarily removed
-          height={60} // Keep height to ensure space, adjust if necessary
-          minTickGap={20} // Increased gap to reduce overlap for horizontal labels
+          // angle={-45}
+          // textAnchor="end"
+          // dy={10}
+          height={60}
+          minTickGap={20} 
           interval="preserveStartEnd"
         />
         <YAxis
@@ -210,6 +210,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           tick={{ fill: "hsl(var(--foreground))", fontSize: 12 }}
           tickFormatter={yAxisTickFormatter}
         />
+        {/*
         <Tooltip
           wrapperStyle={{ backgroundColor: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: "0.25rem", padding: "0.5rem", color: "hsl(var(--popover-foreground))", boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)', zIndex: 1000 }}
           labelStyle={{ fontWeight: "bold", color: "hsl(var(--popover-foreground))", marginBottom: "0.25rem" }}
@@ -217,6 +218,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           labelFormatter={(label, payload) => payload?.[0]?.payload?.tooltipTimestampFull || label}
           formatter={tooltipFormatter}
         />
+        */}
         <Legend
            wrapperStyle={{paddingBottom: '20px', paddingTop: '0px'}}
            iconSize={14}
@@ -278,3 +280,4 @@ const WeatherChart: FC<WeatherChartProps> = ({
 };
 
 export default WeatherChart;
+
