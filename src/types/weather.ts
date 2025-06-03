@@ -5,16 +5,16 @@ export interface WeatherDataPoint {
   temperature: number; // °C
   humidity: number; // %
   lux: number; // lux
-  airQuality: string; // e.g., "Safe Air"
+  aqi: number; // Air Quality Index from MQ135, in PPM
   pressure?: number; // hPa
 }
 
 // Represents the raw data structure from Firebase before transformation
 export interface RawFirebaseDataPoint {
-  airQuality?: string; // e.g., "Safe Air"
+  airQuality?: string; // This might be legacy or a different sensor's output, main AQI source is mq135PPM
   humidity?: number;
   lux?: number;
-  mq135PPM?: number;
+  mq135PPM?: number; // Source for AQI
   pressure?: number; // e.g., 1007.10968
   rainAnalog?: number;
   rainStatus?: string; // e.g., "No Rain"
@@ -33,14 +33,13 @@ export interface RealtimeData {
   [key: string]: WeatherDataPoint;
 }
 
-export type MetricKey = 'temperature' | 'humidity' | 'precipitation' | 'lux' | 'airQuality' | 'pressure';
+export type MetricKey = 'temperature' | 'humidity' | 'precipitation' | 'lux' | 'aqi' | 'pressure';
 
 export interface MetricConfig {
   name: string;
-  unit: string; // Unit can be empty for categorical data like string-based airQuality or precipitation
+  unit: string;
   Icon: React.ElementType;
   color: string;
-  healthyMin?: number; // Not applicable for string-based airQuality or precipitation
-  healthyMax?: number; // Not applicable for string-based airQuality or precipitation
+  healthyMin?: number;
+  healthyMax?: number;
 }
-

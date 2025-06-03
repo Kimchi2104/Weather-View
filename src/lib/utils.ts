@@ -55,15 +55,6 @@ export function transformRawDataToWeatherDataPoint(rawData: RawFirebaseDataPoint
     return null;
   }
 
-  let airQualityValue: string;
-  if (typeof rawData.airQuality === 'string') {
-    airQualityValue = rawData.airQuality;
-  } else {
-    console.warn(`[transformRawDataToWeatherDataPoint] airQuality is missing or not a string for (key: ${recordKey || 'N/A'}). Defaulting to "Unknown". Value:`, rawData.airQuality);
-    airQualityValue = "Unknown";
-  }
-  console.log(`[transformRawDataToWeatherDataPoint] Air Quality for (key: ${recordKey || 'N/A'}):`, airQualityValue);
-
   let precipitationValue: string;
   if (typeof rawData.rainStatus === 'string') {
     precipitationValue = rawData.rainStatus;
@@ -76,7 +67,12 @@ export function transformRawDataToWeatherDataPoint(rawData: RawFirebaseDataPoint
   const temperatureValue = typeof rawData.temperature === 'number' ? rawData.temperature : 0;
   const humidityValue = typeof rawData.humidity === 'number' ? rawData.humidity : 0;
   const luxValue = typeof rawData.lux === 'number' ? rawData.lux : 0;
-  const pressureValue = typeof rawData.pressure === 'number' ? rawData.pressure : undefined; // Keep as undefined if not a number
+  
+  const aqiValue = typeof rawData.mq135PPM === 'number' ? rawData.mq135PPM : 0;
+  if (typeof rawData.mq135PPM !== 'number') console.warn(`[transformRawDataToWeatherDataPoint] mq135PPM (for AQI) is not a number for (key: ${recordKey || 'N/A'}). Defaulting to 0. Value:`, rawData.mq135PPM);
+  console.log(`[transformRawDataToWeatherDataPoint] AQI (from mq135PPM) for (key: ${recordKey || 'N/A'}):`, aqiValue);
+
+  const pressureValue = typeof rawData.pressure === 'number' ? rawData.pressure : undefined; 
 
   if (typeof rawData.temperature !== 'number') console.warn(`[transformRawDataToWeatherDataPoint] Temperature is not a number for (key: ${recordKey || 'N/A'}). Defaulting to 0. Value:`, rawData.temperature);
   if (typeof rawData.humidity !== 'number') console.warn(`[transformRawDataToWeatherDataPoint] Humidity is not a number for (key: ${recordKey || 'N/A'}). Defaulting to 0. Value:`, rawData.humidity);
@@ -89,9 +85,9 @@ export function transformRawDataToWeatherDataPoint(rawData: RawFirebaseDataPoint
     temperature: temperatureValue,
     humidity: humidityValue,
     precipitation: precipitationValue,
-    airQuality: airQualityValue,
+    aqi: aqiValue,
     lux: luxValue,
-    ...(pressureValue !== undefined && { pressure: pressureValue }), // Conditionally add pressure
+    ...(pressureValue !== undefined && { pressure: pressureValue }),
   };
 
   console.log(`[transformRawDataToWeatherDataPoint] Successfully transformed point for (key: ${recordKey || 'N/A'}):`, JSON.parse(JSON.stringify(transformedPoint)));

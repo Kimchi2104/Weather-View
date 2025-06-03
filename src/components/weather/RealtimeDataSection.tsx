@@ -13,8 +13,8 @@ import { transformRawDataToWeatherDataPoint } from '@/lib/utils';
 const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
   temperature: { name: 'Temperature', unit: '°C', Icon: Thermometer, color: 'var(--chart-1)', healthyMin: 0, healthyMax: 35 },
   humidity: { name: 'Humidity', unit: '%', Icon: Droplets, color: 'var(--chart-2)', healthyMin: 30, healthyMax: 70 },
-  precipitation: { name: 'Precipitation', unit: '', Icon: CloudRain, color: 'var(--chart-3)' }, // Unit empty for string data
-  airQuality: { name: 'Air Quality', unit: '', Icon: Wind, color: 'var(--chart-4)' }, // No min/max for string categories
+  precipitation: { name: 'Precipitation', unit: '', Icon: CloudRain, color: 'var(--chart-3)' }, 
+  aqi: { name: 'AQI', unit: 'ppm', Icon: Wind, color: 'var(--chart-4)', healthyMin: 0, healthyMax: 300 }, // Example range
   lux: { name: 'Light Level', unit: 'lux', Icon: SunDim, color: 'var(--chart-5)' },
   pressure: { name: 'Pressure', unit: 'hPa', Icon: Gauge, color: 'hsl(120, 60%, 45%)', healthyMin: 980, healthyMax: 1040 },
 };
@@ -79,7 +79,7 @@ const RealtimeDataSection: FC = () => {
     };
   }, [firebaseDataPath]);
 
-  const metricsOrder: MetricKey[] = ['temperature', 'humidity', 'precipitation', 'airQuality', 'lux', 'pressure'];
+  const metricsOrder: MetricKey[] = ['temperature', 'humidity', 'precipitation', 'aqi', 'lux', 'pressure'];
 
   return (
     <section className="mb-8">
@@ -100,7 +100,7 @@ const RealtimeDataSection: FC = () => {
             <RealtimeDataCard
               key={key}
               metricKey={key}
-              value={value as number | string | null} // Cast to allow string for airQuality and precipitation
+              value={value as number | string | null}
               unit={config.unit}
               label={config.name}
               healthyMin={config.healthyMin}

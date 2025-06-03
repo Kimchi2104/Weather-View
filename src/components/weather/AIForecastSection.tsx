@@ -14,11 +14,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from '@/components/ui/skeleton';
 import type { WeatherDataPoint } from '@/types/weather';
 
-// Sample historical data updated for string airQuality and precipitation
 const sampleHistoricalData: WeatherDataPoint[] = [
-  { timestamp: Date.now() - 86400000 * 2, temperature: 22, humidity: 70, precipitation: "Rain", airQuality: "Safe Air", lux: 100, pressure: 1010 },
-  { timestamp: Date.now() - 86400000, temperature: 24, humidity: 65, precipitation: "No Rain", airQuality: "Moderate", lux: 150, pressure: 1012 },
-  { timestamp: Date.now(), temperature: 25, humidity: 60, precipitation: "No Rain", airQuality: "Safe Air", lux: 120, pressure: 1011 },
+  { timestamp: Date.now() - 86400000 * 2, temperature: 22, humidity: 70, precipitation: "Rain", aqi: 60, lux: 100, pressure: 1010 },
+  { timestamp: Date.now() - 86400000, temperature: 24, humidity: 65, precipitation: "No Rain", aqi: 45, lux: 150, pressure: 1012 },
+  { timestamp: Date.now(), temperature: 25, humidity: 60, precipitation: "No Rain", aqi: 50, lux: 120, pressure: 1011 },
 ];
 
 interface AIForecastSectionProps {
@@ -33,10 +32,17 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
   const { toast } = useToast();
 
   useEffect(() => {
-    if (initialDataForForecast === null || initialDataForForecast === undefined) {
-      // If no specific data is passed, and current textarea isn't default sample, do nothing
-      // or optionally revert to sample data if that's desired behavior for null prop
-      // setCustomHistoricalData(JSON.stringify(sampleHistoricalData, null, 2));
+    if (initialDataForForecast === null) {
+       // Clear textarea if explicitly set to null (e.g. brush cleared)
+       setCustomHistoricalData('');
+       toast({
+         title: "Chart Selection Cleared",
+         description: "Historical data input for AI forecast has been cleared.",
+         duration: 3000,
+       });
+    } else if (initialDataForForecast === undefined) {
+      // No specific data passed, do nothing or revert to sample if current isn't default
+      // For now, we do nothing to preserve manual input unless prop changes.
     } else if (initialDataForForecast.length > 0) {
       setCustomHistoricalData(JSON.stringify(initialDataForForecast, null, 2));
       toast({
@@ -49,16 +55,18 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
           </div>
         ),
       });
-    } else if (initialDataForForecast.length === 0) {
-      // This case handles when the brush selection is cleared
-      setCustomHistoricalData(''); // Clear the textarea
-      toast({
-        title: "Chart Selection Cleared",
-        description: "Historical data input for AI forecast has been cleared.",
-        duration: 3000,
-      });
+    } else if (initialDataForForecast.length === 0 && customHistoricalData !== '') {
+       // This case handles when the brush selection results in empty array
+       // and textarea wasn't already empty
+       setCustomHistoricalData(''); 
+       toast({
+         title: "Chart Selection Cleared or Empty",
+         description: "Historical data input for AI forecast has been cleared.",
+         duration: 3000,
+       });
     }
-  }, [initialDataForForecast, toast]);
+  }, [initialDataForForecast, toast, customHistoricalData]);
+
 
   const handleGenerateForecast = async () => {
     setIsLoading(true);
@@ -68,17 +76,17 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
     try {
       const dataToParse = customHistoricalData.trim() === '' ? JSON.stringify(sampleHistoricalData, null, 2) : customHistoricalData;
       const parsedData = JSON.parse(dataToParse);
-      // Updated validation to check for airQuality and precipitation as strings
+      
       if (!Array.isArray(parsedData) || !parsedData.every(item =>
         typeof item.timestamp === 'number' &&
         typeof item.temperature === 'number' &&
         typeof item.humidity === 'number' &&
-        typeof item.precipitation === 'string' && // Check for string
-        typeof item.airQuality === 'string' && // Check for string
+        typeof item.precipitation === 'string' &&
+        typeof item.aqi === 'number' && // Check for aqi as number
         typeof item.lux === 'number' &&
         (item.pressure === undefined || typeof item.pressure === 'number')
       )) {
-        throw new Error("Data does not conform to expected WeatherDataPoint structure (airQuality and precipitation should be strings).");
+        throw new Error("Data does not conform to expected WeatherDataPoint structure (aqi should be number, precipitation should be string).");
       }
       historicalDataToUse = dataToParse;
        if (customHistoricalData.trim() === '') {
@@ -152,7 +160,7 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
               className="mt-1 font-mono text-xs"
             />
             <p className="text-xs text-muted-foreground mt-1">
-              Each point should include: timestamp (number), temperature (number), humidity (number), precipitation (string, e.g., "No Rain"), airQuality (string, e.g., "Safe Air"), lux (number). Pressure (number) is optional.
+              Each point should include: timestamp (number), temperature (number), humidity (number), precipitation (string, e.g., "No Rain"), aqi (number, in PPM), lux (number). Pressure (number) is optional.
             </p>
           </div>
 

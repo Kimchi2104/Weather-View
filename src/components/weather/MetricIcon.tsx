@@ -14,7 +14,7 @@ const iconMap: Record<MetricKey | 'alert' | 'unknown', React.ElementType> = {
   temperature: Thermometer,
   humidity: Droplets,
   lux: SunDim,
-  airQuality: Wind, // Changed from airQualityIndex
+  aqi: Wind, 
   pressure: Gauge,
   alert: AlertTriangle,
   unknown: HelpCircle,
