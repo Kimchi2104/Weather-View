@@ -2,7 +2,7 @@
 "use client";
 
 import type { FC } from 'react';
-import { useRef, useState, useMemo } from 'react';
+import { useRef, useState, useMemo, useEffect } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -58,19 +58,23 @@ const WeatherChart: FC<WeatherChartProps> = ({
   const chartRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
 
-  // console.log("[WeatherChart] Props:", { dataLength: data?.length, selectedMetrics, chartType, isLoading });
+  // useEffect(() => {
+  //   console.log("[WeatherChart] Props received:", { dataLength: data?.length, selectedMetrics, chartType, isLoading });
+  // }, [data, selectedMetrics, chartType, isLoading]);
 
   const formattedData = useMemo(() => {
-    if (!data) return [];
+    if (!data) {
+      // console.log("[WeatherChart] formattedData: data is null or undefined, returning []");
+      return [];
+    }
     const processed = data.map((point) => ({
       ...point,
       timestampDisplay: formatTimestampToDdMmHhMmUTC(point.timestamp),
       tooltipTimestampFull: formatTimestampToFullUTC(point.timestamp),
     }));
-    // console.log("[WeatherChart] Formatted Data (first 3):", processed.slice(0,3));
+    // console.log("[WeatherChart] formattedData (first 3):", processed.slice(0,3));
     return processed;
   }, [data]);
-
 
   const exportChart = async (format: 'png' | 'jpeg' | 'pdf') => {
     if (!chartRef.current) return;
@@ -125,7 +129,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
   if (!formattedData || formattedData.length === 0 || !selectedMetrics || selectedMetrics.length === 0) {
     return (
       <Card className="shadow-lg">
-        <CardHeader>
+        <CardHeader className="pb-3">
           <CardTitle className="font-headline">Historical Data Trends</CardTitle>
           <CardDescription>
             Select metrics and a date range to display data. Current Chart: {chartType.charAt(0).toUpperCase() + chartType.slice(1)}
@@ -139,7 +143,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
   }
   
   const commonCartesianProps = { 
-    margin: { top: 5, right: 40, left: 20, bottom: 80 }, // Reduced top margin
+    margin: { top: 5, right: 40, left: 20, bottom: 80 },
   };
 
   const renderChartSpecificElements = () => {
@@ -163,16 +167,15 @@ const WeatherChart: FC<WeatherChartProps> = ({
   };
   
   const ChartComponent = chartType === 'bar' ? BarChart : chartType === 'scatter' ? ScatterChart : LineChart;
-  // Using a key ensures React remounts the chart if these crucial aspects change, helping with Recharts re-rendering
   const chartDynamicKey = `${chartType}-${selectedMetrics.join('-')}-${formattedData.length}`;
 
   const renderChart = () => (
       <ChartComponent key={chartDynamicKey} data={formattedData} {...commonCartesianProps}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
         <XAxis 
           dataKey="timestampDisplay" 
           stroke="#888888" 
-          tick={{ fill: "#555555", fontSize: 11 }} 
+          tick={{ fill: "hsl(var(--foreground))", fontSize: 11 }} 
           angle={-45} 
           textAnchor="end" 
           dy={10} 
@@ -181,13 +184,13 @@ const WeatherChart: FC<WeatherChartProps> = ({
         />
         <YAxis 
           stroke="#888888" 
-          tick={{ fill: "#555555", fontSize: 12 }} 
+          tick={{ fill: "hsl(var(--foreground))", fontSize: 12 }} 
           tickFormatter={(value) => (typeof value === 'number' ? value.toFixed(0) : String(value))} 
         />
         <Tooltip 
-          wrapperStyle={{ backgroundColor: "#ffffff", border: "1px solid #cccccc", borderRadius: "3px", padding: "10px", color: "#000000", boxShadow: '2px 2px 5px rgba(0,0,0,0.1)', zIndex: 1000 }} 
-          labelStyle={{ fontWeight: "bold", color: "#333333", marginBottom: "4px" }} 
-          itemStyle={{ color: "#333333" }} 
+          wrapperStyle={{ backgroundColor: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: "0.25rem", padding: "0.5rem", color: "hsl(var(--popover-foreground))", boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)', zIndex: 1000 }} 
+          labelStyle={{ fontWeight: "bold", color: "hsl(var(--popover-foreground))", marginBottom: "0.25rem" }} 
+          itemStyle={{ color: "hsl(var(--popover-foreground))" }} 
           labelFormatter={(label, payload) => payload?.[0]?.payload?.tooltipTimestampFull || label} 
           formatter={(value: any, name: any, entry: any) => { 
             const dataKey = entry.dataKey;
@@ -196,11 +199,11 @@ const WeatherChart: FC<WeatherChartProps> = ({
           }} 
         />
         <Legend 
-          wrapperStyle={{ paddingTop: '0px', paddingBottom: '20px' }} // Reduced paddingTop
-          iconSize={14} 
-          layout="horizontal" 
-          align="center" 
-          verticalAlign="top" 
+           wrapperStyle={{ paddingTop: '0px', paddingBottom: '20px' }} 
+           iconSize={14} 
+           layout="horizontal" 
+           align="center" 
+           verticalAlign="top" 
         />
         {renderChartSpecificElements()}
       </ChartComponent>
@@ -208,7 +211,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
   return (
     <Card className="shadow-lg">
-      <CardHeader>
+      <CardHeader className="pb-3">
         <div>
           <CardTitle className="font-headline">Historical Data Trends</CardTitle>
           <CardDescription>
@@ -216,7 +219,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           </CardDescription>
         </div>
       </CardHeader>
-      <CardContent className="p-4">
+      <CardContent className="p-4 pt-0">
         <div ref={chartRef} className="w-full h-[550px] bg-card">
           <ResponsiveContainer width="100%" height="100%">
             {renderChart()}
