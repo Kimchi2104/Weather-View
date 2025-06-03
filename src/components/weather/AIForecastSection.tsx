@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { generateWeatherForecast, type GenerateWeatherForecastInput, type GenerateWeatherForecastOutput } from '@/ai/flows/generate-weather-forecast';
-import { Wand2, Thermometer, CloudDrizzle, WindIcon, CheckCircle } from 'lucide-react'; 
+import { Wand2, Thermometer, CloudDrizzle, WindIcon, CheckCircle, Leaf } from 'lucide-react'; 
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from '@/components/ui/skeleton';
 import type { WeatherDataPoint } from '@/types/weather'; 
@@ -36,23 +36,28 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
     if (initialDataForForecast && initialDataForForecast.length > 0) {
       setCustomHistoricalData(JSON.stringify(initialDataForForecast, null, 2));
       toast({
-        title: "Historical Data Populated",
-        description: `Data from chart selection (${initialDataForForecast.length} point(s)) has been loaded into the forecast generator.`,
+        title: "Historical Data Populated for AI Forecast",
+        description: `${initialDataForForecast.length} data point(s) from chart selection loaded.`,
         action: (
           <div className="flex items-center">
             <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-            <span>Loaded</span>
+            <span>Data Loaded</span>
           </div>
         ),
       });
-      // Optionally, auto-scroll to this section or highlight the textarea
       const textareaElement = document.getElementById("historical-data");
       if (textareaElement) {
         textareaElement.focus();
         // textareaElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
-    } else if (initialDataForForecast === null) { // Explicitly null means clear or no selection
-        // setCustomHistoricalData(JSON.stringify(sampleHistoricalData, null, 2)); // Optionally reset to sample
+    } else if (initialDataForForecast && initialDataForForecast.length === 0) {
+      // This case handles when the brush is cleared or selection is empty
+      // setCustomHistoricalData(JSON.stringify(sampleHistoricalData, null, 2)); // Optionally reset to sample or clear
+       toast({
+        title: "Historical Data Cleared",
+        description: "Forecast input has been cleared or no data selected from chart.",
+        duration: 3000,
+      });
     }
   }, [initialDataForForecast, toast]);
 
@@ -69,7 +74,7 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
         typeof item.humidity === 'number' &&
         typeof item.precipitation === 'number' &&
         typeof item.airQualityIndex === 'number' &&
-        typeof item.lux === 'number'
+        typeof item.lux === 'number' // Ensure 'lux' is checked as per WeatherDataPoint
       )) {
         throw new Error("Data does not conform to expected WeatherDataPoint structure.");
       }
@@ -148,10 +153,11 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
           
           {isLoading && (
             <div className="space-y-3 pt-2 bg-muted/50 p-4 rounded-md">
-              <Skeleton className="h-5 w-1/3" />
+              <Skeleton className="h-5 w-1/3 mb-2" />
               <Skeleton className="h-4 w-full" />
               <Skeleton className="h-4 w-5/6" />
               <Skeleton className="h-4 w-2/3" />
+               <Skeleton className="h-4 w-3/4" />
             </div>
           )}
 
@@ -178,8 +184,11 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
                    <WindIcon className="mr-2 h-4 w-4 text-accent" />
                   <strong className="font-medium">Wind:</strong> {forecast.windConditions}
                 </div>
+                 <div className="flex items-center">
+                   <Leaf className="mr-2 h-4 w-4 text-accent" /> {/* Leaf icon for AQI */}
+                  <strong className="font-medium">AQI Outlook:</strong> {forecast.aqiOutlook}
+                </div>
               </div>
-               <p className="text-sm"><strong className="font-medium">AQI Outlook:</strong> {forecast.aqiOutlook}</p>
             </div>
           )}
         </CardContent>
@@ -204,3 +213,4 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
 };
 
 export default AIForecastSection;
+

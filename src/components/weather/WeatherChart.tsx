@@ -22,7 +22,7 @@ interface WeatherChartProps {
   metricConfigs: Record<MetricKey, MetricConfig>;
   isLoading: boolean;
   onPointClick?: (point: WeatherDataPoint) => void;
-  onRangeSelect?: (points: WeatherDataPoint[]) => void; // New prop for range selection
+  onRangeSelect?: (points: WeatherDataPoint[]) => void;
 }
 
 const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConfigs, isLoading, onPointClick, onRangeSelect }) => {
@@ -34,7 +34,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
           <Skeleton className="h-4 w-1/3" />
         </CardHeader>
         <CardContent>
-          <Skeleton className="h-[400px] w-full" />
+          <Skeleton className="h-[450px] w-full" />
         </CardContent>
       </Card>
     );
@@ -64,9 +64,8 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
     }
   };
 
-  const handleBrushChange = (e: any) => { // e: { startIndex?: number; endIndex?: number } from Brush onChange
+  const handleBrushChange = (e: any) => {
     if (onRangeSelect && e && typeof e.startIndex === 'number' && typeof e.endIndex === 'number') {
-      // formattedData is the array used by the chart, so indices from Brush refer to it
       const selectedSlice = formattedData.slice(e.startIndex, e.endIndex + 1);
       const originalPoints = selectedSlice.map(pointWithDisplay => {
         const { timestampDisplay, ...rest } = pointWithDisplay;
@@ -75,21 +74,20 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
       if (originalPoints.length > 0) {
         onRangeSelect(originalPoints);
       }
-    } else if (onRangeSelect && (!e || typeof e.startIndex !== 'number')) {
-      // This case might occur if the brush is cleared or the event is malformed.
-      // Optionally call onRangeSelect with an empty array or null to signify clearing.
-      // onRangeSelect([]); 
+    } else if (onRangeSelect && (!e || typeof e.startIndex !== 'number' || e.startIndex === undefined || e.endIndex === undefined) ) {
+      // If brush is cleared (e.g., by clicking outside) or selection is invalid
+      onRangeSelect([]); // Send empty array to clear previous selection in AI forecast
     }
   };
   
-  if (!data || data.length === 0) { // Moved this check after isLoading to prioritize loading skeleton
+  if (!data || data.length === 0) {
     return (
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="font-headline">Historical Data Trends</CardTitle>
           <CardDescription>No data available for the selected range or metrics. Use date picker above or select a range on the chart.</CardDescription>
         </CardHeader>
-        <CardContent className="h-[400px] flex items-center justify-center">
+        <CardContent className="h-[450px] flex items-center justify-center">
           <p className="text-muted-foreground">Please select a date range and metrics to view data, or check data source.</p>
         </CardContent>
       </Card>
@@ -100,23 +98,27 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
     <Card className="shadow-lg">
       <CardHeader>
         <CardTitle className="font-headline">Historical Data Trends</CardTitle>
-        <CardDescription>Interactive chart displaying selected weather metrics. Click a point or drag on the chart to select a range for AI forecast.</CardDescription>
+        <CardDescription>
+          Interactive chart displaying selected weather metrics. Click a point or drag on the chart to select a range for AI forecast.
+          To use the range selector (brush) at the bottom: drag its handles to resize the window, or drag the selected area to move it.
+        </CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={chartConfig} className="h-[450px] w-full"> {/* Increased height for Brush */}
+        <ChartContainer config={chartConfig} className="h-[450px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart 
               data={formattedData} 
-              margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
+              margin={{ top: 5, right: 30, left: 0, bottom: 40 }} // Increased bottom margin
               onClick={handleChartClick}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis 
                 dataKey="timestampDisplay" 
                 tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} 
-                angle={-15}
+                angle={-30} // Rotate labels
                 textAnchor="end"
-                minTickGap={20}
+                minTickGap={40} // Increase gap between ticks
+                height={60} // Allocate more height for rotated labels
               />
               <YAxis 
                 tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
@@ -147,10 +149,17 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
                 dataKey="timestampDisplay" 
                 height={30} 
                 stroke="hsl(var(--primary))"
-                startIndex={undefined} // Allow brush to be unselected initially
+                startIndex={undefined}
                 endIndex={undefined}
                 onChange={handleBrushChange}
-                tickFormatter={(index) => formattedData[index]?.timestampDisplay.split(',')[0] || ''} // Show only date part in brush ticks
+                // Simplify tick formatter for the brush area
+                tickFormatter={(index) => {
+                  if (formattedData[index]?.timestampDisplay) {
+                    return formattedData[index].timestampDisplay.split(',')[0]; // Show only date part (e.g., "MMM d")
+                  }
+                  return '';
+                }}
+                className="recharts-brush"
               />
             </LineChart>
           </ResponsiveContainer>
@@ -161,3 +170,4 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
 };
 
 export default WeatherChart;
+
