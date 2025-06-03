@@ -141,7 +141,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
     }
   };
   
-  if (!data || data.length === 0) {
+  if (!data || data.length === 0 && !isLoading) {
     return (
       <Card className="shadow-lg">
         <CardHeader className="flex flex-row items-center justify-between">
@@ -159,7 +159,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
 
   const commonCartesianProps = {
     data: formattedData,
-    margin:{ top: 40, right: 50, left: 50, bottom: 120 },
+    margin:{ top: 40, right: 50, left: 50, bottom: 120 }, // Increased margins
     onClick: handleChartClick,
   };
 
@@ -174,8 +174,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
         tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
         angle={-45}
         textAnchor="end"
-        // minTickGap={15} // Temporarily remove for debugging if ticks are too sparse or overlapping
-        dy={10}
+        dy={10} // Offset for angled labels
       />
       <YAxis
         stroke="hsl(var(--muted-foreground))"
@@ -213,7 +212,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
       />
       <ChartLegend 
         content={<ChartLegendContent />} 
-        wrapperStyle={{ paddingTop: "40px" }}
+        wrapperStyle={{ paddingTop: "40px" }} // Space between X-axis and legend text
       />
     </>
   );
@@ -271,9 +270,11 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
     } else if (chartType === 'scatter') {
       return <ScatterChart {...chartSpecificProps}>{commonAxisAndGridComponents}{renderChartSpecificElements()}</ScatterChart>;
     }
+    // Default to LineChart if chartType is somehow invalid, though the select should prevent this.
     return <LineChart {...chartSpecificProps}>{commonAxisAndGridComponents}{renderChartSpecificElements()}</LineChart>; 
   };
 
+  const chartContainerKey = `${chartType}-${selectedMetrics.join('-')}`;
 
   return (
     <Card className="shadow-lg">
@@ -288,11 +289,15 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
       </CardHeader>
       <CardContent className="p-4">
         <div ref={chartRef}>
-          <ChartContainer config={chartConfig} className="h-[450px] w-full aspect-auto">
+          <ChartContainer
+            key={chartContainerKey}
+            config={chartConfig}
+            className="h-[450px] w-full aspect-auto"
+          >
             {renderChart()}
           </ChartContainer>
         </div>
-        <div className="flex justify-center -mt-10"> 
+        <div className="flex justify-center -mt-10"> {/* Maintained tight button positioning */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="default" disabled={isExporting} className="min-w-[150px]">
@@ -326,4 +331,3 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
 };
 
 export default WeatherChart;
-
