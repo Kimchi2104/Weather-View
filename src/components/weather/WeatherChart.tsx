@@ -66,6 +66,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
       const canvas = await html2canvas(chartRef.current, {
         scale: 2,
         useCORS: true,
+        backgroundColor: null, // Use card background
       });
       
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
@@ -90,8 +91,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
       setIsExporting(false);
     }
   };
-
-
+  
   if (isLoading) {
     return (
       <Card className="shadow-lg">
@@ -172,13 +172,14 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
         <ChartContainer config={chartConfig} className="h-[450px] w-full aspect-auto">
             <LineChart 
                 data={formattedData}
-                margin={{ top: 20, right: 30, left: 40, bottom: 30 }}
+                margin={{ top: 20, right: 30, left: 40, bottom: 50 }} // Increased bottom margin
                 onClick={handleChartClick}
             >
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis 
                     dataKey="timestampDisplay" 
                     stroke="hsl(var(--muted-foreground))"
+                    axisLine={{ stroke: "hsl(var(--muted-foreground))" }}
                     tickLine={{ stroke: "hsl(var(--muted-foreground))" }}
                     tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
                     angle={-30}
@@ -189,10 +190,10 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
                 />
                 <YAxis 
                     stroke="hsl(var(--muted-foreground))"
+                    axisLine={{ stroke: "hsl(var(--muted-foreground))" }}
                     tickLine={{ stroke: "hsl(var(--muted-foreground))" }}
                     tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
                     tickFormatter={(value) => typeof value === 'number' ? value.toFixed(1) : String(value)}
-                    domain={['auto', 'auto']}
                     width={60}
                 />
                 <Tooltip
@@ -212,7 +213,10 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
                   cursor={{ stroke: 'hsl(var(--accent))', strokeWidth: 1, strokeDasharray: '3 3' }}
                   wrapperStyle={{ outline: 'none', zIndex: 100 }}
                 />
-                <ChartLegend content={<ChartLegendContent />} />
+                <ChartLegend 
+                  content={<ChartLegendContent />} 
+                  wrapperStyle={{ paddingTop: "15px" }} // Added paddingTop to push legend content down
+                />
                 {selectedMetrics.map((key) => {
                   const metricConfig = metricConfigs[key];
                   if (!metricConfig || metricConfig.isString) return null;
@@ -267,3 +271,4 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
 };
 
 export default WeatherChart;
+
