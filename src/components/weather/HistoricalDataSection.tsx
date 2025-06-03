@@ -14,7 +14,7 @@ import { ref, get, type DataSnapshot } from "firebase/database";
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { transformRawDataToWeatherDataPoint } from '@/lib/utils';
-import { CloudRain, Thermometer, Droplets, SunDim, Wind } from 'lucide-react';
+import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge } from 'lucide-react';
 
 const AVAILABLE_METRICS: { key: MetricKey; name: string }[] = [
   { key: 'temperature', name: 'Temperature' },
@@ -22,6 +22,7 @@ const AVAILABLE_METRICS: { key: MetricKey; name: string }[] = [
   { key: 'precipitation', name: 'Precipitation' },
   { key: 'airQualityIndex', name: 'AQI' },
   { key: 'lux', name: 'Light (Lux)' },
+  { key: 'pressure', name: 'Pressure' },
 ];
 
 const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
@@ -30,11 +31,12 @@ const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
   precipitation: { name: 'Precipitation', unit: 'val', Icon: CloudRain, color: 'hsl(var(--chart-3))' },
   airQualityIndex: { name: 'Air Quality Index', unit: 'AQI', Icon: Wind, color: 'hsl(var(--chart-4))' },
   lux: { name: 'Light Level', unit: 'lux', Icon: SunDim, color: 'hsl(var(--chart-5))' },
+  pressure: { name: 'Pressure', unit: 'hPa', Icon: Gauge, color: 'hsl(120, 60%, 45%)' }, // Using a distinct green
 };
 
 interface HistoricalDataSectionProps {
   onChartPointClick?: (point: WeatherDataPoint) => void;
-  onChartRangeSelect?: (points: WeatherDataPoint[]) => void; // New prop for range selection
+  onChartRangeSelect?: (points: WeatherDataPoint[]) => void;
 }
 
 const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointClick, onChartRangeSelect }) => {
@@ -178,7 +180,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           metricConfigs={METRIC_CONFIGS}
           isLoading={isLoading && allFetchedData.length === 0}
           onPointClick={onChartPointClick}
-          onRangeSelect={onChartRangeSelect} // Pass the new callback here
+          onRangeSelect={onChartRangeSelect}
         />
       </div>
     </section>

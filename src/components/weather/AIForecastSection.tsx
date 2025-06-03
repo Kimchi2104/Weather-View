@@ -2,7 +2,7 @@
 "use client";
 
 import type { FC } from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,11 +14,11 @@ import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from '@/components/ui/skeleton';
 import type { WeatherDataPoint } from '@/types/weather';
 
-// Sample historical data (can be kept for manual testing or fallback if initialDataForForecast is null)
+// Sample historical data now includes pressure
 const sampleHistoricalData: WeatherDataPoint[] = [
-  { timestamp: Date.now() - 86400000 * 2, temperature: 22, humidity: 70, precipitation: 4000, airQualityIndex: 30, lux: 100 },
-  { timestamp: Date.now() - 86400000, temperature: 24, humidity: 65, precipitation: 2000, airQualityIndex: 40, lux: 150 },
-  { timestamp: Date.now(), temperature: 25, humidity: 60, precipitation: 0, airQualityIndex: 35, lux: 120 },
+  { timestamp: Date.now() - 86400000 * 2, temperature: 22, humidity: 70, precipitation: 4000, airQualityIndex: 30, lux: 100, pressure: 1010 },
+  { timestamp: Date.now() - 86400000, temperature: 24, humidity: 65, precipitation: 2000, airQualityIndex: 40, lux: 150, pressure: 1012 },
+  { timestamp: Date.now(), temperature: 25, humidity: 60, precipitation: 0, airQualityIndex: 35, lux: 120, pressure: 1011 },
 ];
 
 interface AIForecastSectionProps {
@@ -31,12 +31,11 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [customHistoricalData, setCustomHistoricalData] = useState<string>(JSON.stringify(sampleHistoricalData, null, 2));
   const { toast } = useToast();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (initialDataForForecast === null || initialDataForForecast === undefined) {
-      // On initial load or if explicitly set to null, use sample data
-      // This ensures the textarea isn't empty before any chart interaction
-      if (customHistoricalData !== JSON.stringify(sampleHistoricalData, null, 2)) { // Avoid unnecessary updates
+      if (customHistoricalData !== JSON.stringify(sampleHistoricalData, null, 2)) {
         setCustomHistoricalData(JSON.stringify(sampleHistoricalData, null, 2));
       }
     } else if (initialDataForForecast.length > 0) {
@@ -52,15 +51,14 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
         ),
       });
     } else if (initialDataForForecast.length === 0) {
-      // This means the brush selection was cleared or resulted in no points
-      setCustomHistoricalData(''); // Clear the textarea
+      setCustomHistoricalData(''); 
       toast({
         title: "Chart Selection Cleared",
         description: "Historical data input for AI forecast has been cleared.",
         duration: 3000,
       });
     }
-  }, [initialDataForForecast, toast]);
+  }, [initialDataForForecast, toast]); // Removed customHistoricalData from dependencies to avoid loop
 
   const handleGenerateForecast = async () => {
     setIsLoading(true);
@@ -68,22 +66,23 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
 
     let historicalDataToUse: string;
     try {
-      // Ensure there's data to parse, if customHistoricalData is empty, use sample as a fallback for generation.
       const dataToParse = customHistoricalData.trim() === '' ? JSON.stringify(sampleHistoricalData, null, 2) : customHistoricalData;
       const parsedData = JSON.parse(dataToParse);
+      // Updated validation to include optional pressure
       if (!Array.isArray(parsedData) || !parsedData.every(item =>
         typeof item.timestamp === 'number' &&
         typeof item.temperature === 'number' &&
         typeof item.humidity === 'number' &&
         typeof item.precipitation === 'number' &&
         typeof item.airQualityIndex === 'number' &&
-        typeof item.lux === 'number'
+        typeof item.lux === 'number' &&
+        (item.pressure === undefined || typeof item.pressure === 'number') // Pressure is optional
       )) {
         throw new Error("Data does not conform to expected WeatherDataPoint structure.");
       }
       historicalDataToUse = dataToParse;
        if (customHistoricalData.trim() === '') {
-        setCustomHistoricalData(historicalDataToUse); // Update textarea if it was empty and sample data was used
+        setCustomHistoricalData(historicalDataToUse);
       }
     } catch (error: any) {
       toast({
@@ -146,6 +145,7 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
             <Label htmlFor="historical-data" className="text-sm font-medium">Historical Data (JSON array of WeatherDataPoint)</Label>
             <Textarea
               id="historical-data"
+              ref={textareaRef}
               value={customHistoricalData}
               onChange={(e) => setCustomHistoricalData(e.target.value)}
               placeholder="Click or drag on the chart above, or enter historical weather data as JSON array..."
@@ -153,7 +153,7 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
               className="mt-1 font-mono text-xs"
             />
             <p className="text-xs text-muted-foreground mt-1">
-              Each point should include numerical fields: timestamp, temperature, humidity, precipitation, airQualityIndex, lux.
+              Each point should include numerical fields: timestamp, temperature, humidity, precipitation, airQualityIndex, lux. Pressure is optional.
             </p>
           </div>
 

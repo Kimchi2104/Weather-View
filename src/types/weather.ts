@@ -6,6 +6,7 @@ export interface WeatherDataPoint {
   humidity: number; // %
   lux: number; // lux, formerly lightPollution
   airQualityIndex: number; // Numerical AQI, derived from airQuality string
+  pressure?: number; // hPa
 }
 
 // Represents the raw data structure from Firebase before transformation
@@ -14,7 +15,7 @@ export interface RawFirebaseDataPoint {
   humidity?: number;
   lux?: number;
   mq135PPM?: number;
-  pressure?: number;
+  pressure?: number; // e.g., 1007.10968
   rainAnalog?: number;
   rainStatus?: string; // e.g., "No Rain"
   temperature?: number;
@@ -33,7 +34,7 @@ export interface RealtimeData {
 }
 
 // Updated to reflect the fields in WeatherDataPoint after mapping
-export type MetricKey = 'temperature' | 'humidity' | 'precipitation' | 'lux' | 'airQualityIndex';
+export type MetricKey = 'temperature' | 'humidity' | 'precipitation' | 'lux' | 'airQualityIndex' | 'pressure';
 
 export interface MetricConfig {
   name: string;

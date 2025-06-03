@@ -7,7 +7,7 @@ import RealtimeDataCard from './RealtimeDataCard';
 import type { WeatherDataPoint, MetricKey, MetricConfig, RawFirebaseDataPoint } from '@/types/weather';
 import { database } from '@/lib/firebase';
 import { ref, onValue, type Unsubscribe } from "firebase/database";
-import { CloudRain, Thermometer, Droplets, SunDim, Wind } from 'lucide-react';
+import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge } from 'lucide-react';
 import { transformRawDataToWeatherDataPoint } from '@/lib/utils';
 
 const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
@@ -16,13 +16,13 @@ const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
   precipitation: { name: 'Precipitation', unit: 'val', Icon: CloudRain, color: 'var(--chart-3)', healthyMax: 1000 },
   airQualityIndex: { name: 'Air Quality Index', unit: 'AQI', Icon: Wind, color: 'var(--chart-4)', healthyMax: 100 },
   lux: { name: 'Light Level', unit: 'lux', Icon: SunDim, color: 'var(--chart-5)' },
+  pressure: { name: 'Pressure', unit: 'hPa', Icon: Gauge, color: 'hsl(120, 60%, 45%)', healthyMin: 980, healthyMax: 1040 },
 };
 
 const RealtimeDataSection: FC = () => {
   const [realtimeData, setRealtimeData] = useState<WeatherDataPoint | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // IMPORTANT! This path now reflects the user's provided structure.
   const firebaseDataPath = 'devices/TGkMhLL4k4ZFBwgOyRVNKe5mTQq1/records';
 
   useEffect(() => {
@@ -79,7 +79,7 @@ const RealtimeDataSection: FC = () => {
     };
   }, [firebaseDataPath]);
 
-  const metricsOrder: MetricKey[] = ['temperature', 'humidity', 'precipitation', 'airQualityIndex', 'lux'];
+  const metricsOrder: MetricKey[] = ['temperature', 'humidity', 'precipitation', 'airQualityIndex', 'lux', 'pressure'];
 
   return (
     <section className="mb-8">
@@ -87,15 +87,22 @@ const RealtimeDataSection: FC = () => {
        <p className="text-xs text-muted-foreground mb-4">
             Data is fetched from Firebase path: `{firebaseDataPath}`.
         </p>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {metricsOrder.map((key) => {
           const config = METRIC_CONFIGS[key];
+          if (!config) {
+            console.warn(`[RealtimeDataSection] Missing metric config for key: ${key}`);
+            return null;
+          }
           const value = realtimeData ? realtimeData[key as keyof WeatherDataPoint] : null;
+          // Ensure value is treated as number or null, especially for optional fields like pressure
+          const numericValue = typeof value === 'number' ? value : null; 
+          
           return (
             <RealtimeDataCard
               key={key}
               metricKey={key}
-              value={typeof value === 'number' ? value : null}
+              value={numericValue}
               unit={config.unit}
               label={config.name}
               healthyMin={config.healthyMin}

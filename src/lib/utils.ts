@@ -25,7 +25,7 @@ export function parseCustomTimestamp(timestampStr: string | undefined): number |
     const minute = parseInt(parts[5], 10);
     const second = parseInt(parts[6], 10);
 
-    const date = new Date(year, month, day, hour, minute, second);
+    const date = new Date(Date.UTC(year, month, day, hour, minute, second)); // Use UTC to avoid local timezone issues if data is consistently UTC based
     if (isNaN(date.getTime())) {
       console.warn(`[parseCustomTimestamp] Invalid date constructed for timestamp string: ${timestampStr}`);
       return null;
@@ -94,10 +94,12 @@ export function transformRawDataToWeatherDataPoint(rawData: RawFirebaseDataPoint
   const temperatureValue = typeof rawData.temperature === 'number' ? rawData.temperature : 0;
   const humidityValue = typeof rawData.humidity === 'number' ? rawData.humidity : 0;
   const luxValue = typeof rawData.lux === 'number' ? rawData.lux : 0;
+  const pressureValue = typeof rawData.pressure === 'number' ? rawData.pressure : undefined; // Keep as undefined if not a number
 
   if (typeof rawData.temperature !== 'number') console.warn(`[transformRawDataToWeatherDataPoint] Temperature is not a number for (key: ${recordKey || 'N/A'}). Defaulting to 0. Value:`, rawData.temperature);
   if (typeof rawData.humidity !== 'number') console.warn(`[transformRawDataToWeatherDataPoint] Humidity is not a number for (key: ${recordKey || 'N/A'}). Defaulting to 0. Value:`, rawData.humidity);
   if (typeof rawData.lux !== 'number') console.warn(`[transformRawDataToWeatherDataPoint] Lux is not a number for (key: ${recordKey || 'N/A'}). Defaulting to 0. Value:`, rawData.lux);
+  if (rawData.pressure !== undefined && typeof rawData.pressure !== 'number') console.warn(`[transformRawDataToWeatherDataPoint] Pressure is present but not a number for (key: ${recordKey || 'N/A'}). Setting to undefined. Value:`, rawData.pressure);
 
 
   const transformedPoint: WeatherDataPoint = {
@@ -107,9 +109,9 @@ export function transformRawDataToWeatherDataPoint(rawData: RawFirebaseDataPoint
     precipitation: precipitationValue,
     airQualityIndex: aqiValue,
     lux: luxValue,
+    ...(pressureValue !== undefined && { pressure: pressureValue }), // Conditionally add pressure
   };
 
   console.log(`[transformRawDataToWeatherDataPoint] Successfully transformed point for (key: ${recordKey || 'N/A'}):`, JSON.parse(JSON.stringify(transformedPoint)));
   return transformedPoint;
 }
-
