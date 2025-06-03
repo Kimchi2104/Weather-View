@@ -75,8 +75,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
         onRangeSelect(originalPoints);
       }
     } else if (onRangeSelect && (!e || typeof e.startIndex !== 'number' || e.startIndex === undefined || e.endIndex === undefined) ) {
-      // If brush is cleared (e.g., by clicking outside) or selection is invalid
-      onRangeSelect([]); // Send empty array to clear previous selection in AI forecast
+      onRangeSelect([]); 
     }
   };
   
@@ -108,17 +107,17 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
           <ResponsiveContainer width="100%" height="100%">
             <LineChart 
               data={formattedData} 
-              margin={{ top: 5, right: 30, left: 0, bottom: 40 }} // Increased bottom margin
+              margin={{ top: 5, right: 30, left: 0, bottom: 40 }} 
               onClick={handleChartClick}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis 
                 dataKey="timestampDisplay" 
                 tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} 
-                angle={-30} // Rotate labels
+                angle={-30} 
                 textAnchor="end"
-                minTickGap={40} // Increase gap between ticks
-                height={60} // Allocate more height for rotated labels
+                minTickGap={40} 
+                height={60} 
               />
               <YAxis 
                 tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
@@ -147,15 +146,14 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
               ))}
               <Brush 
                 dataKey="timestampDisplay" 
-                height={30} 
+                height={20} 
                 stroke="hsl(var(--primary))"
                 startIndex={undefined}
                 endIndex={undefined}
                 onChange={handleBrushChange}
-                // Simplify tick formatter for the brush area
                 tickFormatter={(index) => {
                   if (formattedData[index]?.timestampDisplay) {
-                    return formattedData[index].timestampDisplay.split(',')[0]; // Show only date part (e.g., "MMM d")
+                    return formattedData[index].timestampDisplay.split(',')[0]; 
                   }
                   return '';
                 }}
@@ -170,4 +168,3 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
 };
 
 export default WeatherChart;
-
