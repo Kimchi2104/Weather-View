@@ -5,7 +5,7 @@ import type { FC } from 'react';
 import { useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'; // CardFooter removed
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -55,7 +55,7 @@ interface WeatherChartProps {
 }
 
 const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConfigs, isLoading, onPointClick }) => {
-  const chartRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<HTMLDivElement>(null); // Ref is now for ChartContainer
   const [isExporting, setIsExporting] = useState(false);
 
   const exportChart = async (format: 'png' | 'jpeg' | 'pdf') => {
@@ -66,7 +66,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
       const canvas = await html2canvas(chartRef.current, {
         scale: 2,
         useCORS: true,
-        backgroundColor: null, // Use card background
+        backgroundColor: null, 
       });
       
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
@@ -99,7 +99,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
           <Skeleton className="h-6 w-1/2 mb-2" />
           <Skeleton className="h-4 w-1/3" />
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4">
           <Skeleton className="h-[450px] w-full" />
         </CardContent>
       </Card>
@@ -150,7 +150,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
             <CardDescription>No data available for the selected range or metrics. Use date picker above.</CardDescription>
           </div>
         </CardHeader>
-        <CardContent className="h-[450px] flex items-center justify-center">
+        <CardContent className="h-[450px] flex items-center justify-center p-4">
           <p className="text-muted-foreground">Please select a date range and metrics to view data, or check data source.</p>
         </CardContent>
       </Card>
@@ -168,11 +168,12 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
           </CardDescription>
         </div>
       </CardHeader>
-      <CardContent ref={chartRef} className="bg-card p-2">
-        <ChartContainer config={chartConfig} className="h-[450px] w-full aspect-auto">
+      <CardContent className="bg-card p-4"> {/* Adjusted padding */}
+        {/* ChartContainer now has the ref and is the direct target for html2canvas */}
+        <ChartContainer ref={chartRef} config={chartConfig} className="h-[450px] w-full aspect-auto">
             <LineChart 
                 data={formattedData}
-                margin={{ top: 20, right: 30, left: 40, bottom: 50 }} // Increased bottom margin
+                margin={{ top: 20, right: 30, left: 40, bottom: 50 }} 
                 onClick={handleChartClick}
             >
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -215,7 +216,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
                 />
                 <ChartLegend 
                   content={<ChartLegendContent />} 
-                  wrapperStyle={{ paddingTop: "15px" }} // Added paddingTop to push legend content down
+                  wrapperStyle={{ paddingTop: "15px" }} 
                 />
                 {selectedMetrics.map((key) => {
                   const metricConfig = metricConfigs[key];
@@ -237,38 +238,39 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
                 })}
             </LineChart>
         </ChartContainer>
+        {/* Export button moved here, below ChartContainer, and centered */}
+        <div className="mt-4 flex justify-center">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="default" disabled={isExporting} className="min-w-[150px]">
+                {isExporting ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4" />
+                )}
+                Export Chart
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center">
+              <DropdownMenuItem onClick={() => exportChart('png')}>
+                <FileImage className="mr-2 h-4 w-4" />
+                Export as PNG
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportChart('jpeg')}>
+                <FileImage className="mr-2 h-4 w-4" />
+                Export as JPEG
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportChart('pdf')}>
+                <FileText className="mr-2 h-4 w-4" />
+                Export as PDF
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </CardContent>
-      <CardFooter className="flex justify-center p-4">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="default" disabled={isExporting} className="min-w-[150px]">
-              {isExporting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="mr-2 h-4 w-4" />
-              )}
-              Export Chart
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="center">
-            <DropdownMenuItem onClick={() => exportChart('png')}>
-              <FileImage className="mr-2 h-4 w-4" />
-              Export as PNG
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => exportChart('jpeg')}>
-              <FileImage className="mr-2 h-4 w-4" />
-              Export as JPEG
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => exportChart('pdf')}>
-              <FileText className="mr-2 h-4 w-4" />
-              Export as PDF
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </CardFooter>
+      {/* CardFooter has been removed */}
     </Card>
   );
 };
 
 export default WeatherChart;
-
