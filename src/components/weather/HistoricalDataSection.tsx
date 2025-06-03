@@ -186,7 +186,8 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           selectedMetrics={selectedMetrics}
           onSelectionChange={setSelectedMetrics}
         />
-        <div className="pt-2"> {/* Added padding top for spacing */}
+        <div className="pt-4 flex flex-col sm:flex-row sm:items-end gap-4">
+          <div>
             <Label htmlFor="chart-type-selector" className="text-sm font-medium text-muted-foreground mb-1 block">Chart Type:</Label>
             <Select value={selectedChartType} onValueChange={(value: ChartType) => setSelectedChartType(value)}>
               <SelectTrigger id="chart-type-selector" className="w-full max-w-xs">
@@ -198,10 +199,11 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
                 <SelectItem value="scatter">Scatter Chart</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          <Button onClick={handleUseAllDataForForecast} className="w-full sm:w-auto" disabled={isLoading && displayedData.length === 0}>
+            Use All Displayed Data for AI Forecast
+          </Button>
         </div>
-        <Button onClick={handleUseAllDataForForecast} className="w-full sm:w-auto" disabled={isLoading && displayedData.length === 0}>
-          Use All Displayed Data for AI Forecast
-        </Button>
       </div>
       <div className="mt-6">
         <WeatherChart
@@ -218,4 +220,3 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
 };
 
 export default HistoricalDataSection;
-
