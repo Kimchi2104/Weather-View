@@ -23,7 +23,7 @@ const firebaseConfig = {
   // OR for newer projects/different regions:
   //   https://your-project-id-default-rtdb.region.firebasedatabase.app
   // ENSURE THIS IS THE CORRECT AND COMPLETE URL.
-  databaseURL: "YOUR_DATABASE_URL_GOES_HERE_SEE_FIREBASE_CONSOLE_REALTIME_DATABASE_SECTION", 
+  databaseURL: "https://weather-station-25716-default-rtdb.asia-southeast1.firebasedatabase.app/", 
   
   projectId: "YOUR_PROJECT_ID", // Replace with your actual project ID
   storageBucket: "YOUR_STORAGE_BUCKET", // Replace with your actual storage bucket
