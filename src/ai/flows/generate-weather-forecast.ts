@@ -12,12 +12,11 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-// Schema now reflects the WeatherDataPoint structure after transformation:
-// lux (for lightPollution) and airQualityIndex (numerical)
+// Schema now reflects airQuality as a string
 const GenerateWeatherForecastInputSchema = z.object({
   historicalData: z
     .string()
-    .describe('Historical weather data in JSON format. Each entry should be an object with: timestamp (number), temperature (number), humidity (number), precipitation (number, derived from rainAnalog), lux (number, for light pollution), airQualityIndex (number).'),
+    .describe('Historical weather data in JSON format. Each entry should be an object with: timestamp (number), temperature (number), humidity (number), precipitation (number, derived from rainAnalog), airQuality (string, e.g., "Safe Air"), lux (number), pressure (number, optional).'),
   location: z.string().describe('The location for which to generate the weather forecast.'),
 });
 export type GenerateWeatherForecastInput = z.infer<typeof GenerateWeatherForecastInputSchema>;
@@ -28,7 +27,7 @@ const GenerateWeatherForecastOutputSchema = z.object({
   temperatureLow: z.number().describe("Predicted lowest temperature in Celsius for the forecast period."),
   precipitationChance: z.number().min(0).max(100).describe("Chance of precipitation as a percentage (0-100) for the forecast period."),
   windConditions: z.string().describe("Description of expected wind conditions (e.g., 'Light breeze from NW at 10 km/h')."),
-  aqiOutlook: z.string().describe("A brief outlook on the Air Quality Index (e.g., 'AQI expected to be good').")
+  aqiOutlook: z.string().describe("A brief outlook on the Air Quality based on the provided string categories (e.g., 'Air quality expected to remain good').")
 });
 export type GenerateWeatherForecastOutput = z.infer<typeof GenerateWeatherForecastOutputSchema>;
 
@@ -47,8 +46,9 @@ The historical data includes:
 - temperature: in Celsius
 - humidity: in percentage
 - precipitation: a numerical value (0 means no rain, higher values can indicate less rain or a different sensor scale; interpret contextually)
+- airQuality: a string describing air quality (e.g., "Safe Air", "Moderate", "Unhealthy")
 - lux: light level in lux
-- airQualityIndex: a numerical AQI value (lower is better, e.g., 0-50 is Good, 51-100 Moderate)
+- pressure: atmospheric pressure in hPa (optional)
 
 Historical Data:
 {{{historicalData}}}
@@ -59,7 +59,7 @@ Based on this data, provide the following forecast details. Ensure your output s
 - temperatureLow: Predicted lowest temperature in Celsius for the forecast period.
 - precipitationChance: Chance of precipitation as a percentage (0-100) for the forecast period.
 - windConditions: Description of expected wind conditions (e.g., 'Light breeze from NW at 10 km/h').
-- aqiOutlook: A brief outlook on the Air Quality Index (e.g., 'AQI expected to be good').`,
+- aqiOutlook: A brief outlook on the Air Quality based on the provided string categories (e.g., 'Air quality expected to remain good', 'Air quality might degrade to moderate levels').`,
 });
 
 const generateWeatherForecastFlow = ai.defineFlow(

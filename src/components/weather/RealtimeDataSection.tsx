@@ -14,7 +14,7 @@ const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
   temperature: { name: 'Temperature', unit: '°C', Icon: Thermometer, color: 'var(--chart-1)', healthyMin: 0, healthyMax: 35 },
   humidity: { name: 'Humidity', unit: '%', Icon: Droplets, color: 'var(--chart-2)', healthyMin: 30, healthyMax: 70 },
   precipitation: { name: 'Precipitation', unit: 'val', Icon: CloudRain, color: 'var(--chart-3)', healthyMax: 1000 },
-  airQualityIndex: { name: 'Air Quality Index', unit: 'AQI', Icon: Wind, color: 'var(--chart-4)', healthyMax: 100 },
+  airQuality: { name: 'Air Quality', unit: '', Icon: Wind, color: 'var(--chart-4)' }, // No min/max for string categories
   lux: { name: 'Light Level', unit: 'lux', Icon: SunDim, color: 'var(--chart-5)' },
   pressure: { name: 'Pressure', unit: 'hPa', Icon: Gauge, color: 'hsl(120, 60%, 45%)', healthyMin: 980, healthyMax: 1040 },
 };
@@ -79,7 +79,7 @@ const RealtimeDataSection: FC = () => {
     };
   }, [firebaseDataPath]);
 
-  const metricsOrder: MetricKey[] = ['temperature', 'humidity', 'precipitation', 'airQualityIndex', 'lux', 'pressure'];
+  const metricsOrder: MetricKey[] = ['temperature', 'humidity', 'precipitation', 'airQuality', 'lux', 'pressure'];
 
   return (
     <section className="mb-8">
@@ -95,14 +95,12 @@ const RealtimeDataSection: FC = () => {
             return null;
           }
           const value = realtimeData ? realtimeData[key as keyof WeatherDataPoint] : null;
-          // Ensure value is treated as number or null, especially for optional fields like pressure
-          const numericValue = typeof value === 'number' ? value : null; 
           
           return (
             <RealtimeDataCard
               key={key}
               metricKey={key}
-              value={numericValue}
+              value={value as number | string | null} // Cast to allow string for airQuality
               unit={config.unit}
               label={config.name}
               healthyMin={config.healthyMin}

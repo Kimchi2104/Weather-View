@@ -4,8 +4,8 @@ export interface WeatherDataPoint {
   precipitation: number; // Derived from rainAnalog
   temperature: number; // °C
   humidity: number; // %
-  lux: number; // lux, formerly lightPollution
-  airQualityIndex: number; // Numerical AQI, derived from airQuality string
+  lux: number; // lux
+  airQuality: string; // e.g., "Safe Air"
   pressure?: number; // hPa
 }
 
@@ -33,14 +33,13 @@ export interface RealtimeData {
   [key: string]: WeatherDataPoint;
 }
 
-// Updated to reflect the fields in WeatherDataPoint after mapping
-export type MetricKey = 'temperature' | 'humidity' | 'precipitation' | 'lux' | 'airQualityIndex' | 'pressure';
+export type MetricKey = 'temperature' | 'humidity' | 'precipitation' | 'lux' | 'airQuality' | 'pressure';
 
 export interface MetricConfig {
   name: string;
-  unit: string;
+  unit: string; // Unit can be empty for categorical data like string-based airQuality
   Icon: React.ElementType;
   color: string;
-  healthyMin?: number;
-  healthyMax?: number;
+  healthyMin?: number; // Not applicable for string-based airQuality
+  healthyMax?: number; // Not applicable for string-based airQuality
 }

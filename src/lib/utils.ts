@@ -55,38 +55,14 @@ export function transformRawDataToWeatherDataPoint(rawData: RawFirebaseDataPoint
     return null;
   }
 
-  let aqiValue: number;
+  let airQualityValue: string;
   if (typeof rawData.airQuality === 'string') {
-    switch (rawData.airQuality.toLowerCase()) {
-      case 'safe air':
-        aqiValue = 20;
-        break;
-      case 'moderate':
-        aqiValue = 75;
-        break;
-      case 'unhealthy for sensitive groups':
-        aqiValue = 125;
-        break;
-      case 'unhealthy':
-        aqiValue = 175;
-        break;
-      case 'very unhealthy':
-        aqiValue = 250;
-        break;
-      case 'hazardous':
-        aqiValue = 350;
-        break;
-      default:
-        console.warn(`[transformRawDataToWeatherDataPoint] Unknown airQuality string '${rawData.airQuality}' for (key: ${recordKey || 'N/A'}). Defaulting AQI.`);
-        aqiValue = 50; 
-    }
-  } else if (typeof rawData.airQuality === 'number') {
-    aqiValue = rawData.airQuality;
+    airQualityValue = rawData.airQuality;
   } else {
-    console.warn(`[transformRawDataToWeatherDataPoint] airQuality is missing or not a string/number for (key: ${recordKey || 'N/A'}). Defaulting AQI. Value:`, rawData.airQuality);
-    aqiValue = 0; 
+    console.warn(`[transformRawDataToWeatherDataPoint] airQuality is missing or not a string for (key: ${recordKey || 'N/A'}). Defaulting to "Unknown". Value:`, rawData.airQuality);
+    airQualityValue = "Unknown";
   }
-  console.log(`[transformRawDataToWeatherDataPoint] Derived AQI for (key: ${recordKey || 'N/A'}):`, aqiValue);
+  console.log(`[transformRawDataToWeatherDataPoint] Air Quality for (key: ${recordKey || 'N/A'}):`, airQualityValue);
 
   const precipitationValue = rawData.rainStatus === "No Rain" ? 0 : (typeof rawData.rainAnalog === 'number' ? rawData.rainAnalog : 0);
   console.log(`[transformRawDataToWeatherDataPoint] Derived precipitation for (key: ${recordKey || 'N/A'}):`, precipitationValue, `(Raw rainStatus: ${rawData.rainStatus}, rainAnalog: ${rawData.rainAnalog})`);
@@ -107,7 +83,7 @@ export function transformRawDataToWeatherDataPoint(rawData: RawFirebaseDataPoint
     temperature: temperatureValue,
     humidity: humidityValue,
     precipitation: precipitationValue,
-    airQualityIndex: aqiValue,
+    airQuality: airQualityValue,
     lux: luxValue,
     ...(pressureValue !== undefined && { pressure: pressureValue }), // Conditionally add pressure
   };

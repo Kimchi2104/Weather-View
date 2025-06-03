@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { FC } from 'react';
@@ -8,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 interface RealtimeDataCardProps {
   metricKey: MetricKey;
-  value: number | null;
+  value: number | string | null; // Allow string for airQuality
   unit: string;
   label: string;
   healthyMin?: number;
@@ -26,6 +27,7 @@ const RealtimeDataCard: FC<RealtimeDataCardProps> = ({
   isLoading,
 }) => {
   const isAlerting =
+    typeof value === 'number' && // Only apply alert for numerical values
     value !== null &&
     ((healthyMin !== undefined && value < healthyMin) ||
      (healthyMax !== undefined && value > healthyMax));
@@ -45,7 +47,9 @@ const RealtimeDataCard: FC<RealtimeDataCardProps> = ({
         ) : value !== null ? (
           <>
             <div className={`text-2xl font-bold ${isAlerting ? 'text-destructive' : ''}`}>
-              {value.toFixed(1)} <span className="text-sm font-normal">{unit}</span>
+              {typeof value === 'number' ? value.toFixed(1) : value}
+              {typeof value === 'number' && unit && <span className="text-sm font-normal"> {unit}</span>}
+              {typeof value === 'string' && unit && <span className="text-sm font-normal"> {unit}</span>}
             </div>
             {isAlerting && (
               <p className="text-xs text-destructive mt-1">
