@@ -25,12 +25,12 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import type { WeatherDataPoint, MetricKey, MetricConfig } from '@/types/weather';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Download, FileImage, FileText, Loader2 } from 'lucide-react';
-import type { ChartType } from './HistoricalDataSection'; // Import ChartType
+import type { ChartType } from './HistoricalDataSection';
 
 export const formatTimestampToDdMmHhMmUTC = (timestamp: number): string => {
   const date = new Date(timestamp);
   const day = date.getUTCDate().toString().padStart(2, '0');
-  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0'); // UTC month is 0-indexed
   const hours = date.getUTCHours().toString().padStart(2, '0');
   const minutes = date.getUTCMinutes().toString().padStart(2, '0');
   return `${day}/${month} ${hours}:${minutes}`;
@@ -39,7 +39,7 @@ export const formatTimestampToDdMmHhMmUTC = (timestamp: number): string => {
 export const formatTimestampToFullUTC = (timestamp: number): string => {
   const date = new Date(timestamp);
   const day = date.getUTCDate().toString().padStart(2, '0');
-  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0'); // UTC month is 0-indexed
   const year = date.getUTCFullYear();
   const hours = date.getUTCHours().toString().padStart(2, '0');
   const minutes = date.getUTCMinutes().toString().padStart(2, '0');
@@ -53,7 +53,7 @@ interface WeatherChartProps {
   metricConfigs: Record<MetricKey, MetricConfig>;
   isLoading: boolean;
   onPointClick?: (point: WeatherDataPoint) => void;
-  chartType: ChartType; // Added chartType prop
+  chartType: ChartType;
 }
 
 const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConfigs, isLoading, onPointClick, chartType }) => {
@@ -68,7 +68,6 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
       const canvas = await html2canvas(chartRef.current, {
         scale: 2,
         useCORS: true,
-        // backgroundColor: null, // Allow chart's own background
       });
       
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
@@ -162,19 +161,8 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
     const commonComponents = (
       <>
         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-        <XAxis 
-          dataKey="timestampDisplay" 
-          tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} 
-          angle={-30} 
-          textAnchor="end"
-          minTickGap={25}
-          height={60} 
-        />
-        <YAxis 
-          tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-          tickFormatter={(value: any) => typeof value === 'number' ? value.toFixed(0) : value}
-          domain={['auto', 'auto']}
-        />
+        <XAxis dataKey="timestampDisplay" />
+        <YAxis />
         <Tooltip
           content={
             <ChartTooltipContent
@@ -313,3 +301,4 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
 };
 
 export default WeatherChart;
+
