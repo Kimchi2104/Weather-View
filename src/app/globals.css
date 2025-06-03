@@ -86,3 +86,16 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* Custom styles for Recharts Brush */
+@layer utilities {
+  .recharts-brush .recharts-brush-traveller rect {
+    fill: hsl(var(--primary)); /* Primary color fill for the handle box */
+    stroke: white;             /* White stroke */
+    stroke-width: 1px;         /* Thickness of the white "bar" or outline */
+  }
+
+  .recharts-brush .recharts-brush-slide {
+    fill: hsla(var(--primary), 0.2); /* Light primary color semi-transparent fill for selection window */
+  }
+}
