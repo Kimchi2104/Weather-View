@@ -21,7 +21,7 @@ import { Download, FileImage, FileText, Loader2 } from 'lucide-react';
 export const formatTimestampToDdMmHhMmUTC = (timestamp: number): string => {
   const date = new Date(timestamp);
   const day = date.getUTCDate().toString().padStart(2, '0');
-  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0'); // UTC month is 0-indexed
   const hours = date.getUTCHours().toString().padStart(2, '0');
   const minutes = date.getUTCMinutes().toString().padStart(2, '0');
   return `${day}/${month} ${hours}:${minutes}`;
@@ -30,7 +30,7 @@ export const formatTimestampToDdMmHhMmUTC = (timestamp: number): string => {
 export const formatTimestampToFullUTC = (timestamp: number): string => {
   const date = new Date(timestamp);
   const day = date.getUTCDate().toString().padStart(2, '0');
-  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0'); // UTC month is 0-indexed
   const year = date.getUTCFullYear();
   const hours = date.getUTCHours().toString().padStart(2, '0');
   const minutes = date.getUTCMinutes().toString().padStart(2, '0');
@@ -65,14 +65,15 @@ const WeatherChart: FC<WeatherChartProps> = ({
       timestampDisplay: formatTimestampToDdMmHhMmUTC(point.timestamp),
       tooltipTimestampFull: formatTimestampToFullUTC(point.timestamp),
     }));
-    // console.log("[WeatherChart] Formatted Data (first 3):", processed.slice(0,3));
     // console.log("[WeatherChart] Props:", { dataLength: data?.length, selectedMetrics, chartType, isLoading });
+    // console.log("[WeatherChart] Formatted Data (first 3):", processed.slice(0,3));
     return processed;
   }, [data]);
 
 
   const exportChart = async (format: 'png' | 'jpeg' | 'pdf') => {
     if (!chartRef.current) return;
+    // Target the ResponsiveContainer's direct child (the recharts-wrapper div)
     const chartWrapper = chartRef.current.querySelector('.recharts-wrapper');
     if (!chartWrapper) {
       console.error("Recharts wrapper not found for export.");
@@ -120,7 +121,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
       </Card>
     );
   }
-
+  
   if (!formattedData || formattedData.length === 0 || !selectedMetrics || selectedMetrics.length === 0) {
     return (
       <Card className="shadow-lg">
@@ -138,7 +139,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
   }
   
   const commonCartesianProps = { 
-    margin: { top: 20, right: 40, left: 20, bottom: 150 }, // Increased bottom margin
+    margin: { top: 20, right: 40, left: 20, bottom: 180 }, // Increased bottom margin
   };
 
   const renderChartSpecificElements = () => {
@@ -162,10 +163,10 @@ const WeatherChart: FC<WeatherChartProps> = ({
   };
   
   const ChartComponent = chartType === 'bar' ? BarChart : chartType === 'scatter' ? ScatterChart : LineChart;
-  const chartKey = `${chartType}-${selectedMetrics.join('-')}-${formattedData.length}`;
+  const chartDynamicKey = `${chartType}-${selectedMetrics.join('-')}-${formattedData.length}`;
 
   const renderChart = () => (
-      <ChartComponent key={chartKey} data={formattedData} {...commonCartesianProps}>
+      <ChartComponent key={chartDynamicKey} data={formattedData} {...commonCartesianProps}>
         <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
         <XAxis 
           dataKey="timestampDisplay" 
@@ -174,7 +175,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           angle={-45} 
           textAnchor="end" 
           dy={10} 
-          minTickGap={5} 
+          minTickGap={5} // Adjust if labels overlap too much
           interval="preserveStartEnd"
         />
         <YAxis 
@@ -193,7 +194,13 @@ const WeatherChart: FC<WeatherChartProps> = ({
             return [`${typeof value === 'number' ? value.toFixed(config?.isString ? 0 : (config?.unit === 'ppm' ? 0 : 2) ) : value}${config?.unit || ''}`, config?.name || name]; 
           }} 
         />
-        <Legend wrapperStyle={{ paddingTop: "30px", paddingBottom: "10px" }} /> 
+        <Legend 
+          wrapperStyle={{ paddingTop: '40px', paddingBottom: '10px' }} // Increased paddingTop
+          iconSize={14} 
+          layout="horizontal" 
+          align="center" 
+          verticalAlign="bottom" 
+        />
         {renderChartSpecificElements()}
       </ChartComponent>
   );
@@ -214,7 +221,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
             {renderChart()}
           </ResponsiveContainer>
         </div>
-        <div className="flex justify-center -mt-10">
+        <div className="flex justify-center -mt-10"> {/* Keep button slightly overlapping for style */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="default" disabled={isExporting || !formattedData || formattedData.length === 0} className="min-w-[150px]">
@@ -248,3 +255,4 @@ const WeatherChart: FC<WeatherChartProps> = ({
 };
 
 export default WeatherChart;
+
