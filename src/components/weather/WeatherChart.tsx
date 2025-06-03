@@ -15,8 +15,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
+  // ChartTooltip, // Temporarily not using shadcn's custom tooltip content
+  // ChartTooltipContent,
   ChartLegend,
   ChartLegendContent,
   type ChartConfig,
@@ -69,7 +69,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
       const canvas = await html2canvas(chartRef.current, {
         scale: 2,
         useCORS: true,
-        backgroundColor: null, // Ensure transparent background for the chart itself
+        backgroundColor: null,
       });
       
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
@@ -161,35 +161,63 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
 
   const commonCartesianProps = {
     data: formattedData,
-    margin:{ top: 20, right: 30, left: 20, bottom: 90 }, // Increased bottom margin for X-axis labels + legend
+    margin:{ top: 20, right: 30, left: 20, bottom: 90 },
     onClick: handleChartClick,
   };
 
   const commonAxisAndGridComponents = (
     <>
       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-      <XAxis dataKey="timestampDisplay" />
-      <YAxis />
+      <XAxis
+        dataKey="timestampDisplay"
+        stroke="hsl(var(--muted-foreground))"
+        axisLine={false}
+        tickLine={false}
+        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+        angle={-45}
+        textAnchor="end"
+        minTickGap={15} // Prevents ticks from overlapping too much
+        dy={10} // Vertical offset for angled tick labels
+      />
+      <YAxis
+        stroke="hsl(var(--muted-foreground))"
+        axisLine={false}
+        tickLine={false}
+        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+        tickFormatter={(value) => (typeof value === 'number' ? value.toFixed(0) : String(value))}
+      />
       <Tooltip
-        // content={
-        //   <ChartTooltipContent
-        //     indicator={chartType === 'line' ? "line" : "dot"}
-        //     labelFormatter={(_label, payload) => { 
-        //       try {
-        //         if (payload && payload.length > 0 && payload[0] && payload[0].payload && typeof payload[0].payload.tooltipTimestampFull === 'string') {
-        //           return payload[0].payload.tooltipTimestampFull;
-        //         }
-        //       } catch (e) { console.error("Tooltip labelFormatter error:", e); }
-        //       return 'Details'; 
-        //     }}
-        //   />
-        // }
         cursor={{ stroke: 'hsl(var(--accent))', strokeWidth: 1, strokeDasharray: '3 3' }}
-        wrapperStyle={{ outline: 'none', zIndex: 100 }}
+        wrapperStyle={{ 
+            outline: 'none', 
+            zIndex: 100, 
+            backgroundColor: 'hsl(var(--background))', 
+            border: '1px solid hsl(var(--border))', 
+            borderRadius: 'var(--radius)', 
+            padding: '0.5rem',
+            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)'
+        }}
+        labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: '600', marginBottom: '0.25rem', fontSize: '0.875rem' }}
+        itemStyle={{ color: 'hsl(var(--foreground))', fontSize: '0.875rem' }}
+        formatter={(value: any, name: any, entry: any) => {
+            const metricKey = name as MetricKey;
+            const config = metricConfigs[metricKey];
+            const unit = config?.unit || '';
+            const formattedValue = typeof value === 'number' ? value.toFixed(1) : String(value);
+            return [`${formattedValue}${unit}`, config?.name || name];
+        }}
+        labelFormatter={(label: any, payload: any) => {
+            // The 'label' here is the XAxis value (timestampDisplay)
+            // We want to show the 'tooltipTimestampFull' from the payload
+            if (payload && payload.length > 0 && payload[0] && payload[0].payload && typeof payload[0].payload.tooltipTimestampFull === 'string') {
+              return payload[0].payload.tooltipTimestampFull;
+            }
+            return String(label); // Fallback to the formatted X-axis label
+        }}
       />
       <ChartLegend 
         content={<ChartLegendContent />} 
-        wrapperStyle={{ paddingTop: "40px" }} // Space between X-axis and legend text
+        wrapperStyle={{ paddingTop: "40px" }}
       />
     </>
   );
@@ -208,9 +236,9 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
             dataKey={key}
             stroke={color}
             strokeWidth={2}
-            dot={false}
+            dot={false} // No dots for cleaner line, tooltip still works on hover
             name={metricConfig.name}
-            connectNulls={false}
+            connectNulls={false} // Do not connect lines over null/missing data points
           />
         );
       } else if (chartType === 'bar') {
@@ -220,7 +248,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
             dataKey={key}
             fill={color}
             name={metricConfig.name}
-            radius={[0, 0, 0, 0]} // Simplified radius
+            radius={[4, 4, 0, 0]} // Rounded top corners for bars
           />
         );
       } else if (chartType === 'scatter') {
@@ -238,17 +266,16 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
   };
   
   const renderChart = () => {
-    const chartProps = { ...commonCartesianProps }; // Use a copy to avoid potential direct modification issues
+    const chartSpecificProps = { ...commonCartesianProps }; 
 
     if (chartType === 'line') {
-      return <LineChart {...chartProps}>{commonAxisAndGridComponents}{renderChartSpecificElements()}</LineChart>;
+      return <LineChart {...chartSpecificProps}>{commonAxisAndGridComponents}{renderChartSpecificElements()}</LineChart>;
     } else if (chartType === 'bar') {
-      return <BarChart {...chartProps}>{commonAxisAndGridComponents}{renderChartSpecificElements()}</BarChart>;
+      return <BarChart {...chartSpecificProps}>{commonAxisAndGridComponents}{renderChartSpecificElements()}</BarChart>;
     } else if (chartType === 'scatter') {
-      return <ScatterChart {...chartProps}>{commonAxisAndGridComponents}{renderChartSpecificElements()}</ScatterChart>;
+      return <ScatterChart {...chartSpecificProps}>{commonAxisAndGridComponents}{renderChartSpecificElements()}</ScatterChart>;
     }
-    // Default to LineChart if type is unrecognized, though Select should prevent this.
-    return <LineChart {...chartProps}>{commonAxisAndGridComponents}{renderChartSpecificElements()}</LineChart>; 
+    return <LineChart {...chartSpecificProps}>{commonAxisAndGridComponents}{renderChartSpecificElements()}</LineChart>; 
   };
 
 
@@ -264,9 +291,11 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
         </div>
       </CardHeader>
       <CardContent className="p-4">
-        <ChartContainer ref={chartRef} config={chartConfig} className="h-[450px] w-full aspect-auto">
-           {renderChart()}
-        </ChartContainer>
+        <div ref={chartRef}>
+          <ChartContainer config={chartConfig} className="h-[450px] w-full aspect-auto">
+            {renderChart()}
+          </ChartContainer>
+        </div>
         <div className="flex justify-center -mt-10"> 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -301,3 +330,4 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
 };
 
 export default WeatherChart;
+
