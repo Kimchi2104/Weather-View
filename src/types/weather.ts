@@ -1,6 +1,7 @@
 
 export interface WeatherDataPoint {
   timestamp: number; // Unix timestamp (milliseconds)
+  rawTimestampString?: string; // Original timestamp string from Firebase
   precipitation: string; // e.g., "No Rain", "Rain"
   temperature: number; // °C
   humidity: number; // %

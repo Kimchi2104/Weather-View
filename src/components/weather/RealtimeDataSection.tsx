@@ -9,10 +9,9 @@ import { database } from '@/lib/firebase';
 import { ref, onValue, type Unsubscribe } from "firebase/database";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import MetricIcon from './MetricIcon';
 import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge, ShieldCheck, Sun, HelpCircle } from 'lucide-react';
 import { transformRawDataToWeatherDataPoint } from '@/lib/utils';
-import { startOfDay, endOfDay, isWithinInterval, format } from 'date-fns';
+import { startOfDay, endOfDay, isWithinInterval } from 'date-fns'; // format removed as we use raw string
 
 const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
   temperature: { name: 'Temperature', unit: '°C', Icon: Thermometer, color: 'hsl(var(--chart-1))', healthyMin: 0, healthyMax: 35 },
@@ -34,10 +33,9 @@ interface DailyMetricTrend {
 type RealtimeSectionState = {
   [key in MetricKey]?: DailyMetricTrend;
 } & {
-  lastUpdatedTimestamp?: number | null;
+  lastUpdatedRawString?: string | null; // Store the raw string of the latest timestamp
 };
 
-// Helper to get style for precipitation
 const getPrecipitationStyle = (status: string | null) => {
   if (!status) return { Icon: HelpCircle, color: 'text-muted-foreground', label: 'Unknown' };
   const s = status.toLowerCase();
@@ -46,16 +44,15 @@ const getPrecipitationStyle = (status: string | null) => {
   return { Icon: HelpCircle, color: 'text-muted-foreground', label: status };
 };
 
-// Helper to get style for air quality
 const getAirQualityStyle = (status: string | null) => {
   if (!status) return { Icon: HelpCircle, color: 'text-muted-foreground', label: 'Unknown' };
   const s = status.toLowerCase();
   if (s.includes('safe') || s.includes('good')) return { Icon: ShieldCheck, color: 'text-green-500', label: status };
-  if (s.includes('moderate')) return { Icon: ShieldCheck, color: 'text-yellow-600', label: status }; // Darker yellow for better contrast
+  if (s.includes('moderate')) return { Icon: ShieldCheck, color: 'text-yellow-600', label: status };
   if (s.includes('unhealthy for sensitive')) return { Icon: ShieldCheck, color: 'text-orange-500', label: status };
   if (s.includes('unhealthy')) return { Icon: ShieldCheck, color: 'text-red-500', label: status };
   if (s.includes('very unhealthy')) return { Icon: ShieldCheck, color: 'text-purple-500', label: status };
-  if (s.includes('hazardous')) return { Icon: ShieldCheck, color: 'text-red-700', label: status }; // Darker red for hazardous
+  if (s.includes('hazardous')) return { Icon: ShieldCheck, color: 'text-red-700', label: status };
   return { Icon: HelpCircle, color: 'text-muted-foreground', label: status };
 };
 
@@ -68,19 +65,19 @@ const RealtimeDataSection: FC = () => {
 
   useEffect(() => {
     const dataRef = ref(database, firebaseDataPath);
-    console.log('[RealtimeDataSection] Setting up listener for realtime data at Firebase path:', dataRef.toString());
+    // console.log('[RealtimeDataSection] Setting up listener for realtime data at Firebase path:', dataRef.toString());
 
     const unsubscribe: Unsubscribe = onValue(dataRef, (snapshot) => {
-      console.log('[RealtimeDataSection] Realtime data snapshot received from Firebase');
+      // console.log('[RealtimeDataSection] Realtime data snapshot received from Firebase');
       const rawDataContainer = snapshot.val();
 
       if (rawDataContainer && typeof rawDataContainer === 'object') {
         const allRecords: [string, RawFirebaseDataPoint][] = Object.entries(rawDataContainer);
         
-        const transformedRecords = allRecords
+        const transformedRecords: WeatherDataPoint[] = allRecords
           .map(([key, rawPoint]) => transformRawDataToWeatherDataPoint(rawPoint as RawFirebaseDataPoint, key))
-          .filter((point): point is WeatherDataPoint => point !== null)
-          .sort((a, b) => a.timestamp - b.timestamp); // Sort ascending for easier processing
+          .filter((point): point is WeatherDataPoint => point !== null && point.timestamp !== null && point.rawTimestampString !== undefined)
+          .sort((a, b) => a.timestamp - b.timestamp); // Sort ascending by numerical timestamp
 
         if (transformedRecords.length > 0) {
           const latestRecord = transformedRecords[transformedRecords.length - 1];
@@ -93,7 +90,7 @@ const RealtimeDataSection: FC = () => {
           );
 
           const newProcessedData: RealtimeSectionState = {
-            lastUpdatedTimestamp: latestRecord.timestamp,
+            lastUpdatedRawString: latestRecord.rawTimestampString, // Use raw string from latest record
           };
 
           (Object.keys(METRIC_CONFIGS) as MetricKey[]).forEach(key => {
@@ -109,8 +106,11 @@ const RealtimeDataSection: FC = () => {
             if (!config.isString && todayRecords.length > 0) {
               const numericValues = todayRecords.map(p => {
                 if (key === 'aqiPpm') return p.aqiPpm;
-                return p[key as Exclude<MetricKey, 'aqiPpm' | 'airQuality' | 'precipitation'>];
-              }).filter(v => typeof v === 'number') as number[];
+                // Ensure we are accessing a numeric property for min/max
+                const val = p[key as Exclude<MetricKey, 'aqiPpm' | 'airQuality' | 'precipitation'>];
+                return typeof val === 'number' ? val : undefined;
+              }).filter((v): v is number => typeof v === 'number');
+
 
               if (numericValues.length > 0) {
                 currentMetricData.min = Math.min(...numericValues);
@@ -127,21 +127,21 @@ const RealtimeDataSection: FC = () => {
           setProcessedData(newProcessedData);
 
         } else {
-          setProcessedData({ lastUpdatedTimestamp: null });
+          setProcessedData({ lastUpdatedRawString: null });
         }
       } else {
-        setProcessedData({ lastUpdatedTimestamp: null });
-        console.warn(`[RealtimeDataSection] No data or invalid data structure found at Firebase path: ${firebaseDataPath}`);
+        setProcessedData({ lastUpdatedRawString: null });
+        // console.warn(`[RealtimeDataSection] No data or invalid data structure found at Firebase path: ${firebaseDataPath}`);
       }
       setIsLoading(false);
     }, (error) => {
       console.error("[RealtimeDataSection] Firebase realtime data fetching error:", error);
       setIsLoading(false);
-      setProcessedData({ lastUpdatedTimestamp: null });
+      setProcessedData({ lastUpdatedRawString: null });
     });
 
     return () => {
-      console.log('[RealtimeDataSection] Unsubscribing from realtime data listener.');
+      // console.log('[RealtimeDataSection] Unsubscribing from realtime data listener.');
       unsubscribe();
     };
   }, [firebaseDataPath]);
@@ -161,9 +161,9 @@ const RealtimeDataSection: FC = () => {
       <p className="text-xs text-muted-foreground mb-1">
             Data is fetched from Firebase path: `{firebaseDataPath}`.
       </p>
-      {processedData.lastUpdatedTimestamp && !isLoading && (
+      {processedData.lastUpdatedRawString && !isLoading && (
         <p className="text-xs text-muted-foreground mb-4">
-          Last updated: {format(new Date(processedData.lastUpdatedTimestamp), 'dd/MM/yyyy HH:mm:ss')}
+          Last updated: {processedData.lastUpdatedRawString}
         </p>
       )}
        {isLoading && (

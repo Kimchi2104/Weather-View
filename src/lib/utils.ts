@@ -20,22 +20,24 @@ export function parseCustomTimestamp(timestampStr: string | undefined): number |
   // Assumes dd/MM/yyyy HH:mm:ss format, allows for d/M/yyyy or dd/MM/yyyy
   const parts = timestampStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s(\d{2}):(\d{2}):(\d{2})/);
   if (parts) {
-    const day = parseInt(parts[1], 10);      // dd or d
-    const month = parseInt(parts[2], 10) - 1; // MM or M (0-indexed)
-    const year = parseInt(parts[3], 10);     // yyyy
+    const day = parseInt(parts[1], 10);
+    const month = parseInt(parts[2], 10) - 1; // JS months are 0-indexed
+    const year = parseInt(parts[3], 10);
     const hour = parseInt(parts[4], 10);
     const minute = parseInt(parts[5], 10);
     const second = parseInt(parts[6], 10);
 
     const date = new Date(Date.UTC(year, month, day, hour, minute, second));
+    
     if (isNaN(date.getTime())) {
-      console.warn(`[parseCustomTimestamp] Invalid date constructed for timestamp string: ${timestampStr} (parsed as dd/MM/yyyy). Input parts: day=${parts[1]}, month=${parts[2]}, year=${parts[3]}`);
+      console.error(`[parseCustomTimestamp] CRITICAL: Invalid date constructed. Raw: "${timestampStr}", Attempted UTC Components -> Year: ${year}, Month(0-idx): ${month}, Day: ${day}, H:${hour}, M:${minute}, S:${second}`);
       return null;
     }
-    console.log(`[parseCustomTimestamp] Raw: "${timestampStr}", Parsed as UTC Date Object: ${date.toISOString()}, Milliseconds: ${date.getTime()}`);
+    // Log the components used for Date.UTC and the resulting ISO string and millis
+    console.log(`[parseCustomTimestamp] Raw: "${timestampStr}", Parsed for UTC -> Y:${year}, M:${month}(0-idx), D:${day}, H:${hour}, M:${minute}, S:${second} => Millis: ${date.getTime()}, ISO: ${date.toISOString()}`);
     return date.getTime();
   }
-  console.warn(`[parseCustomTimestamp] Could not parse timestamp format: "${timestampStr}". Expected "dd/MM/yyyy HH:mm:ss" (day/month can be single or double digit).`);
+  console.error(`[parseCustomTimestamp] CRITICAL: Could not parse format. Raw: "${timestampStr}". Expected "dd/MM/yyyy HH:mm:ss" (day/month can be single or double digit).`);
   return null;
 }
 
@@ -43,18 +45,18 @@ export function parseCustomTimestamp(timestampStr: string | undefined): number |
 import type { RawFirebaseDataPoint, WeatherDataPoint } from '@/types/weather';
 
 export function transformRawDataToWeatherDataPoint(rawData: RawFirebaseDataPoint, recordKey?: string): WeatherDataPoint | null {
-  console.log(`[transformRawDataToWeatherDataPoint] Processing raw record (key: ${recordKey || 'N/A'}):`, JSON.parse(JSON.stringify(rawData)));
+  // console.log(`[transformRawDataToWeatherDataPoint] Processing raw record (key: ${recordKey || 'N/A'}):`, JSON.parse(JSON.stringify(rawData)));
 
   if (!rawData || typeof rawData !== 'object') {
-    console.warn('[transformRawDataToWeatherDataPoint] Invalid rawData input (not an object or null):', rawData);
+    // console.warn('[transformRawDataToWeatherDataPoint] Invalid rawData input (not an object or null):', rawData);
     return null;
   }
 
   const numericalTimestamp = parseCustomTimestamp(rawData.timestamp);
-  console.log(`[transformRawDataToWeatherDataPoint] Parsed timestamp for (key: ${recordKey || 'N/A'}):`, numericalTimestamp, rawData.timestamp);
+  // console.log(`[transformRawDataToWeatherDataPoint] Parsed timestamp for (key: ${recordKey || 'N/A'}):`, numericalTimestamp, rawData.timestamp);
 
   if (numericalTimestamp === null) {
-    console.warn(`[transformRawDataToWeatherDataPoint] Skipping record (key: ${recordKey || 'N/A'}) due to unparseable timestamp:`, rawData.timestamp);
+    // console.warn(`[transformRawDataToWeatherDataPoint] Skipping record (key: ${recordKey || 'N/A'}) due to unparseable timestamp:`, rawData.timestamp);
     return null;
   }
 
@@ -62,33 +64,34 @@ export function transformRawDataToWeatherDataPoint(rawData: RawFirebaseDataPoint
   if (typeof rawData.rainStatus === 'string') {
     precipitationValue = rawData.rainStatus;
   } else {
-    console.warn(`[transformRawDataToWeatherDataPoint] rainStatus is missing or not a string for (key: ${recordKey || 'N/A'}). Defaulting to "Unknown". Value:`, rawData.rainStatus);
+    // console.warn(`[transformRawDataToWeatherDataPoint] rainStatus is missing or not a string for (key: ${recordKey || 'N/A'}). Defaulting to "Unknown". Value:`, rawData.rainStatus);
     precipitationValue = "Unknown";
   }
-  console.log(`[transformRawDataToWeatherDataPoint] Precipitation status for (key: ${recordKey || 'N/A'}):`, precipitationValue);
+  // console.log(`[transformRawDataToWeatherDataPoint] Precipitation status for (key: ${recordKey || 'N/A'}):`, precipitationValue);
   
   const temperatureValue = typeof rawData.temperature === 'number' ? rawData.temperature : 0;
   const humidityValue = typeof rawData.humidity === 'number' ? rawData.humidity : 0;
   const luxValue = typeof rawData.lux === 'number' ? rawData.lux : 0;
   
   const airQualityStringValue = typeof rawData.airQuality === 'string' ? rawData.airQuality : "Unknown";
-  if (typeof rawData.airQuality !== 'string') console.warn(`[transformRawDataToWeatherDataPoint] airQuality (string) is not a string for (key: ${recordKey || 'N/A'}). Defaulting to "Unknown". Value:`, rawData.airQuality);
-  console.log(`[transformRawDataToWeatherDataPoint] Air Quality (string) for (key: ${recordKey || 'N/A'}):`, airQualityStringValue);
+  // if (typeof rawData.airQuality !== 'string') console.warn(`[transformRawDataToWeatherDataPoint] airQuality (string) is not a string for (key: ${recordKey || 'N/A'}). Defaulting to "Unknown". Value:`, rawData.airQuality);
+  // console.log(`[transformRawDataToWeatherDataPoint] Air Quality (string) for (key: ${recordKey || 'N/A'}):`, airQualityStringValue);
   
   const aqiPpmValue = typeof rawData.mq135PPM === 'number' ? rawData.mq135PPM : 0;
-  if (typeof rawData.mq135PPM !== 'number') console.warn(`[transformRawDataToWeatherDataPoint] mq135PPM (for AQI PPM) is not a number for (key: ${recordKey || 'N/A'}). Defaulting to 0. Value:`, rawData.mq135PPM);
-  console.log(`[transformRawDataToWeatherDataPoint] AQI PPM (from mq135PPM) for (key: ${recordKey || 'N/A'}):`, aqiPpmValue);
+  // if (typeof rawData.mq135PPM !== 'number') console.warn(`[transformRawDataToWeatherDataPoint] mq135PPM (for AQI PPM) is not a number for (key: ${recordKey || 'N/A'}). Defaulting to 0. Value:`, rawData.mq135PPM);
+  // console.log(`[transformRawDataToWeatherDataPoint] AQI PPM (from mq135PPM) for (key: ${recordKey || 'N/A'}):`, aqiPpmValue);
 
   const pressureValue = typeof rawData.pressure === 'number' ? rawData.pressure : undefined; 
 
-  if (typeof rawData.temperature !== 'number') console.warn(`[transformRawDataToWeatherDataPoint] Temperature is not a number for (key: ${recordKey || 'N/A'}). Defaulting to 0. Value:`, rawData.temperature);
-  if (typeof rawData.humidity !== 'number') console.warn(`[transformRawDataToWeatherDataPoint] Humidity is not a number for (key: ${recordKey || 'N/A'}). Defaulting to 0. Value:`, rawData.humidity);
-  if (typeof rawData.lux !== 'number') console.warn(`[transformRawDataToWeatherDataPoint] Lux is not a number for (key: ${recordKey || 'N/A'}). Defaulting to 0. Value:`, rawData.lux);
-  if (rawData.pressure !== undefined && typeof rawData.pressure !== 'number') console.warn(`[transformRawDataToWeatherDataPoint] Pressure is present but not a number for (key: ${recordKey || 'N/A'}). Setting to undefined. Value:`, rawData.pressure);
+  // if (typeof rawData.temperature !== 'number') console.warn(`[transformRawDataToWeatherDataPoint] Temperature is not a number for (key: ${recordKey || 'N/A'}). Defaulting to 0. Value:`, rawData.temperature);
+  // if (typeof rawData.humidity !== 'number') console.warn(`[transformRawDataToWeatherDataPoint] Humidity is not a number for (key: ${recordKey || 'N/A'}). Defaulting to 0. Value:`, rawData.humidity);
+  // if (typeof rawData.lux !== 'number') console.warn(`[transformRawDataToWeatherDataPoint] Lux is not a number for (key: ${recordKey || 'N/A'}). Defaulting to 0. Value:`, rawData.lux);
+  // if (rawData.pressure !== undefined && typeof rawData.pressure !== 'number') console.warn(`[transformRawDataToWeatherDataPoint] Pressure is present but not a number for (key: ${recordKey || 'N/A'}). Setting to undefined. Value:`, rawData.pressure);
 
 
   const transformedPoint: WeatherDataPoint = {
     timestamp: numericalTimestamp,
+    rawTimestampString: rawData.timestamp, // Store the original string
     temperature: temperatureValue,
     humidity: humidityValue,
     precipitation: precipitationValue,
@@ -98,6 +101,6 @@ export function transformRawDataToWeatherDataPoint(rawData: RawFirebaseDataPoint
     ...(pressureValue !== undefined && { pressure: pressureValue }),
   };
 
-  console.log(`[transformRawDataToWeatherDataPoint] Successfully transformed point for (key: ${recordKey || 'N/A'}):`, JSON.parse(JSON.stringify(transformedPoint)));
+  // console.log(`[transformRawDataToWeatherDataPoint] Successfully transformed point for (key: ${recordKey || 'N/A'}):`, JSON.parse(JSON.stringify(transformedPoint)));
   return transformedPoint;
 }
