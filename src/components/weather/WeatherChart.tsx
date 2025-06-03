@@ -18,11 +18,10 @@ import type { WeatherDataPoint, MetricKey, MetricConfig } from '@/types/weather'
 import { Skeleton } from '@/components/ui/skeleton';
 import { Download, FileImage, FileText, Loader2 } from 'lucide-react';
 
-// Helper functions for timestamp formatting (can be moved to utils.ts if preferred)
 export const formatTimestampToDdMmHhMmUTC = (timestamp: number): string => {
   const date = new Date(timestamp);
   const day = date.getUTCDate().toString().padStart(2, '0');
-  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0'); // Month is 0-indexed
+  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
   const hours = date.getUTCHours().toString().padStart(2, '0');
   const minutes = date.getUTCMinutes().toString().padStart(2, '0');
   return `${day}/${month} ${hours}:${minutes}`;
@@ -31,14 +30,13 @@ export const formatTimestampToDdMmHhMmUTC = (timestamp: number): string => {
 export const formatTimestampToFullUTC = (timestamp: number): string => {
   const date = new Date(timestamp);
   const day = date.getUTCDate().toString().padStart(2, '0');
-  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0'); // Month is 0-indexed
+  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
   const year = date.getUTCFullYear();
   const hours = date.getUTCHours().toString().padStart(2, '0');
   const minutes = date.getUTCMinutes().toString().padStart(2, '0');
   const seconds = date.getUTCSeconds().toString().padStart(2, '0');
   return `${day}/${month}/${year} ${hours}:${minutes}:${seconds} UTC`;
 };
-
 
 interface WeatherChartProps {
   data: WeatherDataPoint[];
@@ -60,8 +58,6 @@ const WeatherChart: FC<WeatherChartProps> = ({
   const chartRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
 
-  console.log("[WeatherChart] Props:", { dataLength: data?.length, selectedMetrics, chartType, isLoading });
-
   const formattedData = useMemo(() => {
     if (!data) return [];
     const processed = data.map((point) => ({
@@ -69,18 +65,22 @@ const WeatherChart: FC<WeatherChartProps> = ({
       timestampDisplay: formatTimestampToDdMmHhMmUTC(point.timestamp),
       tooltipTimestampFull: formatTimestampToFullUTC(point.timestamp),
     }));
-    console.log("[WeatherChart] Formatted Data (first 3):", processed.slice(0,3));
+    // console.log("[WeatherChart] Formatted Data (first 3):", processed.slice(0,3));
     return processed;
   }, [data]);
+
+  // console.log("[WeatherChart] Props:", { dataLength: data?.length, selectedMetrics, chartType, isLoading });
+  // console.log("[WeatherChart] metricConfigs:", metricConfigs);
+
 
   const exportChart = async (format: 'png' | 'jpeg' | 'pdf') => {
     if (!chartRef.current) return;
     setIsExporting(true);
     try {
-      const canvas = await html2canvas(chartRef.current, {
+      const canvas = await html2canvas(chartRef.current.querySelector('.recharts-wrapper') || chartRef.current, { // Target recharts-wrapper for better accuracy
         scale: 2,
         useCORS: true,
-        backgroundColor: 'hsl(var(--card))', // Use card background for export
+        backgroundColor: 'hsl(var(--card))',
       });
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
       if (format === 'pdf') {
@@ -112,7 +112,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           <Skeleton className="h-4 w-1/3" />
         </CardHeader>
         <CardContent className="p-4">
-          <Skeleton className="h-[450px] w-full" /> {/* Adjusted height for content */}
+          <Skeleton className="h-[450px] w-full" />
         </CardContent>
       </Card>
     );
@@ -127,12 +127,77 @@ const WeatherChart: FC<WeatherChartProps> = ({
             Select metrics and a date range to display data. Current Chart: {chartType.charAt(0).toUpperCase() + chartType.slice(1)}
           </CardDescription>
         </CardHeader>
-        <CardContent className="p-4 h-[450px] flex items-center justify-center"> {/* Adjusted height for content */}
+        <CardContent className="p-4 h-[450px] flex items-center justify-center">
           <p className="text-muted-foreground">No data available for the selected criteria or metrics.</p>
         </CardContent>
       </Card>
     );
   }
+
+  const commonCartesianProps = {
+    margin: { top: 20, right: 30, left: 20, bottom: 80 },
+  };
+
+  const renderChartSpecificElements = () => {
+    return selectedMetrics.map((key) => {
+      const metricConfig = metricConfigs[key];
+      if (!metricConfig || metricConfig.isString) return null; // Don't plot string data like "Precipitation Description"
+
+      const color = metricConfig.color || '#8884d8'; // Default color if not specified
+      const name = metricConfig.name || key;
+
+      switch (chartType) {
+        case 'bar':
+          return <Bar key={key} dataKey={key} fill={color} name={name} radius={[4, 4, 0, 0]} />;
+        case 'scatter':
+          return <Scatter key={key} dataKey={key} fill={color} name={name} />;
+        case 'line':
+        default:
+          return <Line key={key} type="monotone" dataKey={key} stroke={color} name={name} dot={false} activeDot={{ r: 6 }} onClick={(payload) => onPointClick && payload && onPointClick(payload as unknown as WeatherDataPoint)}/>;
+      }
+    });
+  };
+  
+  const renderChart = () => {
+    const chartKey = `${chartType}-${selectedMetrics.join('-')}-${formattedData.length}`;
+
+    switch (chartType) {
+      case 'bar':
+        return (
+          <BarChart key={chartKey} data={formattedData} {...commonCartesianProps}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+            <XAxis dataKey="timestampDisplay" stroke="#888888" tick={{ fill: "#555555", fontSize: 11 }} angle={-45} textAnchor="end" dy={10} minTickGap={5} interval="preserveStartEnd" />
+            <YAxis stroke="#888888" tick={{ fill: "#555555", fontSize: 12 }} tickFormatter={(value) => (typeof value === 'number' ? value.toFixed(0) : String(value))} />
+            <Tooltip wrapperStyle={{ zIndex: 1000, backgroundColor: "#ffffff", border: "1px solid #cccccc", borderRadius: "3px", padding: "10px", color: "#000000", boxShadow: '2px 2px 5px rgba(0,0,0,0.1)' }} labelStyle={{ fontWeight: "bold", color: "#333333", marginBottom: "4px" }} itemStyle={{ color: "#333333" }} labelFormatter={(label, payload) => payload?.[0]?.payload?.tooltipTimestampFull || label} formatter={(value: any, name: any, entry: any) => { const config = metricConfigs[name as MetricKey]; return [`${typeof value === 'number' ? value.toFixed(config?.isString ? 0 : 2) : value}${config?.unit || ''}`, config?.name || name]; }} />
+            <Legend wrapperStyle={{ paddingTop: "20px", paddingBottom: "10px" }} />
+            {renderChartSpecificElements()}
+          </BarChart>
+        );
+      case 'scatter':
+        return (
+          <ScatterChart key={chartKey} data={formattedData} {...commonCartesianProps}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+            <XAxis type="category" dataKey="timestampDisplay" name="Time" stroke="#888888" tick={{ fill: "#555555", fontSize: 11 }} angle={-45} textAnchor="end" dy={10} minTickGap={5} interval="preserveStartEnd" />
+            <YAxis type="number" dataKey={selectedMetrics.find(m => !metricConfigs[m]?.isString) || selectedMetrics[0]} name="Value" stroke="#888888" tick={{ fill: "#555555", fontSize: 12 }} tickFormatter={(value) => (typeof value === 'number' ? value.toFixed(0) : String(value))} />
+            <Tooltip wrapperStyle={{ zIndex: 1000, backgroundColor: "#ffffff", border: "1px solid #cccccc", borderRadius: "3px", padding: "10px", color: "#000000", boxShadow: '2px 2px 5px rgba(0,0,0,0.1)' }} labelStyle={{ fontWeight: "bold", color: "#333333", marginBottom: "4px" }} itemStyle={{ color: "#333333" }} labelFormatter={(label, payload) => payload?.[0]?.payload?.tooltipTimestampFull || label} formatter={(value: any, name: any, entry: any) => { const config = metricConfigs[name as MetricKey]; return [`${typeof value === 'number' ? value.toFixed(config?.isString ? 0 : 2) : value}${config?.unit || ''}`, config?.name || name]; }} cursor={{ strokeDasharray: '3 3' }} />
+            <Legend wrapperStyle={{ paddingTop: "20px", paddingBottom: "10px" }} />
+            {renderChartSpecificElements()}
+          </ScatterChart>
+        );
+      case 'line':
+      default:
+        return (
+          <LineChart key={chartKey} data={formattedData} {...commonCartesianProps}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+            <XAxis dataKey="timestampDisplay" stroke="#888888" tick={{ fill: "#555555", fontSize: 11 }} angle={-45} textAnchor="end" dy={10} minTickGap={5} interval="preserveStartEnd" />
+            <YAxis stroke="#888888" tick={{ fill: "#555555", fontSize: 12 }} tickFormatter={(value) => (typeof value === 'number' ? value.toFixed(0) : String(value))} />
+            <Tooltip wrapperStyle={{ zIndex: 1000, backgroundColor: "#ffffff", border: "1px solid #cccccc", borderRadius: "3px", padding: "10px", color: "#000000", boxShadow: '2px 2px 5px rgba(0,0,0,0.1)' }} labelStyle={{ fontWeight: "bold", color: "#333333", marginBottom: "4px" }} itemStyle={{ color: "#333333" }} labelFormatter={(label, payload) => payload?.[0]?.payload?.tooltipTimestampFull || label} formatter={(value: any, name: any, entry: any) => { const config = metricConfigs[name as MetricKey]; return [`${typeof value === 'number' ? value.toFixed(config?.isString ? 0 : 2) : value}${config?.unit || ''}`, config?.name || name]; }} />
+            <Legend wrapperStyle={{ paddingTop: "20px", paddingBottom: "10px" }} />
+            {renderChartSpecificElements()}
+          </LineChart>
+        );
+    }
+  };
 
   return (
     <Card className="shadow-lg">
@@ -145,64 +210,15 @@ const WeatherChart: FC<WeatherChartProps> = ({
         </div>
       </CardHeader>
       <CardContent className="p-4">
-        <div ref={chartRef} className="w-full h-[550px] bg-background"> {/* Explicit height for ResponsiveContainer's parent */}
+        <div ref={chartRef} className="w-full h-[550px] bg-background">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart 
-              data={formattedData} 
-              margin={{ top: 20, right: 30, left: 20, bottom: 80 }} // Increased bottom margin for angled labels & legend
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-              <XAxis 
-                dataKey="timestampDisplay" 
-                stroke="#888888" 
-                tick={{ fill: "#555555", fontSize: 11 }}
-                angle={-45}
-                textAnchor="end"
-                dy={10} // Pushes labels down a bit
-                minTickGap={5} // Min gap between ticks
-              />
-              <YAxis 
-                stroke="#888888" 
-                tick={{ fill: "#555555", fontSize: 12 }}
-                tickFormatter={(value) => (typeof value === 'number' ? value.toFixed(0) : String(value))}
-              />
-              <Tooltip
-                wrapperStyle={{ zIndex: 1000, backgroundColor: "#ffffff", border: "1px solid #cccccc", borderRadius: "3px", padding: "10px", color: "#000000", boxShadow: '2px 2px 5px rgba(0,0,0,0.1)' }}
-                labelStyle={{ fontWeight: "bold", color: "#333333", marginBottom: "4px" }}
-                itemStyle={{ color: "#333333" }}
-                labelFormatter={(label, payload) => {
-                  if (payload && payload.length > 0 && payload[0].payload.tooltipTimestampFull) {
-                    return payload[0].payload.tooltipTimestampFull;
-                  }
-                  return label;
-                }}
-                formatter={(value: any, name: any, entry: any) => {
-                  const metricConfig = metricConfigs[name as MetricKey];
-                  const unit = metricConfig ? metricConfig.unit : '';
-                  const displayName = metricConfig ? metricConfig.name : name;
-                  const formattedValue = typeof value === 'number' ? value.toFixed(metricConfig?.isString ? 0 : 2) : value;
-                  return [`${formattedValue}${unit}`, displayName];
-                }}
-              />
-              <Legend wrapperStyle={{ paddingTop: "20px", paddingBottom: "10px" }} />
-              <Line
-                type="monotone"
-                dataKey="temperature" // Hardcoding to 'temperature' for this test
-                stroke={"#06b6d4"} // Hardcoded color
-                strokeWidth={2}
-                name={"Temperature"} // Hardcoded name
-                dot={false} 
-                // activeDot={{ r: 6 }}
-                // onClick={(payload) => onPointClick && payload && onPointClick(payload as unknown as WeatherDataPoint)}
-              />
-              {/* We will re-introduce dynamic lines based on selectedMetrics later */}
-            </LineChart>
+            {renderChart()}
           </ResponsiveContainer>
         </div>
         <div className="flex justify-center -mt-10">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="default" disabled={isExporting} className="min-w-[150px]">
+              <Button variant="default" disabled={isExporting || !formattedData || formattedData.length === 0} className="min-w-[150px]">
                 {isExporting ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
@@ -233,6 +249,3 @@ const WeatherChart: FC<WeatherChartProps> = ({
 };
 
 export default WeatherChart;
-    
-
-    
