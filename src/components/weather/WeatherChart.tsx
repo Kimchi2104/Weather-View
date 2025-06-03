@@ -73,8 +73,11 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
       });
       if (originalPoints.length > 0) {
         onRangeSelect(originalPoints);
+      } else { // If selection results in no points (e.g., startIndex === endIndex for some reason, or data issue)
+        onRangeSelect([]);
       }
     } else if (onRangeSelect && (!e || typeof e.startIndex !== 'number' || e.startIndex === undefined || e.endIndex === undefined) ) {
+      // This case handles when the brush is cleared or the event data is malformed
       onRangeSelect([]); 
     }
   };
@@ -107,7 +110,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
           <ResponsiveContainer width="100%" height="100%">
             <LineChart 
               data={formattedData} 
-              margin={{ top: 5, right: 30, left: 0, bottom: 40 }} 
+              margin={{ top: 5, right: 30, left: 0, bottom: 50 }} // Increased bottom margin
               onClick={handleChartClick}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -148,16 +151,14 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
                 dataKey="timestampDisplay" 
                 height={20} 
                 stroke="hsl(var(--primary))"
-                startIndex={undefined}
-                endIndex={undefined}
                 onChange={handleBrushChange}
-                tickFormatter={(index) => {
+                tickFormatter={(index) => { // Simplify ticks inside the brush
                   if (formattedData[index]?.timestampDisplay) {
-                    return formattedData[index].timestampDisplay.split(',')[0]; 
+                    return formattedData[index].timestampDisplay.split(',')[0]; // Show only date part
                   }
                   return '';
                 }}
-                className="recharts-brush"
+                className="recharts-brush" // For custom CSS styling
               />
             </LineChart>
           </ResponsiveContainer>
