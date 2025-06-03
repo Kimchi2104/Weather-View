@@ -152,8 +152,8 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
     <section className="mb-8">
       <h2 className="text-2xl font-headline font-semibold mb-4 text-primary">Historical Data Analysis</h2>
       <div className="bg-card p-4 sm:p-6 rounded-lg shadow-md space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+          <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
             <div>
               <Label htmlFor="date-range-picker" className="text-sm font-medium text-muted-foreground mb-1 block">Date Range:</Label>
               <DateRangePicker onDateChange={setDateRange} initialRange={dateRange} id="date-range-picker"/>
@@ -229,4 +229,5 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
 export default HistoricalDataSection;
     
     
+
 
