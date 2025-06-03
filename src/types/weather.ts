@@ -1,7 +1,7 @@
 
 export interface WeatherDataPoint {
   timestamp: number; // Unix timestamp (milliseconds)
-  precipitation: number; // Derived from rainAnalog
+  precipitation: string; // e.g., "No Rain", "Rain"
   temperature: number; // °C
   humidity: number; // %
   lux: number; // lux
@@ -37,9 +37,10 @@ export type MetricKey = 'temperature' | 'humidity' | 'precipitation' | 'lux' | '
 
 export interface MetricConfig {
   name: string;
-  unit: string; // Unit can be empty for categorical data like string-based airQuality
+  unit: string; // Unit can be empty for categorical data like string-based airQuality or precipitation
   Icon: React.ElementType;
   color: string;
-  healthyMin?: number; // Not applicable for string-based airQuality
-  healthyMax?: number; // Not applicable for string-based airQuality
+  healthyMin?: number; // Not applicable for string-based airQuality or precipitation
+  healthyMax?: number; // Not applicable for string-based airQuality or precipitation
 }
+

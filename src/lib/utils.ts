@@ -64,8 +64,14 @@ export function transformRawDataToWeatherDataPoint(rawData: RawFirebaseDataPoint
   }
   console.log(`[transformRawDataToWeatherDataPoint] Air Quality for (key: ${recordKey || 'N/A'}):`, airQualityValue);
 
-  const precipitationValue = rawData.rainStatus === "No Rain" ? 0 : (typeof rawData.rainAnalog === 'number' ? rawData.rainAnalog : 0);
-  console.log(`[transformRawDataToWeatherDataPoint] Derived precipitation for (key: ${recordKey || 'N/A'}):`, precipitationValue, `(Raw rainStatus: ${rawData.rainStatus}, rainAnalog: ${rawData.rainAnalog})`);
+  let precipitationValue: string;
+  if (typeof rawData.rainStatus === 'string') {
+    precipitationValue = rawData.rainStatus;
+  } else {
+    console.warn(`[transformRawDataToWeatherDataPoint] rainStatus is missing or not a string for (key: ${recordKey || 'N/A'}). Defaulting to "Unknown". Value:`, rawData.rainStatus);
+    precipitationValue = "Unknown";
+  }
+  console.log(`[transformRawDataToWeatherDataPoint] Precipitation status for (key: ${recordKey || 'N/A'}):`, precipitationValue);
   
   const temperatureValue = typeof rawData.temperature === 'number' ? rawData.temperature : 0;
   const humidityValue = typeof rawData.humidity === 'number' ? rawData.humidity : 0;

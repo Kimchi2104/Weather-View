@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 interface RealtimeDataCardProps {
   metricKey: MetricKey;
-  value: number | string | null; // Allow string for airQuality
+  value: number | string | null; // Allow string for airQuality and precipitation
   unit: string;
   label: string;
   healthyMin?: number;
@@ -48,10 +48,9 @@ const RealtimeDataCard: FC<RealtimeDataCardProps> = ({
           <>
             <div className={`text-2xl font-bold ${isAlerting ? 'text-destructive' : ''}`}>
               {typeof value === 'number' ? value.toFixed(1) : value}
-              {typeof value === 'number' && unit && <span className="text-sm font-normal"> {unit}</span>}
-              {typeof value === 'string' && unit && <span className="text-sm font-normal"> {unit}</span>}
+              {unit && <span className="text-sm font-normal"> {unit}</span>}
             </div>
-            {isAlerting && (
+            {isAlerting && typeof value === 'number' && ( // Only show healthy range alert for numbers
               <p className="text-xs text-destructive mt-1">
                 Outside healthy range
               </p>

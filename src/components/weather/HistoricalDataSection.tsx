@@ -28,8 +28,8 @@ const AVAILABLE_METRICS: { key: MetricKey; name: string }[] = [
 const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
   temperature: { name: 'Temperature', unit: '°C', Icon: Thermometer, color: 'hsl(var(--chart-1))' },
   humidity: { name: 'Humidity', unit: '%', Icon: Droplets, color: 'hsl(var(--chart-2))' },
-  precipitation: { name: 'Precipitation', unit: 'val', Icon: CloudRain, color: 'hsl(var(--chart-3))' },
-  airQuality: { name: 'Air Quality', unit: '', Icon: Wind, color: 'hsl(var(--chart-4))' }, // Unit is empty for string data
+  precipitation: { name: 'Precipitation', unit: '', Icon: CloudRain, color: 'hsl(var(--chart-3))' }, // Unit empty for string data
+  airQuality: { name: 'Air Quality', unit: '', Icon: Wind, color: 'hsl(var(--chart-4))' }, // Unit empty for string data
   lux: { name: 'Light Level', unit: 'lux', Icon: SunDim, color: 'hsl(var(--chart-5))' },
   pressure: { name: 'Pressure', unit: 'hPa', Icon: Gauge, color: 'hsl(120, 60%, 45%)' },
 };
