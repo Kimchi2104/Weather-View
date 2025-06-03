@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import DateRangePicker from './DateRangePicker';
 import type { DateRange } from 'react-day-picker';
-import { subDays } from 'date-fns';
+import { subDays, format as formatDateFns } from 'date-fns';
 import { database } from '@/lib/firebase';
 import { ref, get, type DataSnapshot } from "firebase/database";
 import type { RawFirebaseDataPoint } from '@/types/weather';
@@ -17,6 +17,13 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Download } from 'lucide-react';
 
 interface RawDataTableRow extends RawFirebaseDataPoint {
   id: string; // Firebase key
@@ -25,7 +32,7 @@ interface RawDataTableRow extends RawFirebaseDataPoint {
 
 const RawDataViewer: FC = () => {
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: subDays(new Date(), 1), // Default to last 1 day for raw data viewer
+    from: subDays(new Date(), 1),
     to: new Date(),
   });
   const [startTime, setStartTime] = useState<string>("00:00");
@@ -35,6 +42,17 @@ const RawDataViewer: FC = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const firebaseDataPath = 'devices/TGkMhLL4k4ZFBwgOyRVNKe5mTQq1/records/';
+
+  const tableHeaders: { key: keyof RawFirebaseDataPoint | 'timestamp'; label: string }[] = [
+    { key: 'timestamp', label: 'Timestamp (Raw)' },
+    { key: 'temperature', label: 'Temp (°C)' },
+    { key: 'humidity', label: 'Humidity (%)' },
+    { key: 'rainStatus', label: 'Rain Status' },
+    { key: 'airQuality', label: 'Air Quality' },
+    { key: 'mq135PPM', label: 'AQI (PPM)' },
+    { key: 'lux', label: 'Light (Lux)' },
+    { key: 'pressure', label: 'Pressure (hPa)' },
+  ];
 
   const fetchAllRawData = useCallback(async () => {
     setIsLoading(true);
@@ -92,7 +110,7 @@ const RawDataViewer: FC = () => {
 
     const toDate = new Date(dateRange.to);
     const [endH, endM] = endTime.split(':').map(Number);
-    toDate.setHours(endH, endM, 59, 999); // Inclusive of the last minute
+    toDate.setHours(endH, endM, 59, 999);
     const toTimestamp = toDate.getTime();
 
     const filtered = allFetchedRawData.filter(point => {
@@ -110,16 +128,81 @@ const RawDataViewer: FC = () => {
     filterDataByDateTimeRange();
   }, [dateRange, allFetchedRawData, filterDataByDateTimeRange, startTime, endTime]);
 
-  const tableHeaders: { key: keyof RawFirebaseDataPoint | 'timestamp'; label: string }[] = [
-    { key: 'timestamp', label: 'Timestamp (Raw)' },
-    { key: 'temperature', label: 'Temp (°C)' },
-    { key: 'humidity', label: 'Humidity (%)' },
-    { key: 'rainStatus', label: 'Rain Status' },
-    { key: 'airQuality', label: 'Air Quality' },
-    { key: 'mq135PPM', label: 'AQI (PPM)' },
-    { key: 'lux', label: 'Light (Lux)' },
-    { key: 'pressure', label: 'Pressure (hPa)' },
-  ];
+  const generateFilename = (extension: string): string => {
+    return `raw_data_export_${formatDateFns(new Date(), 'yyyyMMdd_HHmmss')}.${extension}`;
+  };
+
+  const triggerDownload = (content: string, filename: string, contentType: string) => {
+    const blob = new Blob([content], { type: contentType });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+  };
+
+  const exportToCSV = () => {
+    if (displayedData.length === 0) return;
+    const headers = ['ID', ...tableHeaders.map(h => h.label)];
+    const rows = displayedData.map(row => [
+      row.id,
+      ...tableHeaders.map(header => String(row[header.key as keyof RawFirebaseDataPoint] ?? 'N/A'))
+    ]);
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+    triggerDownload(csvContent, generateFilename('csv'), 'text/csv;charset=utf-8;');
+  };
+
+  const exportToTXT = () => {
+    if (displayedData.length === 0) return;
+    let txtContent = `Raw Data Export - ${formatDateFns(new Date(), 'yyyy-MM-dd HH:mm:ss')}\n`;
+    txtContent += `Date Range: ${dateRange?.from ? formatDateFns(dateRange.from, 'yyyy-MM-dd') : 'N/A'} ${startTime} to ${dateRange?.to ? formatDateFns(dateRange.to, 'yyyy-MM-dd') : 'N/A'} ${endTime}\n`;
+    txtContent += `Total Records: ${displayedData.length}\n\n`;
+
+    displayedData.forEach((row, index) => {
+      txtContent += `Record ${index + 1}\n`;
+      txtContent += `ID: ${row.id}\n`;
+      tableHeaders.forEach(header => {
+        txtContent += `${header.label}: ${String(row[header.key as keyof RawFirebaseDataPoint] ?? 'N/A')}\n`;
+      });
+      txtContent += '---\n';
+    });
+    triggerDownload(txtContent, generateFilename('txt'), 'text/plain;charset=utf-8;');
+  };
+
+  const escapeXml = (unsafe: string): string => {
+    return unsafe.replace(/[<>&'"]/g, (c) => {
+      switch (c) {
+        case '<': return '&lt;';
+        case '>': return '&gt;';
+        case '&': return '&amp;';
+        case '\'': return '&apos;';
+        case '"': return '&quot;';
+        default: return c;
+      }
+    });
+  };
+
+  const exportToXML = () => {
+    if (displayedData.length === 0) return;
+    let xmlContent = '<?xml version="1.0" encoding="UTF-8"?>\n<records>\n';
+    displayedData.forEach(row => {
+      xmlContent += '  <record>\n';
+      xmlContent += `    <id>${escapeXml(row.id)}</id>\n`;
+      tableHeaders.forEach(header => {
+        const key = header.key.replace(/\s+/g, ''); // Simple key for XML tag
+        xmlContent += `    <${key}>${escapeXml(String(row[header.key as keyof RawFirebaseDataPoint] ?? 'N/A'))}</${key}>\n`;
+      });
+      xmlContent += '  </record>\n';
+    });
+    xmlContent += '</records>';
+    triggerDownload(xmlContent, generateFilename('xml'), 'application/xml;charset=utf-8;');
+  };
+
 
   return (
     <section className="mb-8">
@@ -127,12 +210,12 @@ const RawDataViewer: FC = () => {
         <CardHeader>
           <CardTitle className="font-headline">Raw Device Data Viewer</CardTitle>
           <CardDescription>
-            View raw data records from your Firebase Realtime Database. Select a date and time range to filter.
+            View raw data records from your Firebase Realtime Database. Select a date and time range to filter, then export if needed.
             Data is sorted by timestamp in descending order (newest first).
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
             <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
                 <div className="sm:col-span-2">
                     <Label htmlFor="raw-data-date-range" className="text-sm font-medium text-muted-foreground mb-1 block">Select Date Range:</Label>
@@ -161,9 +244,23 @@ const RawDataViewer: FC = () => {
                     </div>
                 </div>
             </div>
-            <Button onClick={fetchAllRawData} disabled={isLoading} className="w-full md:w-auto lg:w-full">
-              {isLoading ? 'Loading Data...' : 'Refresh Data'}
-            </Button>
+            <div className="flex flex-col space-y-2 lg:space-y-0 lg:flex-row lg:space-x-2 lg:items-end">
+              <Button onClick={fetchAllRawData} disabled={isLoading} className="w-full lg:flex-1">
+                {isLoading ? 'Loading...' : 'Refresh Data'}
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="w-full lg:flex-1" disabled={displayedData.length === 0 && !isLoading}>
+                    <Download className="mr-2 h-4 w-4" /> Export Data
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={exportToCSV}>Export as CSV</DropdownMenuItem>
+                  <DropdownMenuItem onClick={exportToTXT}>Export as TXT</DropdownMenuItem>
+                  <DropdownMenuItem onClick={exportToXML}>Export as XML</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
            <p className="text-xs text-muted-foreground">
             Displaying raw data from Firebase path: `{firebaseDataPath}`. Time selection applies to the chosen date range.
@@ -181,6 +278,7 @@ const RawDataViewer: FC = () => {
               <Table>
                 <TableHeader className="sticky top-0 bg-card z-10">
                   <TableRow>
+                    <TableHead>ID (Firebase Key)</TableHead>
                     {tableHeaders.map((header) => (
                       <TableHead key={header.key}>{header.label}</TableHead>
                     ))}
@@ -189,6 +287,7 @@ const RawDataViewer: FC = () => {
                 <TableBody>
                   {displayedData.map((row) => (
                     <TableRow key={row.id}>
+                      <TableCell className="font-mono text-xs">{row.id}</TableCell>
                       {tableHeaders.map(header => (
                         <TableCell key={`${row.id}-${header.key}`}>
                           {String(row[header.key as keyof RawFirebaseDataPoint] ?? 'N/A')}
@@ -211,3 +310,4 @@ const RawDataViewer: FC = () => {
 };
 
 export default RawDataViewer;
+
