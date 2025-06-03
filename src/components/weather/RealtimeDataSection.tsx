@@ -10,7 +10,7 @@ import { ref, onValue, type Unsubscribe } from "firebase/database";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import MetricIcon from './MetricIcon';
-import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge, ShieldCheck } from 'lucide-react';
+import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge, ShieldCheck, Sun, HelpCircle } from 'lucide-react';
 import { transformRawDataToWeatherDataPoint } from '@/lib/utils';
 import { startOfDay, endOfDay, isWithinInterval } from 'date-fns';
 
@@ -36,6 +36,29 @@ type RealtimeSectionState = {
 } & {
   lastUpdatedTimestamp?: number | null;
 };
+
+// Helper to get style for precipitation
+const getPrecipitationStyle = (status: string | null) => {
+  if (!status) return { Icon: HelpCircle, color: 'text-muted-foreground', label: 'Unknown' };
+  const s = status.toLowerCase();
+  if (s.includes('rain')) return { Icon: CloudRain, color: 'text-blue-500', label: status };
+  if (s.includes('no rain')) return { Icon: Sun, color: 'text-yellow-500', label: status };
+  return { Icon: HelpCircle, color: 'text-muted-foreground', label: status };
+};
+
+// Helper to get style for air quality
+const getAirQualityStyle = (status: string | null) => {
+  if (!status) return { Icon: HelpCircle, color: 'text-muted-foreground', label: 'Unknown' };
+  const s = status.toLowerCase();
+  if (s.includes('safe') || s.includes('good')) return { Icon: ShieldCheck, color: 'text-green-500', label: status };
+  if (s.includes('moderate')) return { Icon: ShieldCheck, color: 'text-yellow-600', label: status }; // Darker yellow for better contrast
+  if (s.includes('unhealthy for sensitive')) return { Icon: ShieldCheck, color: 'text-orange-500', label: status };
+  if (s.includes('unhealthy')) return { Icon: ShieldCheck, color: 'text-red-500', label: status };
+  if (s.includes('very unhealthy')) return { Icon: ShieldCheck, color: 'text-purple-500', label: status };
+  if (s.includes('hazardous')) return { Icon: ShieldCheck, color: 'text-red-700', label: status }; // Darker red for hazardous
+  return { Icon: HelpCircle, color: 'text-muted-foreground', label: status };
+};
+
 
 const RealtimeDataSection: FC = () => {
   const [processedData, setProcessedData] = useState<RealtimeSectionState>({});
@@ -125,8 +148,12 @@ const RealtimeDataSection: FC = () => {
 
   const individualMetricsOrder: MetricKey[] = ['temperature', 'humidity', 'aqiPpm', 'lux', 'pressure'];
 
-  const precipitationValue = processedData.precipitation?.latest ?? 'N/A';
-  const airQualityValue = processedData.airQuality?.latest ?? 'N/A';
+  const precipitationLatest = processedData.precipitation?.latest ?? null;
+  const airQualityLatest = processedData.airQuality?.latest ?? null;
+  
+  const precipStyle = getPrecipitationStyle(typeof precipitationLatest === 'string' ? precipitationLatest : null);
+  const aqStyle = getAirQualityStyle(typeof airQualityLatest === 'string' ? airQualityLatest : null);
+
 
   return (
     <section className="mb-8">
@@ -149,29 +176,27 @@ const RealtimeDataSection: FC = () => {
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium font-headline">Current Status</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-3 pt-2">
             {isLoading ? (
               <>
                 <div className="flex items-center space-x-2 py-1">
-                  <Skeleton className="h-5 w-5 rounded-full" />
-                  <Skeleton className="h-5 w-20" />
+                  <Skeleton className="h-6 w-6 rounded-full" />
+                  <Skeleton className="h-6 w-28" />
                 </div>
                 <div className="flex items-center space-x-2 py-1">
-                  <Skeleton className="h-5 w-5 rounded-full" />
-                  <Skeleton className="h-5 w-24" />
+                  <Skeleton className="h-6 w-6 rounded-full" />
+                  <Skeleton className="h-6 w-32" />
                 </div>
               </>
             ) : (
               <>
-                <div className="flex items-center">
-                  <MetricIcon metric="precipitation" className="h-5 w-5 mr-2" />
-                  <span className="text-sm font-medium">{METRIC_CONFIGS.precipitation.name}:</span>
-                  <span className="text-sm ml-1">{precipitationValue}</span>
+                <div className="flex items-center space-x-2">
+                  <precipStyle.Icon className={`h-6 w-6 ${precipStyle.color}`} />
+                  <span className={`text-md font-semibold ${precipStyle.color}`}>{precipStyle.label}</span>
                 </div>
-                <div className="flex items-center">
-                  <MetricIcon metric="airQuality" className="h-5 w-5 mr-2" />
-                  <span className="text-sm font-medium">{METRIC_CONFIGS.airQuality.name}:</span>
-                  <span className="text-sm ml-1">{airQualityValue}</span>
+                <div className="flex items-center space-x-2">
+                  <aqStyle.Icon className={`h-6 w-6 ${aqStyle.color}`} />
+                  <span className={`text-md font-semibold ${aqStyle.color}`}>{aqStyle.label}</span>
                 </div>
               </>
             )}
