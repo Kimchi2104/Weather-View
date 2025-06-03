@@ -34,7 +34,7 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
 
   useEffect(() => {
     if (initialDataForForecast === null) {
-       setCustomHistoricalData(''); // Clear textarea if selection is explicitly cleared
+       setCustomHistoricalData(''); 
        toast({
          title: "Chart Selection Cleared",
          description: "Historical data input for AI forecast has been cleared.",
@@ -46,7 +46,7 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
         temperature: p.temperature,
         humidity: p.humidity,
         precipitation: p.precipitation,
-        aqi: p.aqiPpm, // Use aqiPpm for the 'aqi' field expected by the AI flow
+        aqi: p.aqiPpm, 
         lux: p.lux,
         pressure: p.pressure,
       }));
@@ -62,7 +62,6 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
         ),
       });
     } else if (initialDataForForecast && initialDataForForecast.length === 0) {
-       // This case handles when brush selection is cleared or an empty range is selected
        setCustomHistoricalData('');
        toast({
          title: "Chart Selection Cleared or Empty",
@@ -87,7 +86,7 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
         typeof item.temperature === 'number' &&
         typeof item.humidity === 'number' &&
         typeof item.precipitation === 'string' &&
-        typeof item.aqi === 'number' && // AI flow expects 'aqi' as the numerical PPM value
+        typeof item.aqi === 'number' && 
         typeof item.lux === 'number' &&
         (item.pressure === undefined || typeof item.pressure === 'number')
       )) {
@@ -121,7 +120,7 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
         const result = await generateWeatherForecast(input);
         setForecast(result);
         setIsLoading(false);
-        return; // Success, exit
+        return; 
       } catch (error: any) {
         console.error(`Error generating forecast (attempt ${attempt}):`, error);
 
@@ -129,16 +128,16 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
 
         if (is503Error) {
           if (attempt < MAX_RETRIES) {
-            const delay = attempt * 1500; // Slightly longer, e.g., 1.5s, 3s
+            const delay = attempt * 1500; 
             toast({
               title: `Forecast Attempt ${attempt} Failed (Model Overloaded)`,
               description: `Retrying in ${delay / 1000}s...`,
               duration: delay + 500,
             });
             await new Promise(resolve => setTimeout(resolve, delay));
-            // Continue to next iteration for retry
+            
           } else {
-            // Last attempt for 503 error failed
+            
             toast({
               title: "Forecast Generation Failed",
               description: `The AI model is currently overloaded. Please try again later. (Failed after ${MAX_RETRIES} attempts)`,
@@ -146,10 +145,10 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
             });
             setForecast(null);
             setIsLoading(false);
-            return; // All retries for 503 failed
+            return; 
           }
         } else {
-          // Non-503 error, fail immediately
+          
           toast({
             title: "Forecast Generation Error",
             description: `An unexpected error occurred: ${error instanceof Error ? error.message : 'Please check console.'}`,
@@ -157,11 +156,11 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
           });
           setForecast(null);
           setIsLoading(false);
-          return; // Exit for non-retryable errors
+          return; 
         }
       }
     }
-    // Fallback if loop finishes without returning (should not happen with the current logic, but good for safety)
+    
     setIsLoading(false);
   };
 
@@ -175,7 +174,9 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
             AI-Powered Weather Forecast
           </CardTitle>
           <CardDescription>
-            Use AI to predict upcoming weather. Click a point or drag on the chart above to auto-fill historical data, or manually input a JSON array. The AI expects 'aqi' to be the numerical PPM value.
+            Use AI to predict upcoming weather. 
+            Click a point on the chart in the &quot;Historical Data Analysis&quot; section, or use the &quot;Use All Displayed Data for AI Forecast&quot; button there to auto-fill historical data. 
+            You can also manually input a JSON array below. The AI expects 'aqi' to be the numerical PPM value.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -196,7 +197,7 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
               id="historical-data"
               value={customHistoricalData}
               onChange={(e) => setCustomHistoricalData(e.target.value)}
-              placeholder="Click or drag on the chart above, or enter historical weather data as JSON array..."
+              placeholder="Click a point on the chart or use the button in Historical section, or enter historical weather data as JSON array..."
               rows={8}
               className="mt-1 font-mono text-xs"
             />
@@ -214,7 +215,7 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
                 <Skeleton className="h-20 w-full" />
                 <Skeleton className="h-20 w-full" />
               </div>
-              <Skeleton className="h-40 w-full mt-4" /> {/* Placeholder for AI forecast chart loading */}
+              <Skeleton className="h-40 w-full mt-4" /> 
             </div>
           )}
 
@@ -289,4 +290,3 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
 };
 
 export default AIForecastSection;
-

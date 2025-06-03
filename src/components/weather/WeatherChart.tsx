@@ -12,7 +12,7 @@ import {
   ChartLegendContent,
   type ChartConfig,
 } from '@/components/ui/chart';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Brush } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import type { WeatherDataPoint, MetricKey, MetricConfig } from '@/types/weather';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -22,10 +22,10 @@ interface WeatherChartProps {
   metricConfigs: Record<MetricKey, MetricConfig>;
   isLoading: boolean;
   onPointClick?: (point: WeatherDataPoint) => void;
-  onRangeSelect?: (points: WeatherDataPoint[]) => void;
+  // onRangeSelect is removed as Brush is removed
 }
 
-const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConfigs, isLoading, onPointClick, onRangeSelect }) => {
+const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConfigs, isLoading, onPointClick }) => {
   if (isLoading) {
     return (
       <Card className="shadow-lg">
@@ -65,30 +65,12 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
     }
   };
 
-  const handleBrushChange = (e: any) => {
-    if (onRangeSelect && e && typeof e.startIndex === 'number' && typeof e.endIndex === 'number') {
-      const selectedSlice = formattedData.slice(e.startIndex, e.endIndex + 1);
-      const originalPoints = selectedSlice.map(pointWithDisplay => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { timestampDisplay, ...rest } = pointWithDisplay;
-        return rest as WeatherDataPoint; 
-      });
-      if (originalPoints.length > 0) {
-        onRangeSelect(originalPoints);
-      } else { 
-        onRangeSelect([]);
-      }
-    } else if (onRangeSelect && (!e || typeof e.startIndex !== 'number' || e.startIndex === undefined || e.endIndex === undefined) ) {
-      onRangeSelect([]); 
-    }
-  };
-  
   if (!data || data.length === 0) {
     return (
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="font-headline">Historical Data Trends</CardTitle>
-          <CardDescription>No data available for the selected range or metrics. Use date picker above or select a range on the chart.</CardDescription>
+          <CardDescription>No data available for the selected range or metrics. Use date picker above.</CardDescription>
         </CardHeader>
         <CardContent className="h-[450px] flex items-center justify-center">
           <p className="text-muted-foreground">Please select a date range and metrics to view data, or check data source.</p>
@@ -102,8 +84,8 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
       <CardHeader>
         <CardTitle className="font-headline">Historical Data Trends</CardTitle>
         <CardDescription>
-          Interactive chart displaying selected weather metrics. Click a point or drag on the chart to select a range for AI forecast.
-          To use the range selector (brush) at the bottom: drag its handles to resize the window, or drag the selected area to move it.
+          Interactive chart displaying selected weather metrics. 
+          Click a point on the chart to use it for AI forecast, or use the button in the &quot;Historical Data Analysis&quot; section below the date picker to use all currently displayed data.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -136,7 +118,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
               <ChartLegend content={<ChartLegendContent />} />
               {selectedMetrics.map((key) => {
                 const metricConfig = metricConfigs[key];
-                if (metricConfig.isString) return null; // Don't plot string-based metrics as lines
+                if (metricConfig.isString) return null; 
 
                 return (
                   <Line
@@ -153,19 +135,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
                   />
                 );
               })}
-              <Brush 
-                dataKey="timestampDisplay" 
-                height={20} 
-                stroke="hsl(var(--primary))"
-                onChange={handleBrushChange}
-                tickFormatter={(index) => { 
-                  if (formattedData[index]?.timestampDisplay) {
-                    return formattedData[index].timestampDisplay.split(',')[0]; 
-                  }
-                  return '';
-                }}
-                className="recharts-brush" 
-              />
+              {/* Brush component removed */}
             </LineChart>
           </ResponsiveContainer>
         </ChartContainer>
@@ -175,4 +145,3 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
 };
 
 export default WeatherChart;
-
