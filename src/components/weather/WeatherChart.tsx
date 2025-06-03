@@ -15,8 +15,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   ChartContainer,
-  // ChartTooltip, // Temporarily not using shadcn's custom tooltip content
-  // ChartTooltipContent,
   ChartLegend,
   ChartLegendContent,
   type ChartConfig,
@@ -69,7 +67,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
       const canvas = await html2canvas(chartRef.current, {
         scale: 2,
         useCORS: true,
-        backgroundColor: null,
+        backgroundColor: null, 
       });
       
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
@@ -161,7 +159,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
 
   const commonCartesianProps = {
     data: formattedData,
-    margin:{ top: 20, right: 30, left: 20, bottom: 90 },
+    margin:{ top: 40, right: 50, left: 50, bottom: 120 },
     onClick: handleChartClick,
   };
 
@@ -176,8 +174,8 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
         tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
         angle={-45}
         textAnchor="end"
-        minTickGap={15} // Prevents ticks from overlapping too much
-        dy={10} // Vertical offset for angled tick labels
+        // minTickGap={15} // Temporarily remove for debugging if ticks are too sparse or overlapping
+        dy={10}
       />
       <YAxis
         stroke="hsl(var(--muted-foreground))"
@@ -207,12 +205,10 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
             return [`${formattedValue}${unit}`, config?.name || name];
         }}
         labelFormatter={(label: any, payload: any) => {
-            // The 'label' here is the XAxis value (timestampDisplay)
-            // We want to show the 'tooltipTimestampFull' from the payload
             if (payload && payload.length > 0 && payload[0] && payload[0].payload && typeof payload[0].payload.tooltipTimestampFull === 'string') {
               return payload[0].payload.tooltipTimestampFull;
             }
-            return String(label); // Fallback to the formatted X-axis label
+            return String(label); 
         }}
       />
       <ChartLegend 
@@ -236,9 +232,9 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
             dataKey={key}
             stroke={color}
             strokeWidth={2}
-            dot={false} // No dots for cleaner line, tooltip still works on hover
+            dot={false}
             name={metricConfig.name}
-            connectNulls={false} // Do not connect lines over null/missing data points
+            connectNulls={false}
           />
         );
       } else if (chartType === 'bar') {
@@ -248,7 +244,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
             dataKey={key}
             fill={color}
             name={metricConfig.name}
-            radius={[4, 4, 0, 0]} // Rounded top corners for bars
+            radius={[4, 4, 0, 0]}
           />
         );
       } else if (chartType === 'scatter') {
