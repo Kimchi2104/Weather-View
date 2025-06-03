@@ -80,7 +80,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
       const canvas = await html2canvas(chartElementToCapture as HTMLElement, {
         scale: 2,
         useCORS: true,
-        backgroundColor: 'hsl(var(--card))', // This should resolve based on current theme
+        backgroundColor: null, // Use element's own background or transparent
       });
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
       if (format === 'pdf') {
@@ -136,41 +136,9 @@ const WeatherChart: FC<WeatherChartProps> = ({
   }
 
   const commonCartesianProps = {
-    margin: { top: 5, right: 40, left: 20, bottom: 20 }, // Keep bottom margin reduced
-  };
-
-  // Simplified for testing - always use Line for now
-  const renderChartSpecificElements = () => {
-    const firstNumericMetric = selectedMetrics.find(key => {
-      const metricConfig = metricConfigs[key];
-      return metricConfig && !metricConfig.isString;
-    });
-
-    if (!firstNumericMetric) return null;
-
-    const metricConfig = metricConfigs[firstNumericMetric];
-    const color = metricConfig.color || '#8884d8'; // Default color
-    const name = metricConfig.name || firstNumericMetric;
-    // const seriesKey = `line-${firstNumericMetric}`; // simplified key
-
-    return <Line 
-            key={`line-${firstNumericMetric}`} 
-            type="monotone" 
-            dataKey={firstNumericMetric} 
-            stroke={color} 
-            name={name} 
-            dot={false} 
-            // activeDot={false} // Simplification
-            // onClick={undefined} // Simplification
-           />;
+    margin: { top: 5, right: 40, left: 20, bottom: 20 },
   };
   
-  // Force LineChart for this test
-  const ChartComponent = LineChart;
-  // const ChartComponent = chartType === 'bar' ? BarChart : chartType === 'scatter' ? ScatterChart : LineChart;
-
-  const chartDynamicKey = `${chartType}-${selectedMetrics.join('-')}-${formattedData.length}`;
-
   const yAxisTickFormatter = (value: any) => {
     if (typeof value === 'number' && isFinite(value)) {
       return value.toFixed(0);
@@ -180,8 +148,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
     }
     return String(value);
   };
-
-  // Tooltip formatter remains for data inspection if needed, but Tooltip component itself is commented out for now
+  
   const tooltipFormatter = (value: any, name: any, entry: any) => {
     const dataKey = entry.dataKey as MetricKey;
     const config = metricConfigs[dataKey];
@@ -199,13 +166,37 @@ const WeatherChart: FC<WeatherChartProps> = ({
     return [`${displayValue}${unitString}`, config?.name || name];
   };
 
+  const renderChartSpecificElements = () => {
+     const firstNumericMetric = selectedMetrics.find(key => {
+      const metricConfig = metricConfigs[key];
+      return metricConfig && !metricConfig.isString;
+    });
+
+    if (!firstNumericMetric) return null;
+
+    const metricConfig = metricConfigs[firstNumericMetric];
+    const color = metricConfig.color || '#8884d8'; 
+    const name = metricConfig.name || firstNumericMetric;
+    
+    return <Line 
+            key={`line-${firstNumericMetric}`} 
+            type="monotone" 
+            dataKey={firstNumericMetric} 
+            stroke={color} 
+            name={name} 
+            dot={false}
+           />;
+  };
+  
+  const ChartComponent = LineChart;
+  const chartDynamicKey = `${chartType}-${selectedMetrics.join('-')}-${formattedData.length}`;
 
   const renderChart = () => (
       <ChartComponent 
         key={chartDynamicKey} 
         data={formattedData} 
-        width={700} // Fixed width
-        height={530} // Fixed height (550px container - margins)
+        width={700} 
+        height={530} 
         {...commonCartesianProps}
       >
         {/* <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" /> */}
@@ -213,22 +204,39 @@ const WeatherChart: FC<WeatherChartProps> = ({
           dataKey="timestampDisplay"
           stroke="#888888"
           tick={{ fill: "hsl(var(--foreground))", fontSize: 11 }}
-          // interval="preserveStartEnd" // Removed for simplification
-          // minTickGap={20} // Removed for simplification
         />
         <YAxis
           stroke="#888888"
           tick={{ fill: "hsl(var(--foreground))", fontSize: 12 }}
-          // tickFormatter={yAxisTickFormatter} // Temporarily removed
+          // tickFormatter={yAxisTickFormatter}
         />
         {/*
         <Tooltip
-          // ... (Tooltip component remains commented out)
+          formatter={tooltipFormatter}
+          labelFormatter={(label, payload) => {
+            if (payload && payload.length > 0 && payload[0].payload.tooltipTimestampFull) {
+              return payload[0].payload.tooltipTimestampFull;
+            }
+            return label;
+          }}
+          contentStyle={{
+            backgroundColor: 'hsl(var(--popover))',
+            borderColor: 'hsl(var(--border))',
+            borderRadius: 'var(--radius)',
+            boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)',
+            color: 'hsl(var(--popover-foreground))'
+          }}
+          itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+          cursor={{ stroke: 'hsl(var(--accent))', strokeWidth: 1, strokeDasharray: '3 3' }}
         />
         */}
         {/*
         <Legend
-           // ... (Legend component remains commented out)
+          wrapperStyle={{ paddingTop: '0px', paddingBottom: '5px' }}
+          iconSize={14}
+          layout="horizontal"
+          align="center"
+          verticalAlign="top"
         />
         */}
         {renderChartSpecificElements()}
@@ -246,7 +254,6 @@ const WeatherChart: FC<WeatherChartProps> = ({
         </div>
       </CardHeader>
       <CardContent className="p-4 pt-0">
-        {/* The div with chartRef now directly contains the chart component without ResponsiveContainer */}
         <div ref={chartRef} className="w-[700px] h-[550px] bg-card mx-auto overflow-hidden">
           {renderChart()}
         </div>
@@ -284,6 +291,4 @@ const WeatherChart: FC<WeatherChartProps> = ({
 };
 
 export default WeatherChart;
-
-
     
