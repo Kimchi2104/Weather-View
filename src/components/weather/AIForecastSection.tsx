@@ -9,12 +9,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { generateWeatherForecast, type GenerateWeatherForecastInput, type GenerateWeatherForecastOutput } from '@/ai/flows/generate-weather-forecast';
-import { Wand2, Thermometer, CloudDrizzle, WindIcon, CheckCircle, Leaf } from 'lucide-react'; 
+import { Wand2, Thermometer, CloudDrizzle, WindIcon, CheckCircle, Leaf } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from '@/components/ui/skeleton';
-import type { WeatherDataPoint } from '@/types/weather'; 
+import type { WeatherDataPoint } from '@/types/weather';
 
-// Sample historical data (can be kept for manual testing or fallback)
+// Sample historical data (can be kept for manual testing or fallback if initialDataForForecast is null)
 const sampleHistoricalData: WeatherDataPoint[] = [
   { timestamp: Date.now() - 86400000 * 2, temperature: 22, humidity: 70, precipitation: 4000, airQualityIndex: 30, lux: 100 },
   { timestamp: Date.now() - 86400000, temperature: 24, humidity: 65, precipitation: 2000, airQualityIndex: 40, lux: 150 },
@@ -33,11 +33,17 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
   const { toast } = useToast();
 
   useEffect(() => {
-    if (initialDataForForecast && initialDataForForecast.length > 0) {
+    if (initialDataForForecast === null || initialDataForForecast === undefined) {
+      // On initial load or if explicitly set to null, use sample data
+      // This ensures the textarea isn't empty before any chart interaction
+      if (customHistoricalData !== JSON.stringify(sampleHistoricalData, null, 2)) { // Avoid unnecessary updates
+        setCustomHistoricalData(JSON.stringify(sampleHistoricalData, null, 2));
+      }
+    } else if (initialDataForForecast.length > 0) {
       setCustomHistoricalData(JSON.stringify(initialDataForForecast, null, 2));
       toast({
         title: "Historical Data Populated for AI Forecast",
-        description: `${initialDataForForecast.length} data point(s) from chart selection loaded.`,
+        description: `${initialDataForForecast.length} data point(s) from chart ${initialDataForForecast.length === 1 ? 'click' : 'selection'} loaded.`,
         action: (
           <div className="flex items-center">
             <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
@@ -45,15 +51,12 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
           </div>
         ),
       });
-      // Removed focus and scrollIntoView to prevent interrupting chart drag
-      // const textareaElement = document.getElementById("historical-data");
-      // if (textareaElement) {
-      //   textareaElement.focus();
-      // }
-    } else if (initialDataForForecast && initialDataForForecast.length === 0) {
-       toast({
-        title: "Historical Data Cleared",
-        description: "Forecast input has been cleared or no data selected from chart.",
+    } else if (initialDataForForecast.length === 0) {
+      // This means the brush selection was cleared or resulted in no points
+      setCustomHistoricalData(''); // Clear the textarea
+      toast({
+        title: "Chart Selection Cleared",
+        description: "Historical data input for AI forecast has been cleared.",
         duration: 3000,
       });
     }
@@ -65,29 +68,34 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
 
     let historicalDataToUse: string;
     try {
-      const parsedData = JSON.parse(customHistoricalData);
-      if (!Array.isArray(parsedData) || !parsedData.every(item => 
+      // Ensure there's data to parse, if customHistoricalData is empty, use sample as a fallback for generation.
+      const dataToParse = customHistoricalData.trim() === '' ? JSON.stringify(sampleHistoricalData, null, 2) : customHistoricalData;
+      const parsedData = JSON.parse(dataToParse);
+      if (!Array.isArray(parsedData) || !parsedData.every(item =>
         typeof item.timestamp === 'number' &&
         typeof item.temperature === 'number' &&
         typeof item.humidity === 'number' &&
         typeof item.precipitation === 'number' &&
         typeof item.airQualityIndex === 'number' &&
-        typeof item.lux === 'number' 
+        typeof item.lux === 'number'
       )) {
         throw new Error("Data does not conform to expected WeatherDataPoint structure.");
       }
-      historicalDataToUse = customHistoricalData;
+      historicalDataToUse = dataToParse;
+       if (customHistoricalData.trim() === '') {
+        setCustomHistoricalData(historicalDataToUse); // Update textarea if it was empty and sample data was used
+      }
     } catch (error: any) {
       toast({
         title: "Invalid JSON or Data Structure",
-        description: `The provided historical data is not valid or does not match the required structure. Error: ${error.message}. Using sample data instead.`,
+        description: `The historical data is not valid or does not match the required structure. Error: ${error.message}. Using sample data instead.`,
         variant: "destructive",
         duration: 7000,
       });
       historicalDataToUse = JSON.stringify(sampleHistoricalData, null, 2);
-      setCustomHistoricalData(historicalDataToUse); 
+      setCustomHistoricalData(historicalDataToUse);
     }
-    
+
     const input: GenerateWeatherForecastInput = {
       historicalData: historicalDataToUse,
       location: location || 'Local Area',
@@ -148,7 +156,7 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
               Each point should include numerical fields: timestamp, temperature, humidity, precipitation, airQualityIndex, lux.
             </p>
           </div>
-          
+
           {isLoading && (
             <div className="space-y-3 pt-2 bg-muted/50 p-4 rounded-md">
               <Skeleton className="h-5 w-1/3 mb-2" />
@@ -162,9 +170,9 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
           {forecast && !isLoading && (
             <div className="space-y-3 pt-2 bg-secondary/50 p-4 rounded-md">
               <h3 className="text-lg font-semibold text-primary mb-2">Forecast for {location}:</h3>
-              
+
               <p className="text-sm"><strong className="font-medium">Summary:</strong> {forecast.summary}</p>
-              
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
                 <div className="flex items-center">
                   <Thermometer className="mr-2 h-4 w-4 text-accent" />
@@ -211,4 +219,3 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
 };
 
 export default AIForecastSection;
-
