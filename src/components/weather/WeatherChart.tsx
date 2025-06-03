@@ -58,10 +58,10 @@ const WeatherChart: FC<WeatherChartProps> = ({
   const chartRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
 
-  useEffect(() => {
-    // console.log("[WeatherChart] Props received:", { dataLength: data?.length, selectedMetrics, chartType, isLoading });
-    // console.log("[WeatherChart] First 3 data points:", data?.slice(0,3));
-  }, [data, selectedMetrics, chartType, isLoading]);
+  // useEffect(() => {
+  //   console.log("[WeatherChart] Props received:", { dataLength: data?.length, selectedMetrics, chartType, isLoading });
+  //   console.log("[WeatherChart] First 3 data points:", data?.slice(0,3));
+  // }, [data, selectedMetrics, chartType, isLoading]);
 
   const formattedData = useMemo(() => {
     if (!data) {
@@ -79,7 +79,6 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
   const exportChart = async (format: 'png' | 'jpeg' | 'pdf') => {
     if (!chartRef.current) return;
-    // Target the Recharts wrapper directly if possible, otherwise the main div
     const chartElementToCapture = chartRef.current.querySelector('.recharts-wrapper') || chartRef.current;
 
     setIsExporting(true);
@@ -142,7 +141,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
   }
   
   const commonCartesianProps = { 
-    margin: { top: 5, right: 40, left: 20, bottom: 40 }, // Reduced bottom margin
+    margin: { top: 5, right: 40, left: 20, bottom: 20 }, // Reduced bottom margin more
   };
 
   const renderChartSpecificElements = () => {
@@ -179,8 +178,8 @@ const WeatherChart: FC<WeatherChartProps> = ({
           tick={{ fill: "hsl(var(--foreground))", fontSize: 11 }} 
           angle={-45} 
           textAnchor="end" 
-          dy={10} // Pushes labels slightly down from axis line
-          height={60} // Allocate height for angled labels
+          dy={10} 
+          height={60} 
           minTickGap={5} 
           interval="preserveStartEnd"
         />
