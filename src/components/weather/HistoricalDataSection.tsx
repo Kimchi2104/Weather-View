@@ -3,9 +3,10 @@
 
 import type { FC } from 'react';
 import { useState, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import DateRangePicker from './DateRangePicker';
 import DataSelector from './DataSelector';
-import WeatherChart from './WeatherChart';
+// import WeatherChart from './WeatherChart'; // Removed direct import
 import type { DateRange } from 'react-day-picker';
 import { subDays } from 'date-fns';
 import type { WeatherDataPoint, MetricKey, MetricConfig, RawFirebaseDataPoint } from '@/types/weather';
@@ -17,6 +18,13 @@ import { Input } from '@/components/ui/input';
 import { transformRawDataToWeatherDataPoint } from '@/lib/utils';
 import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge, ShieldCheck } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from '@/components/ui/skeleton';
+
+const WeatherChart = dynamic(() => import('./WeatherChart'), {
+  ssr: false,
+  loading: () => <div className="mt-6"><Skeleton className="h-[550px] w-full" /></div>, // Adjusted height to include potential export button space
+});
+
 
 const HISTORICAL_AVAILABLE_METRICS: { key: MetricKey; name: string }[] = [
   { key: 'temperature', name: 'Temperature' },
@@ -50,22 +58,26 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
   const [selectedMetrics, setSelectedMetrics] = useState<MetricKey[]>(['temperature', 'humidity']);
   const [allFetchedData, setAllFetchedData] = useState<WeatherDataPoint[]>([]);
   const [displayedData, setDisplayedData] = useState<WeatherDataPoint[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Start with true to show initial loading state
   const [selectedChartType, setSelectedChartType] = useState<ChartType>('line');
 
   const firebaseDataPath = 'devices/TGkMhLL4k4ZFBwgOyRVNKe5mTQq1/records/';
 
   useEffect(() => {
+    // Initialize date range on the client side to avoid hydration mismatch
     setDateRange({
       from: subDays(new Date(), 7),
       to: new Date(),
     });
+    // Fetch data once the component mounts and date range is set
+    // The actual fetching will be triggered by the allFetchedData dependency in filterDataByDateRange effect
   }, []);
 
   const fetchAllHistoricalData = useCallback(async () => {
     setIsLoading(true);
-    setAllFetchedData([]);
-    setDisplayedData([]);
+    // Don't clear allFetchedData here, allow current data to be shown while refreshing
+    // setAllFetchedData([]); 
+    // setDisplayedData([]);
     try {
       const dataRef = ref(database, firebaseDataPath);
       const snapshot: DataSnapshot = await get(dataRef);
@@ -74,15 +86,14 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
         const rawDataContainer = snapshot.val();
         if (typeof rawDataContainer !== 'object' || rawDataContainer === null) {
           setAllFetchedData([]);
-          setIsLoading(false);
-          return;
+        } else {
+          const recordsArray: [string, RawFirebaseDataPoint][] = Object.entries(rawDataContainer);
+          const processedData: WeatherDataPoint[] = recordsArray
+            .map(([key, rawPoint]) => transformRawDataToWeatherDataPoint(rawPoint as RawFirebaseDataPoint, key))
+            .filter((point): point is WeatherDataPoint => point !== null)
+            .sort((a, b) => a.timestamp - b.timestamp);
+          setAllFetchedData(processedData);
         }
-        const recordsArray: [string, RawFirebaseDataPoint][] = Object.entries(rawDataContainer);
-        const processedData: WeatherDataPoint[] = recordsArray
-          .map(([key, rawPoint]) => transformRawDataToWeatherDataPoint(rawPoint as RawFirebaseDataPoint, key))
-          .filter((point): point is WeatherDataPoint => point !== null)
-          .sort((a, b) => a.timestamp - b.timestamp);
-        setAllFetchedData(processedData);
       } else {
         setAllFetchedData([]);
       }
@@ -90,17 +101,17 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
       console.error("[HistoricalDataSection] Firebase historical data fetching error:", error);
       setAllFetchedData([]);
     } finally {
-      setIsLoading(false);
+      setIsLoading(false); // Set loading to false after fetch attempt
     }
   }, [firebaseDataPath]);
 
   const filterDataByDateRange = useCallback(() => {
-    if (isLoading) return;
+    // if (isLoading) return; // Allow filtering even if a refresh is in progress using old data
     if (!dateRange?.from || !dateRange?.to) {
       setDisplayedData([]);
       return;
     }
-    if (allFetchedData.length === 0) {
+    if (allFetchedData.length === 0 && !isLoading) { // if no data and not currently loading new data
       setDisplayedData([]);
       return;
     }
@@ -120,17 +131,19 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
 
     setDisplayedData(filtered);
 
-  }, [allFetchedData, dateRange, isLoading, startTime, endTime]);
+  }, [allFetchedData, dateRange, startTime, endTime, isLoading]);
 
   useEffect(() => {
-    fetchAllHistoricalData();
+    fetchAllHistoricalData(); // Fetch initial data
   }, [fetchAllHistoricalData]);
 
   useEffect(() => {
-    if (dateRange) {
+    if (dateRange && allFetchedData.length > 0) { // Ensure allFetchedData has content before filtering
       filterDataByDateRange();
+    } else if (dateRange && !isLoading) { // If no data and not loading, ensure displayedData is empty
+      setDisplayedData([]);
     }
-  }, [dateRange, allFetchedData, filterDataByDateRange, startTime, endTime]);
+  }, [dateRange, allFetchedData, filterDataByDateRange, startTime, endTime, isLoading]);
 
   const handleUseAllDataForForecast = () => {
     if (onChartRangeSelect) {
@@ -211,7 +224,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           data={displayedData}
           selectedMetrics={selectedMetrics}
           metricConfigs={METRIC_CONFIGS}
-          isLoading={isLoading && allFetchedData.length === 0}
+          isLoading={isLoading && allFetchedData.length === 0 && displayedData.length === 0} // More precise loading state for chart
           onPointClick={onChartPointClick}
           chartType={selectedChartType}
         />
@@ -221,3 +234,5 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
 };
 
 export default HistoricalDataSection;
+    
+    
