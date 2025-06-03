@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { FC } from 'react';
@@ -24,25 +25,32 @@ const RealtimeDataSection: FC = () => {
   useEffect(() => {
     // TODO: Replace 'weather/realtime/station1' with the actual path to your realtime weather data in Firebase.
     const weatherDataRef = ref(database, 'weather/realtime/station1');
+    console.log('[RealtimeDataSection] Setting up listener for realtime data at:', weatherDataRef.toString());
     
     const unsubscribe: Unsubscribe = onValue(weatherDataRef, (snapshot) => {
       const data = snapshot.val();
+      console.log('[RealtimeDataSection] Fetched realtime data snapshot:', snapshot);
+      console.log('[RealtimeDataSection] Realtime data value:', data);
       if (data) {
         // Assuming data is a WeatherDataPoint object or can be cast to it.
         // You might need to transform it if the structure is different.
         setRealtimeData(data as WeatherDataPoint);
       } else {
         setRealtimeData(null);
+        console.warn('[RealtimeDataSection] No realtime data found at path:', weatherDataRef.toString());
       }
       setIsLoading(false);
     }, (error) => {
-      console.error("Firebase realtime data fetching error:", error);
+      console.error("[RealtimeDataSection] Firebase realtime data fetching error:", error);
       setIsLoading(false);
       setRealtimeData(null);
     });
 
     // Cleanup subscription on unmount
-    return () => unsubscribe();
+    return () => {
+      console.log('[RealtimeDataSection] Unsubscribing from realtime data listener.');
+      unsubscribe();
+    };
   }, []);
 
   const metricsOrder: MetricKey[] = ['temperature', 'humidity', 'precipitation', 'airQualityIndex', 'lightPollution'];

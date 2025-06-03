@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { FC } from 'react';
@@ -40,42 +41,58 @@ const HistoricalDataSection: FC = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const fetchHistoricalData = useCallback(async () => {
-    if (!dateRange?.from || !dateRange?.to || selectedMetrics.length === 0) {
+    if (!dateRange?.from || !dateRange?.to) {
+      console.warn('[HistoricalDataSection] Date range is not fully selected. Aborting fetch.');
       setHistoricalData([]);
       return;
     }
     setIsLoading(true);
 
+    // TODO: Replace 'weather/historical/station1' with the actual path to your historical weather data in Firebase.
+    // Ensure your Firebase Realtime Database rules allow reading this path and that it's indexed on 'timestamp'.
+    const historicalPath = 'weather/historical/station1'; 
+    const historicalRef = ref(database, historicalPath);
+    
+    console.log(`[HistoricalDataSection] Fetching historical data from: ${historicalRef.toString()}`);
+    console.log(`[HistoricalDataSection] Date range: From ${dateRange.from.toISOString()} To ${dateRange.to.toISOString()}`);
+    console.log(`[HistoricalDataSection] Timestamps: Start ${dateRange.from.getTime()}, End ${dateRange.to.getTime()}`);
+
     try {
-      // TODO: Replace 'weather/historical/station1' with the actual path to your historical weather data in Firebase.
-      // Ensure your Firebase Realtime Database rules allow reading this path and that it's indexed on 'timestamp'.
-      const historicalRef = ref(database, 'weather/historical/station1');
       const q = query(
         historicalRef,
-        orderByChild('timestamp'), // Make sure 'timestamp' is indexed in your Firebase rules
+        orderByChild('timestamp'), 
         startAt(dateRange.from.getTime()),
         endAt(dateRange.to.getTime())
       );
       
       const snapshot: DataSnapshot = await get(q);
+      console.log('[HistoricalDataSection] Fetched historical data snapshot:', snapshot);
       
       if (snapshot.exists()) {
         const rawData = snapshot.val();
+        console.log('[HistoricalDataSection] Raw historical data value:', rawData);
         // Firebase returns an object when data is fetched this way. Convert it to an array.
         // This assumes each child under 'weather/historical/station1' is a WeatherDataPoint.
-        // You might need to adjust this based on your exact data structure.
-        const processedData: WeatherDataPoint[] = Object.values(rawData) as WeatherDataPoint[];
+        const processedData: WeatherDataPoint[] = Object.values(rawData).filter(Boolean) as WeatherDataPoint[];
+        
+        // Additional check for data structure if needed
+        if (processedData.length > 0 && typeof processedData[0].timestamp !== 'number') {
+            console.warn('[HistoricalDataSection] Timestamp in fetched data is not a number. This might cause issues. Data:', processedData[0]);
+        }
+
         setHistoricalData(processedData.sort((a, b) => a.timestamp - b.timestamp)); // Ensure data is sorted by time
+        console.log('[HistoricalDataSection] Processed historical data points:', processedData.length);
       } else {
         setHistoricalData([]);
+        console.warn(`[HistoricalDataSection] No historical data found for the selected range at path: ${historicalPath}`);
       }
     } catch (error) {
-      console.error("Firebase historical data fetching error:", error);
-      setHistoricalData([]); // Set to empty array on error
+      console.error("[HistoricalDataSection] Firebase historical data fetching error:", error);
+      setHistoricalData([]); 
     } finally {
       setIsLoading(false);
     }
-  }, [dateRange, selectedMetrics]);
+  }, [dateRange]);
 
 
   useEffect(() => {
@@ -92,7 +109,7 @@ const HistoricalDataSection: FC = () => {
             <Label htmlFor="date-range-picker" className="text-sm font-medium text-muted-foreground mb-1 block">Select Date Range:</Label>
             <DateRangePicker onDateChange={setDateRange} initialRange={dateRange} id="date-range-picker"/>
           </div>
-          <Button onClick={fetchHistoricalData} disabled={isLoading} className="w-full md:w-auto">
+          <Button onClick={fetchHistoricalData} disabled={isLoading || !dateRange?.from || !dateRange?.to} className="w-full md:w-auto">
             {isLoading ? 'Loading Data...' : 'Load Data'}
           </Button>
         </div>
