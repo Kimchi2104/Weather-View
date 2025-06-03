@@ -68,6 +68,13 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
       const canvas = await html2canvas(chartRef.current, {
         scale: 2,
         useCORS: true,
+        // Ensure the background of the chart itself is captured if not transparent
+        onclone: (documentClone) => {
+          const chartContainer = documentClone.querySelector('[data-chart]'); // Assuming ChartContainer sets this
+          if (chartContainer) {
+            (chartContainer as HTMLElement).style.backgroundColor = getComputedStyle(chartRef.current!).backgroundColor || 'transparent';
+          }
+        }
       });
       
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
@@ -154,15 +161,28 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
   const renderChart = () => {
     const commonProps = {
       data: formattedData,
-      margin: { top: 5, right: 30, left: 0, bottom: 50 },
+      margin: { top: 5, right: 30, left: 20, bottom: 20 }, // Adjusted margins for labels
       onClick: handleChartClick,
     };
 
     const commonComponents = (
       <>
         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-        <XAxis dataKey="timestampDisplay" />
-        <YAxis />
+        <XAxis
+          dataKey="timestampDisplay"
+          axisLine={{ stroke: 'hsl(var(--muted-foreground))' }}
+          tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
+          tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+          height={30} // Explicit height for labels
+          dy={10} // Offset tick labels down
+        />
+        <YAxis
+          axisLine={{ stroke: 'hsl(var(--muted-foreground))' }}
+          tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
+          tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+          tickFormatter={(value) => value.toLocaleString()}
+          width={60} // Give space for Y-axis labels
+        />
         <Tooltip
           content={
             <ChartTooltipContent
@@ -261,8 +281,8 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
           </CardDescription>
         </div>
       </CardHeader>
-      <CardContent ref={chartRef}> 
-        <ChartContainer config={chartConfig} className="h-[450px] w-full bg-card aspect-auto">
+      <CardContent ref={chartRef} className="bg-card"> 
+        <ChartContainer config={chartConfig} className="h-[450px] w-full aspect-auto">
           <ResponsiveContainer width="100%" height="100%">
             {renderChart()}
           </ResponsiveContainer>
