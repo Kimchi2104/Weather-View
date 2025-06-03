@@ -193,7 +193,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
   const renderChart = () => (
       <ChartComponent key={chartDynamicKey} data={formattedData} {...commonCartesianProps}>
-        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+        {/* <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" /> */}
         <XAxis
           dataKey="timestampDisplay"
           stroke="#888888"
@@ -278,4 +278,3 @@ const WeatherChart: FC<WeatherChartProps> = ({
 };
 
 export default WeatherChart;
-
