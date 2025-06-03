@@ -5,7 +5,7 @@ import type { FC } from 'react';
 import { useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -63,28 +63,20 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
     if (!chartRef.current) return;
     setIsExporting(true);
 
-    // Temporarily increase resolution for better quality export
-    const originalWidth = chartRef.current.style.width;
-    const originalHeight = chartRef.current.style.height;
-    // chartRef.current.style.width = '1200px'; // Example: larger width
-    // chartRef.current.style.height = '800px'; // Example: larger height
-    // await new Promise(resolve => setTimeout(resolve, 100)); // Allow rerender
-
     try {
       const canvas = await html2canvas(chartRef.current, {
-        scale: 2, // Increase scale for better resolution
+        scale: 2, 
         useCORS: true,
-        backgroundColor: '#ffffff', // Ensure background for JPEG
+        backgroundColor: '#ffffff',
         onclone: (document) => {
-          // Attempt to make sure styles are fully applied in the cloned document
-          // This might be needed if some dynamic styles aren't captured
+          // Ensures that the background of the chart container is explicitly white for export
+          const chartContainer = document.querySelector('[data-chart]');
+          if (chartContainer && chartContainer instanceof HTMLElement) {
+            chartContainer.style.backgroundColor = 'white';
+          }
         }
       });
       
-      // Restore original size
-      // chartRef.current.style.width = originalWidth;
-      // chartRef.current.style.height = originalHeight;
-
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
 
       if (format === 'pdf') {
@@ -103,7 +95,6 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
       }
     } catch (error) {
       console.error('Error exporting chart:', error);
-      // Add user feedback, e.g., a toast message
     } finally {
       setIsExporting(false);
     }
@@ -168,7 +159,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
 
   return (
     <Card className="shadow-lg">
-      <CardHeader className="flex flex-row items-start justify-between">
+      <CardHeader>
         <div>
           <CardTitle className="font-headline">Historical Data Trends</CardTitle>
           <CardDescription>
@@ -176,31 +167,9 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
             Click a point on the chart to use it for AI forecast, or use the button in the &quot;Historical Data Analysis&quot; section below the date picker to use all currently displayed data.
           </CardDescription>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon" disabled={isExporting}>
-              {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-              <span className="sr-only">Export Chart</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => exportChart('png')}>
-              <FileImage className="mr-2 h-4 w-4" />
-              Export as PNG
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => exportChart('jpeg')}>
-              <FileImage className="mr-2 h-4 w-4" />
-              Export as JPEG
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => exportChart('pdf')}>
-              <FileText className="mr-2 h-4 w-4" />
-              Export as PDF
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </CardHeader>
-      <CardContent ref={chartRef}> {/* Apply ref here to capture the content area */}
-        <ChartContainer config={chartConfig} className="h-[450px] w-full">
+      <CardContent ref={chartRef}> 
+        <ChartContainer config={chartConfig} className="h-[450px] w-full bg-background"> {/* Added bg-background for consistent export */}
           <ResponsiveContainer width="100%" height="100%">
             <LineChart 
               data={formattedData} 
@@ -242,7 +211,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
                     activeDot={{ r: 5, strokeWidth: 1, stroke: metricConfig.color }}
                     name={metricConfig.name}
                     unit={metricConfig.unit}
-                    connectNulls={false} // Set to true if you want to connect lines over null/missing data points
+                    connectNulls={false}
                   />
                 );
               })}
@@ -250,6 +219,34 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
           </ResponsiveContainer>
         </ChartContainer>
       </CardContent>
+      <CardFooter className="flex justify-center p-4">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="default" disabled={isExporting} className="min-w-[150px]">
+              {isExporting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="mr-2 h-4 w-4" />
+              )}
+              Export Chart
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="center">
+            <DropdownMenuItem onClick={() => exportChart('png')}>
+              <FileImage className="mr-2 h-4 w-4" />
+              Export as PNG
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => exportChart('jpeg')}>
+              <FileImage className="mr-2 h-4 w-4" />
+              Export as JPEG
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => exportChart('pdf')}>
+              <FileText className="mr-2 h-4 w-4" />
+              Export as PDF
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </CardFooter>
     </Card>
   );
 };
