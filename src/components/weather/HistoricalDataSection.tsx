@@ -152,8 +152,8 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
     <section className="mb-8">
       <h2 className="text-2xl font-headline font-semibold mb-4 text-primary">Historical Data Analysis</h2>
       <div className="bg-card p-4 sm:p-6 rounded-lg shadow-md space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-          <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
             <div>
               <Label htmlFor="date-range-picker" className="text-sm font-medium text-muted-foreground mb-1 block">Date Range:</Label>
               <DateRangePicker onDateChange={setDateRange} initialRange={dateRange} id="date-range-picker"/>
@@ -193,20 +193,20 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           selectedMetrics={selectedMetrics}
           onSelectionChange={setSelectedMetrics}
         />
-        <div className="mt-4">
-          <Label htmlFor="chart-type-select" className="text-sm font-medium text-muted-foreground mb-1 block">Chart Type:</Label>
-          <Select value={selectedChartType} onValueChange={(value) => setSelectedChartType(value as ChartType)}>
-            <SelectTrigger id="chart-type-select" className="w-full sm:w-auto sm:min-w-[200px]">
-              <SelectValue placeholder="Select chart type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="line">Line Chart</SelectItem>
-              <SelectItem value="bar">Bar Chart</SelectItem>
-              <SelectItem value="scatter">Scatter Chart</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="pt-4 flex flex-col sm:flex-row sm:items-center sm:justify-start gap-4">
+        <div className="mt-4 flex flex-col sm:flex-row items-end gap-4">
+          <div>
+            <Label htmlFor="chart-type-select" className="text-sm font-medium text-muted-foreground mb-1 block">Chart Type:</Label>
+            <Select value={selectedChartType} onValueChange={(value) => setSelectedChartType(value as ChartType)}>
+              <SelectTrigger id="chart-type-select" className="w-full sm:w-auto sm:min-w-[200px]">
+                <SelectValue placeholder="Select chart type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="line">Line Chart</SelectItem>
+                <SelectItem value="bar">Bar Chart</SelectItem>
+                <SelectItem value="scatter">Scatter Chart</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <Button onClick={handleUseAllDataForForecast} className="w-full sm:w-auto" disabled={isLoading && displayedData.length === 0}>
             Use All Displayed Data for AI Forecast
           </Button>
@@ -229,3 +229,4 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
 export default HistoricalDataSection;
     
     
+
