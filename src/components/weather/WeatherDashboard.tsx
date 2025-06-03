@@ -6,6 +6,7 @@ import { useState } from 'react';
 import RealtimeDataSection from './RealtimeDataSection';
 import HistoricalDataSection from './HistoricalDataSection';
 import AIForecastSection from './AIForecastSection';
+import RawDataViewer from './RawDataViewer'; // Import the new component
 import type { WeatherDataPoint } from '@/types/weather';
 import { useToast } from "@/hooks/use-toast";
 
@@ -25,6 +26,7 @@ const WeatherDashboard: FC = () => {
     } else {
       // Potentially handle brush clear if needed, e.g., setDataForAiForecast(null);
       // For now, we only update if there's a valid selection.
+       setDataForAiForecast(null); // Clear if selection is empty
     }
   };
 
@@ -36,6 +38,7 @@ const WeatherDashboard: FC = () => {
         onChartRangeSelect={handleChartRangeSelect} 
       />
       <AIForecastSection initialDataForForecast={dataForAiForecast} />
+      <RawDataViewer /> {/* Add the new raw data viewer section */}
     </div>
   );
 };
