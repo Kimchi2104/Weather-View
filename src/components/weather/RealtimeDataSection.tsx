@@ -12,7 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import MetricIcon from './MetricIcon';
 import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge, ShieldCheck, Sun, HelpCircle } from 'lucide-react';
 import { transformRawDataToWeatherDataPoint } from '@/lib/utils';
-import { startOfDay, endOfDay, isWithinInterval } from 'date-fns';
+import { startOfDay, endOfDay, isWithinInterval, format } from 'date-fns';
 
 const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
   temperature: { name: 'Temperature', unit: '°C', Icon: Thermometer, color: 'hsl(var(--chart-1))', healthyMin: 0, healthyMax: 35 },
@@ -163,7 +163,7 @@ const RealtimeDataSection: FC = () => {
       </p>
       {processedData.lastUpdatedTimestamp && !isLoading && (
         <p className="text-xs text-muted-foreground mb-4">
-          Last updated: {new Date(processedData.lastUpdatedTimestamp).toLocaleString()}
+          Last updated: {format(new Date(processedData.lastUpdatedTimestamp), 'dd/MM/yyyy HH:mm:ss')}
         </p>
       )}
        {isLoading && (
@@ -231,4 +231,3 @@ const RealtimeDataSection: FC = () => {
 };
 
 export default RealtimeDataSection;
-

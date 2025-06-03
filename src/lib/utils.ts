@@ -8,6 +8,7 @@ export function cn(...inputs: ClassValue[]) {
 
 /**
  * Parses a timestamp string in "dd/MM/yyyy HH:mm:ss" format to a Unix timestamp (milliseconds).
+ * Allows for single or double digits for day and month.
  * @param timestampStr The timestamp string to parse.
  * @returns A Unix timestamp in milliseconds, or null if parsing fails.
  */
@@ -16,26 +17,25 @@ export function parseCustomTimestamp(timestampStr: string | undefined): number |
     console.warn(`[parseCustomTimestamp] Invalid input: timestampStr is undefined or not a string:`, timestampStr);
     return null;
   }
-  // Assumes dd/MM/yyyy HH:mm:ss format
-  const parts = timestampStr.match(/(\d{2})\/(\d{2})\/(\d{4})\s(\d{2}):(\d{2}):(\d{2})/);
+  // Assumes dd/MM/yyyy HH:mm:ss format, allows for d/M/yyyy or dd/MM/yyyy
+  const parts = timestampStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s(\d{2}):(\d{2}):(\d{2})/);
   if (parts) {
-    const year = parseInt(parts[3], 10);
-    const day = parseInt(parts[1], 10);   // parts[1] is dd (day)
-    const month = parseInt(parts[2], 10) - 1; // parts[2] is MM (month), month is 0-indexed
+    const day = parseInt(parts[1], 10);      // dd or d
+    const month = parseInt(parts[2], 10) - 1; // MM or M (0-indexed)
+    const year = parseInt(parts[3], 10);     // yyyy
     const hour = parseInt(parts[4], 10);
     const minute = parseInt(parts[5], 10);
     const second = parseInt(parts[6], 10);
 
-    // Use Date.UTC to avoid local timezone issues if data is consistently UTC based,
-    // or if the original string implies a specific timezone that should be normalized to UTC.
     const date = new Date(Date.UTC(year, month, day, hour, minute, second));
     if (isNaN(date.getTime())) {
-      console.warn(`[parseCustomTimestamp] Invalid date constructed for timestamp string: ${timestampStr} (parsed as dd/MM/yyyy)`);
+      console.warn(`[parseCustomTimestamp] Invalid date constructed for timestamp string: ${timestampStr} (parsed as dd/MM/yyyy). Input parts: day=${parts[1]}, month=${parts[2]}, year=${parts[3]}`);
       return null;
     }
+    console.log(`[parseCustomTimestamp] Raw: "${timestampStr}", Parsed as UTC Date Object: ${date.toISOString()}, Milliseconds: ${date.getTime()}`);
     return date.getTime();
   }
-  console.warn(`[parseCustomTimestamp] Could not parse timestamp format: ${timestampStr}. Expected "dd/MM/yyyy HH:mm:ss"`);
+  console.warn(`[parseCustomTimestamp] Could not parse timestamp format: "${timestampStr}". Expected "dd/MM/yyyy HH:mm:ss" (day/month can be single or double digit).`);
   return null;
 }
 

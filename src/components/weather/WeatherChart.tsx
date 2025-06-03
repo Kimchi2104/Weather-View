@@ -53,14 +53,17 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
   
   const formattedData = data.map(point => ({
     ...point,
-    timestampDisplay: typeof point.timestamp === 'number' ? format(new Date(point.timestamp), 'MMM d, HH:mm') : 'Invalid Date',
+    // For X-axis: dd/MM HH:mm
+    timestampDisplay: typeof point.timestamp === 'number' ? format(new Date(point.timestamp), 'dd/MM HH:mm') : 'Invalid Date',
+    // For Tooltip label: full dd/MM/yyyy HH:mm:ss
+    tooltipTimestampFull: typeof point.timestamp === 'number' ? format(new Date(point.timestamp), 'dd/MM/yyyy HH:mm:ss') : 'Invalid Date',
   }));
 
   const handleChartClick = (event: any) => {
     if (onPointClick && event && event.activePayload && event.activePayload.length > 0) {
       const clickedPointData = event.activePayload[0].payload;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { timestampDisplay, ...originalPoint } = clickedPointData;
+      const { timestampDisplay, tooltipTimestampFull, ...originalPoint } = clickedPointData;
       onPointClick(originalPoint as WeatherDataPoint);
     }
   };
@@ -102,7 +105,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
                 tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} 
                 angle={-30} 
                 textAnchor="end"
-                minTickGap={40} 
+                minTickGap={25} // Adjusted for potentially more ticks with dd/MM HH:mm
                 height={60} 
               />
               <YAxis 
@@ -111,7 +114,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
                 domain={['auto', 'auto']}
               />
               <Tooltip
-                content={<ChartTooltipContent indicator="line" />}
+                content={<ChartTooltipContent indicator="line" labelKey="tooltipTimestampFull" />}
                 cursor={{ stroke: 'hsl(var(--accent))', strokeWidth: 1, strokeDasharray: '3 3' }}
                 wrapperStyle={{ outline: 'none', zIndex: 100 }}
               />
@@ -135,7 +138,6 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
                   />
                 );
               })}
-              {/* Brush component removed */}
             </LineChart>
           </ResponsiveContainer>
         </ChartContainer>
