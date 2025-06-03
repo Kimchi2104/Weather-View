@@ -7,6 +7,9 @@ import RealtimeDataCard from './RealtimeDataCard';
 import type { WeatherDataPoint, MetricKey, MetricConfig, RawFirebaseDataPoint } from '@/types/weather';
 import { database } from '@/lib/firebase';
 import { ref, onValue, type Unsubscribe } from "firebase/database";
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import MetricIcon from './MetricIcon'; // For the combined card
 import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge, ShieldCheck } from 'lucide-react';
 import { transformRawDataToWeatherDataPoint } from '@/lib/utils';
 
@@ -80,7 +83,10 @@ const RealtimeDataSection: FC = () => {
     };
   }, [firebaseDataPath]);
 
-  const metricsOrder: MetricKey[] = ['temperature', 'humidity', 'precipitation', 'airQuality', 'aqiPpm', 'lux', 'pressure'];
+  const individualMetricsOrder: MetricKey[] = ['temperature', 'humidity', 'aqiPpm', 'lux', 'pressure'];
+
+  const precipitationValue = realtimeData?.precipitation;
+  const airQualityValue = realtimeData?.airQuality;
 
   return (
     <section className="mb-8">
@@ -88,8 +94,44 @@ const RealtimeDataSection: FC = () => {
        <p className="text-xs text-muted-foreground mb-4">
             Data is fetched from Firebase path: `{firebaseDataPath}`.
         </p>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-7 gap-4"> {/* Adjusted grid for 7 items */}
-        {metricsOrder.map((key) => {
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        {/* Combined Card for Precipitation and Air Quality */}
+        <Card className="shadow-lg">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium font-headline">Current Status</CardTitle>
+            {/* General icon or leave it out for combined card */}
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {isLoading ? (
+              <>
+                <div className="flex items-center space-x-2">
+                  <Skeleton className="h-5 w-5 rounded-full" />
+                  <Skeleton className="h-5 w-20" />
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Skeleton className="h-5 w-5 rounded-full" />
+                  <Skeleton className="h-5 w-24" />
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center">
+                  <MetricIcon metric="precipitation" className="h-5 w-5 mr-2" />
+                  <span className="text-sm font-medium">{METRIC_CONFIGS.precipitation.name}:</span>
+                  <span className="text-sm ml-1">{precipitationValue ?? 'N/A'}</span>
+                </div>
+                <div className="flex items-center">
+                  <MetricIcon metric="airQuality" className="h-5 w-5 mr-2" />
+                  <span className="text-sm font-medium">{METRIC_CONFIGS.airQuality.name}:</span>
+                  <span className="text-sm ml-1">{airQualityValue ?? 'N/A'}</span>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Individual Cards for other metrics */}
+        {individualMetricsOrder.map((key) => {
           const config = METRIC_CONFIGS[key];
           if (!config) {
             console.warn(`[RealtimeDataSection] Missing metric config for key: ${key}`);
@@ -98,7 +140,7 @@ const RealtimeDataSection: FC = () => {
           let value: number | string | null = null;
           if (realtimeData) {
              if (key === 'aqiPpm') value = realtimeData.aqiPpm;
-             else if (key === 'airQuality') value = realtimeData.airQuality;
+             else if (key === 'airQuality') value = realtimeData.airQuality; // This case won't be hit due to filtering
              else value = realtimeData[key as Exclude<MetricKey, 'aqiPpm' | 'airQuality'>];
           }
           
@@ -109,9 +151,10 @@ const RealtimeDataSection: FC = () => {
               value={value}
               unit={config.unit}
               label={config.name}
-              healthyMin={config.isString ? undefined : config.healthyMin} // No healthy range for string metrics
-              healthyMax={config.isString ? undefined : config.healthyMax} // No healthy range for string metrics
+              healthyMin={config.isString ? undefined : config.healthyMin}
+              healthyMax={config.isString ? undefined : config.healthyMax}
               isLoading={isLoading}
+              isString={config.isString}
             />
           );
         })}
@@ -121,4 +164,3 @@ const RealtimeDataSection: FC = () => {
 };
 
 export default RealtimeDataSection;
-
