@@ -152,7 +152,7 @@ const RawDataViewer: FC = () => {
     ]);
     const csvContent = [
       headers.join(','),
-      ...rows.map(row => row.join(','))
+      ...rows.map(r => r.join(','))
     ].join('\n');
     triggerDownload(csvContent, generateFilename('csv'), 'text/csv;charset=utf-8;');
   };
@@ -194,7 +194,7 @@ const RawDataViewer: FC = () => {
       xmlContent += '  <record>\n';
       xmlContent += `    <id>${escapeXml(row.id)}</id>\n`;
       tableHeaders.forEach(header => {
-        const key = header.key.replace(/\s+/g, ''); // Simple key for XML tag
+        const key = header.key.replace(/\s+/g, '').replace(/[^a-zA-Z0-9_]/g, '_'); // Sanitize key for XML tag
         xmlContent += `    <${key}>${escapeXml(String(row[header.key as keyof RawFirebaseDataPoint] ?? 'N/A'))}</${key}>\n`;
       });
       xmlContent += '  </record>\n';
@@ -216,35 +216,38 @@ const RawDataViewer: FC = () => {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
+            {/* Date/Time Selectors Group - Takes 2/3 on lg screens */}
             <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
-                <div className="sm:col-span-2">
-                    <Label htmlFor="raw-data-date-range" className="text-sm font-medium text-muted-foreground mb-1 block">Select Date Range:</Label>
-                    <DateRangePicker onDateChange={setDateRange} initialRange={dateRange} id="raw-data-date-range" />
+              <div className="sm:col-span-2">
+                <Label htmlFor="raw-data-date-range" className="text-sm font-medium text-muted-foreground mb-1 block">Select Date Range:</Label>
+                <DateRangePicker onDateChange={setDateRange} initialRange={dateRange} id="raw-data-date-range" />
+              </div>
+              <div className="sm:col-span-1 grid grid-cols-2 gap-2 items-end">
+                <div>
+                  <Label htmlFor="start-time-raw" className="text-sm font-medium text-muted-foreground mb-1 block">Start Time:</Label>
+                  <Input
+                    type="time"
+                    id="start-time-raw"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    className="w-full"
+                  />
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                    <div>
-                        <Label htmlFor="start-time-raw" className="text-sm font-medium text-muted-foreground mb-1 block">Start Time:</Label>
-                        <Input 
-                            type="time" 
-                            id="start-time-raw" 
-                            value={startTime} 
-                            onChange={(e) => setStartTime(e.target.value)}
-                            className="w-full"
-                        />
-                    </div>
-                    <div>
-                        <Label htmlFor="end-time-raw" className="text-sm font-medium text-muted-foreground mb-1 block">End Time:</Label>
-                        <Input 
-                            type="time" 
-                            id="end-time-raw" 
-                            value={endTime} 
-                            onChange={(e) => setEndTime(e.target.value)}
-                            className="w-full"
-                        />
-                    </div>
+                <div>
+                  <Label htmlFor="end-time-raw" className="text-sm font-medium text-muted-foreground mb-1 block">End Time:</Label>
+                  <Input
+                    type="time"
+                    id="end-time-raw"
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    className="w-full"
+                  />
                 </div>
+              </div>
             </div>
-            <div className="flex flex-col space-y-2 lg:space-y-0 lg:flex-row lg:space-x-2 lg:items-end">
+
+            {/* Action Buttons Group - Takes 1/3 on lg screens */}
+            <div className="lg:col-span-1 flex flex-col space-y-2 lg:space-y-0 lg:flex-row lg:space-x-2 lg:items-end">
               <Button onClick={fetchAllRawData} disabled={isLoading} className="w-full lg:flex-1">
                 {isLoading ? 'Loading...' : 'Refresh Data'}
               </Button>
