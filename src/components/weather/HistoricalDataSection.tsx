@@ -103,23 +103,13 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
       return;
     }
 
+    const startDate = dateRange.from;
     const [startH, startM] = startTime.split(':').map(Number);
-    const fromDateObj = dateRange.from; 
-    const fromTimestamp = Date.UTC(
-      fromDateObj.getFullYear(),
-      fromDateObj.getMonth(),
-      fromDateObj.getDate(),
-      startH, startM, 0, 0
-    );
+    const fromTimestamp = Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), startH, startM, 0, 0);
 
+    const endDate = dateRange.to;
     const [endH, endM] = endTime.split(':').map(Number);
-    const toDateObj = dateRange.to; 
-    const toTimestamp = Date.UTC(
-      toDateObj.getFullYear(),
-      toDateObj.getMonth(),
-      toDateObj.getDate(),
-      endH, endM, 59, 999
-    );
+    const toTimestamp = Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), endH, endM, 59, 999);
     
     console.log(`[HistoricalDataSection] Filtering data for UTC datetime range: ${new Date(fromTimestamp).toISOString()} to ${new Date(toTimestamp).toISOString()}`);
 
@@ -156,7 +146,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
       <h2 className="text-2xl font-headline font-semibold mb-4 text-primary">Historical Data Analysis</h2>
       <div className="bg-card p-4 sm:p-6 rounded-lg shadow-md space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-          <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+          <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
             <div>
               <Label htmlFor="date-range-picker" className="text-sm font-medium text-muted-foreground mb-1 block">Select Date Range:</Label>
               <DateRangePicker onDateChange={setDateRange} initialRange={dateRange} id="date-range-picker"/>
@@ -183,19 +173,6 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
                     />
                 </div>
             </div>
-            <div>
-                <Label htmlFor="chart-type-selector" className="text-sm font-medium text-muted-foreground mb-1 block">Chart Type:</Label>
-                <Select value={selectedChartType} onValueChange={(value: ChartType) => setSelectedChartType(value)}>
-                  <SelectTrigger id="chart-type-selector" className="w-full">
-                    <SelectValue placeholder="Select chart type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="line">Line Chart</SelectItem>
-                    <SelectItem value="bar">Bar Chart</SelectItem>
-                    <SelectItem value="scatter">Scatter Chart</SelectItem>
-                  </SelectContent>
-                </Select>
-            </div>
           </div>
           <Button onClick={fetchAllHistoricalData} disabled={isLoading} className="w-full md:w-auto">
             {isLoading ? 'Loading...' : 'Refresh All Data'}
@@ -209,6 +186,19 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           selectedMetrics={selectedMetrics}
           onSelectionChange={setSelectedMetrics}
         />
+        <div className="pt-2"> {/* Added padding top for spacing */}
+            <Label htmlFor="chart-type-selector" className="text-sm font-medium text-muted-foreground mb-1 block">Chart Type:</Label>
+            <Select value={selectedChartType} onValueChange={(value: ChartType) => setSelectedChartType(value)}>
+              <SelectTrigger id="chart-type-selector" className="w-full max-w-xs">
+                <SelectValue placeholder="Select chart type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="line">Line Chart</SelectItem>
+                <SelectItem value="bar">Bar Chart</SelectItem>
+                <SelectItem value="scatter">Scatter Chart</SelectItem>
+              </SelectContent>
+            </Select>
+        </div>
         <Button onClick={handleUseAllDataForForecast} className="w-full sm:w-auto" disabled={isLoading && displayedData.length === 0}>
           Use All Displayed Data for AI Forecast
         </Button>
@@ -228,3 +218,4 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
 };
 
 export default HistoricalDataSection;
+
