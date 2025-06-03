@@ -31,10 +31,7 @@ interface RawDataTableRow extends RawFirebaseDataPoint {
 }
 
 const RawDataViewer: FC = () => {
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: subDays(new Date(), 1),
-    to: new Date(),
-  });
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [startTime, setStartTime] = useState<string>("00:00");
   const [endTime, setEndTime] = useState<string>("23:59");
   const [allFetchedRawData, setAllFetchedRawData] = useState<RawDataTableRow[]>([]);
@@ -53,6 +50,14 @@ const RawDataViewer: FC = () => {
     { key: 'lux', label: 'Light (Lux)' },
     { key: 'pressure', label: 'Pressure (hPa)' },
   ];
+  
+  useEffect(() => {
+    // Initialize date range on the client side to avoid hydration mismatch
+    setDateRange({
+      from: subDays(new Date(), 1),
+      to: new Date(),
+    });
+  }, []);
 
   const fetchAllRawData = useCallback(async () => {
     setIsLoading(true);
@@ -104,7 +109,7 @@ const RawDataViewer: FC = () => {
     }
 
     const [startH, startM] = startTime.split(':').map(Number);
-    const fromDateObj = dateRange.from; // This is a Date object for local midnight
+    const fromDateObj = dateRange.from; 
     const fromTimestamp = Date.UTC(
       fromDateObj.getFullYear(),
       fromDateObj.getMonth(),
@@ -113,7 +118,7 @@ const RawDataViewer: FC = () => {
     );
 
     const [endH, endM] = endTime.split(':').map(Number);
-    const toDateObj = dateRange.to; // This is a Date object for local midnight
+    const toDateObj = dateRange.to; 
     const toTimestamp = Date.UTC(
       toDateObj.getFullYear(),
       toDateObj.getMonth(),
@@ -135,7 +140,10 @@ const RawDataViewer: FC = () => {
   }, [fetchAllRawData]);
 
   useEffect(() => {
-    filterDataByDateTimeRange();
+    // Only filter if dateRange is set (which happens client-side)
+    if (dateRange) {
+      filterDataByDateTimeRange();
+    }
   }, [dateRange, allFetchedRawData, filterDataByDateTimeRange, startTime, endTime]);
 
   const generateFilename = (extension: string): string => {
@@ -204,7 +212,7 @@ const RawDataViewer: FC = () => {
       xmlContent += '  <record>\n';
       xmlContent += `    <id>${escapeXml(row.id)}</id>\n`;
       tableHeaders.forEach(header => {
-        const key = header.key.replace(/\s+/g, '').replace(/[^a-zA-Z0-9_]/g, '_'); // Sanitize key for XML tag
+        const key = header.key.replace(/\s+/g, '').replace(/[^a-zA-Z0-9_]/g, '_'); 
         xmlContent += `    <${key}>${escapeXml(String(row[header.key as keyof RawFirebaseDataPoint] ?? 'N/A'))}</${key}>\n`;
       });
       xmlContent += '  </record>\n';
@@ -226,15 +234,12 @@ const RawDataViewer: FC = () => {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
-            {/* Date/Time Selectors Group - Takes 2/3 on lg screens */}
             <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
-              {/* Date Range Picker container - Takes 1/2 of its parent on sm+ screens */}
               <div>
                 <Label htmlFor="raw-data-date-range" className="text-sm font-medium text-muted-foreground mb-1 block">Select Date Range:</Label>
                 <DateRangePicker onDateChange={setDateRange} initialRange={dateRange} id="raw-data-date-range" />
               </div>
 
-              {/* Time Inputs container - Takes 1/2 of its parent on sm+ screens */}
               <div className="grid grid-cols-2 gap-2 items-end">
                 <div>
                   <Label htmlFor="start-time-raw" className="text-sm font-medium text-muted-foreground mb-1 block">Start Time:</Label>
@@ -259,7 +264,6 @@ const RawDataViewer: FC = () => {
               </div>
             </div>
 
-            {/* Action Buttons Group - Takes 1/3 on lg screens */}
             <div className="lg:col-span-1 flex flex-col space-y-2 lg:space-y-0 lg:flex-row lg:space-x-2 lg:items-end">
               <Button onClick={fetchAllRawData} disabled={isLoading} className="w-full lg:flex-1">
                 {isLoading ? 'Loading...' : 'Refresh Data'}
@@ -326,4 +330,3 @@ const RawDataViewer: FC = () => {
 };
 
 export default RawDataViewer;
-

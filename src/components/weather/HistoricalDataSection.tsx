@@ -41,10 +41,7 @@ interface HistoricalDataSectionProps {
 }
 
 const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointClick, onChartRangeSelect }) => {
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: subDays(new Date(), 7),
-    to: new Date(),
-  });
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [startTime, setStartTime] = useState<string>("00:00");
   const [endTime, setEndTime] = useState<string>("23:59");
   const [selectedMetrics, setSelectedMetrics] = useState<MetricKey[]>(['temperature', 'humidity']);
@@ -53,6 +50,14 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
   const [isLoading, setIsLoading] = useState(false);
 
   const firebaseDataPath = 'devices/TGkMhLL4k4ZFBwgOyRVNKe5mTQq1/records/';
+
+  useEffect(() => {
+    // Initialize date range on the client side to avoid hydration mismatch
+    setDateRange({
+      from: subDays(new Date(), 7),
+      to: new Date(),
+    });
+  }, []);
 
   const fetchAllHistoricalData = useCallback(async () => {
     setIsLoading(true);
@@ -124,7 +129,10 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
   }, [fetchAllHistoricalData]);
 
   useEffect(() => {
-    filterDataByDateRange();
+    // Only filter if dateRange is set (which happens client-side)
+    if (dateRange) {
+      filterDataByDateRange();
+    }
   }, [dateRange, allFetchedData, filterDataByDateRange, startTime, endTime]);
 
   const handleUseAllDataForForecast = () => {
@@ -183,7 +191,6 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           onSelectionChange={setSelectedMetrics}
         />
         <div className="pt-4 flex flex-col sm:flex-row sm:items-center sm:justify-start gap-4">
-          {/* Removed Chart Type Selector and its Label */}
           <Button onClick={handleUseAllDataForForecast} className="w-full sm:w-auto" disabled={isLoading && displayedData.length === 0}>
             Use All Displayed Data for AI Forecast
           </Button>
