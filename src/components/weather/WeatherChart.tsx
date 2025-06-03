@@ -68,13 +68,6 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
       const canvas = await html2canvas(chartRef.current, {
         scale: 2,
         useCORS: true,
-        // Ensure the background of the chart itself is captured if not transparent
-        onclone: (documentClone) => {
-          const chartContainer = documentClone.querySelector('[data-chart]'); // Assuming ChartContainer sets this
-          if (chartContainer) {
-            (chartContainer as HTMLElement).style.backgroundColor = getComputedStyle(chartRef.current!).backgroundColor || 'transparent';
-          }
-        }
       });
       
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
@@ -119,9 +112,9 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
     selectedMetrics.map(key => [
       key,
       {
-        label: metricConfigs[key].name,
-        color: metricConfigs[key].color,
-        icon: metricConfigs[key].Icon,
+        label: metricConfigs[key]?.name || key,
+        color: metricConfigs[key]?.color || 'hsl(var(--chart-1))',
+        icon: metricConfigs[key]?.Icon,
       },
     ])
   ) as ChartConfig;
@@ -161,7 +154,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
   const renderChart = () => {
     const commonProps = {
       data: formattedData,
-      margin: { top: 5, right: 30, left: 20, bottom: 20 }, // Adjusted margins for labels
+      margin: { top: 10, right: 30, left: 40, bottom: 30 }, // Increased left and bottom margins
       onClick: handleChartClick,
     };
 
@@ -173,25 +166,25 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
           axisLine={{ stroke: 'hsl(var(--muted-foreground))' }}
           tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
           tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-          height={30} // Explicit height for labels
-          dy={10} // Offset tick labels down
+          dy={10} // Offset tick labels down slightly
         />
         <YAxis
           axisLine={{ stroke: 'hsl(var(--muted-foreground))' }}
           tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
           tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-          tickFormatter={(value) => value.toLocaleString()}
-          width={60} // Give space for Y-axis labels
+          tickFormatter={(value) => typeof value === 'number' ? value.toLocaleString() : String(value)}
         />
         <Tooltip
           content={
             <ChartTooltipContent
               indicator={chartType === 'line' ? "line" : "dot"}
               labelFormatter={(_label, payload) => { 
-                if (payload && payload.length > 0 && payload[0].payload) {
-                  return payload[0].payload.tooltipTimestampFull;
-                }
-                return ''; 
+                try {
+                  if (payload && payload.length > 0 && payload[0] && payload[0].payload && typeof payload[0].payload.tooltipTimestampFull === 'string') {
+                    return payload[0].payload.tooltipTimestampFull;
+                  }
+                } catch (e) { console.error("Tooltip labelFormatter error:", e); }
+                return 'Details'; 
               }}
             />
           }
@@ -209,7 +202,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
             {commonComponents}
             {selectedMetrics.map((key) => {
               const metricConfig = metricConfigs[key];
-              if (metricConfig.isString) return null;
+              if (!metricConfig || metricConfig.isString) return null;
               return (
                 <Bar
                   key={key}
@@ -229,7 +222,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
             {commonComponents}
             {selectedMetrics.map((key) => {
               const metricConfig = metricConfigs[key];
-              if (metricConfig.isString) return null;
+              if (!metricConfig || metricConfig.isString) return null;
               return (
                 <Scatter
                   key={key}
@@ -249,7 +242,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
             {commonComponents}
             {selectedMetrics.map((key) => {
               const metricConfig = metricConfigs[key];
-              if (metricConfig.isString) return null;
+              if (!metricConfig || metricConfig.isString) return null;
               return (
                 <Line
                   key={key}
@@ -321,4 +314,3 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
 };
 
 export default WeatherChart;
-
