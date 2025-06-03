@@ -58,14 +58,8 @@ const WeatherChart: FC<WeatherChartProps> = ({
   const chartRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
 
-  // useEffect(() => {
-  //   console.log("[WeatherChart] Props received:", { dataLength: data?.length, selectedMetrics, chartType, isLoading });
-  //   console.log("[WeatherChart] First 3 data points:", data?.slice(0,3));
-  // }, [data, selectedMetrics, chartType, isLoading]);
-
   const formattedData = useMemo(() => {
     if (!data) {
-      // console.log("[WeatherChart] formattedData: data is null or undefined, returning []");
       return [];
     }
     const processed = data.map((point) => ({
@@ -73,7 +67,6 @@ const WeatherChart: FC<WeatherChartProps> = ({
       timestampDisplay: formatTimestampToDdMmHhMmUTC(point.timestamp),
       tooltipTimestampFull: formatTimestampToFullUTC(point.timestamp),
     }));
-    // console.log("[WeatherChart] Formatted Data (first 3):", processed.slice(0,3));
     return processed;
   }, [data]);
 
@@ -141,7 +134,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
   }
   
   const commonCartesianProps = { 
-    margin: { top: 5, right: 40, left: 20, bottom: 20 }, // Reduced bottom margin more
+    margin: { top: 5, right: 40, left: 20, bottom: 20 },
   };
 
   const renderChartSpecificElements = () => {
@@ -169,6 +162,34 @@ const WeatherChart: FC<WeatherChartProps> = ({
   const ChartComponent = chartType === 'bar' ? BarChart : chartType === 'scatter' ? ScatterChart : LineChart;
   const chartDynamicKey = `${chartType}-${selectedMetrics.join('-')}-${formattedData.length}`;
 
+  const yAxisTickFormatter = (value: any) => {
+    if (typeof value === 'number' && isFinite(value)) {
+      return value.toFixed(0);
+    }
+    if (value === undefined || value === null || (typeof value === 'number' && !isFinite(value))) {
+      return 'N/A';
+    }
+    return String(value);
+  };
+
+  const tooltipFormatter = (value: any, name: any, entry: any) => {
+    const dataKey = entry.dataKey as MetricKey;
+    const config = metricConfigs[dataKey];
+    let displayValue;
+
+    if (typeof value === 'number' && isFinite(value)) {
+      displayValue = value.toFixed(config?.isString ? 0 : (config?.unit === 'ppm' ? 0 : 2));
+    } else if (value === undefined || value === null || (typeof value === 'number' && !isFinite(value))) {
+      displayValue = 'N/A';
+    } else {
+      displayValue = String(value);
+    }
+    
+    const unitString = (typeof value === 'number' && isFinite(value) && config?.unit) ? ` ${config.unit}` : '';
+    return [`${displayValue}${unitString}`, config?.name || name];
+  };
+
+
   const renderChart = () => (
       <ChartComponent key={chartDynamicKey} data={formattedData} {...commonCartesianProps}>
         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -186,18 +207,14 @@ const WeatherChart: FC<WeatherChartProps> = ({
         <YAxis 
           stroke="#888888" 
           tick={{ fill: "hsl(var(--foreground))", fontSize: 12 }} 
-          tickFormatter={(value) => (typeof value === 'number' ? value.toFixed(0) : String(value))} 
+          tickFormatter={yAxisTickFormatter}
         />
         <Tooltip 
           wrapperStyle={{ backgroundColor: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: "0.25rem", padding: "0.5rem", color: "hsl(var(--popover-foreground))", boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)', zIndex: 1000 }} 
           labelStyle={{ fontWeight: "bold", color: "hsl(var(--popover-foreground))", marginBottom: "0.25rem" }} 
           itemStyle={{ color: "hsl(var(--popover-foreground))" }} 
           labelFormatter={(label, payload) => payload?.[0]?.payload?.tooltipTimestampFull || label} 
-          formatter={(value: any, name: any, entry: any) => { 
-            const dataKey = entry.dataKey;
-            const config = metricConfigs[dataKey as MetricKey]; 
-            return [`${typeof value === 'number' ? value.toFixed(config?.isString ? 0 : (config?.unit === 'ppm' ? 0 : 2) ) : value}${config?.unit || ''}`, config?.name || name]; 
-          }} 
+          formatter={tooltipFormatter}
         />
         <Legend 
            wrapperStyle={{ paddingTop: '0px', paddingBottom: '20px' }} 

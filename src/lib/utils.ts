@@ -34,7 +34,7 @@ export function parseCustomTimestamp(timestampStr: string | undefined): number |
       return null;
     }
     // Log the components used for Date.UTC and the resulting ISO string and millis
-    console.log(`[parseCustomTimestamp] Raw: "${timestampStr}", Parsed for UTC -> Y:${year}, M:${month}(0-idx), D:${day}, H:${hour}, M:${minute}, S:${second} => Millis: ${date.getTime()}, ISO: ${date.toISOString()}`);
+    // console.log(`[parseCustomTimestamp] Raw: "${timestampStr}", Parsed for UTC -> Y:${year}, M:${month}(0-idx), D:${day}, H:${hour}, M:${minute}, S:${second} => Millis: ${date.getTime()}, ISO: ${date.toISOString()}`);
     return date.getTime();
   }
   console.error(`[parseCustomTimestamp] CRITICAL: Could not parse format. Raw: "${timestampStr}". Expected "dd/MM/yyyy HH:mm:ss" (day/month can be single or double digit).`);
@@ -43,6 +43,12 @@ export function parseCustomTimestamp(timestampStr: string | undefined): number |
 
 // Helper to convert raw Firebase data to WeatherDataPoint
 import type { RawFirebaseDataPoint, WeatherDataPoint } from '@/types/weather';
+
+const parseNumeric = (val: any): number | undefined => {
+  if (val === undefined || val === null) return undefined;
+  const num = Number(val);
+  return isFinite(num) ? num : undefined;
+};
 
 export function transformRawDataToWeatherDataPoint(rawData: RawFirebaseDataPoint, recordKey?: string): WeatherDataPoint | null {
   // console.log(`[transformRawDataToWeatherDataPoint] Processing raw record (key: ${recordKey || 'N/A'}):`, JSON.parse(JSON.stringify(rawData)));
@@ -69,35 +75,37 @@ export function transformRawDataToWeatherDataPoint(rawData: RawFirebaseDataPoint
   }
   // console.log(`[transformRawDataToWeatherDataPoint] Precipitation status for (key: ${recordKey || 'N/A'}):`, precipitationValue);
   
-  const temperatureValue = typeof rawData.temperature === 'number' ? rawData.temperature : 0;
-  const humidityValue = typeof rawData.humidity === 'number' ? rawData.humidity : 0;
-  const luxValue = typeof rawData.lux === 'number' ? rawData.lux : 0;
+  const temperatureValue = parseNumeric(rawData.temperature);
+  const humidityValue = parseNumeric(rawData.humidity);
+  const luxValue = parseNumeric(rawData.lux);
   
   const airQualityStringValue = typeof rawData.airQuality === 'string' ? rawData.airQuality : "Unknown";
   // if (typeof rawData.airQuality !== 'string') console.warn(`[transformRawDataToWeatherDataPoint] airQuality (string) is not a string for (key: ${recordKey || 'N/A'}). Defaulting to "Unknown". Value:`, rawData.airQuality);
   // console.log(`[transformRawDataToWeatherDataPoint] Air Quality (string) for (key: ${recordKey || 'N/A'}):`, airQualityStringValue);
   
-  const aqiPpmValue = typeof rawData.mq135PPM === 'number' ? rawData.mq135PPM : 0;
+  const aqiPpmValue = parseNumeric(rawData.mq135PPM);
   // if (typeof rawData.mq135PPM !== 'number') console.warn(`[transformRawDataToWeatherDataPoint] mq135PPM (for AQI PPM) is not a number for (key: ${recordKey || 'N/A'}). Defaulting to 0. Value:`, rawData.mq135PPM);
   // console.log(`[transformRawDataToWeatherDataPoint] AQI PPM (from mq135PPM) for (key: ${recordKey || 'N/A'}):`, aqiPpmValue);
 
-  const pressureValue = typeof rawData.pressure === 'number' ? rawData.pressure : undefined; 
+  const pressureValue = parseNumeric(rawData.pressure); 
 
-  // if (typeof rawData.temperature !== 'number') console.warn(`[transformRawDataToWeatherDataPoint] Temperature is not a number for (key: ${recordKey || 'N/A'}). Defaulting to 0. Value:`, rawData.temperature);
-  // if (typeof rawData.humidity !== 'number') console.warn(`[transformRawDataToWeatherDataPoint] Humidity is not a number for (key: ${recordKey || 'N/A'}). Defaulting to 0. Value:`, rawData.humidity);
-  // if (typeof rawData.lux !== 'number') console.warn(`[transformRawDataToWeatherDataPoint] Lux is not a number for (key: ${recordKey || 'N/A'}). Defaulting to 0. Value:`, rawData.lux);
-  // if (rawData.pressure !== undefined && typeof rawData.pressure !== 'number') console.warn(`[transformRawDataToWeatherDataPoint] Pressure is present but not a number for (key: ${recordKey || 'N/A'}). Setting to undefined. Value:`, rawData.pressure);
+  // Default numeric values to 0 if they are undefined after parsing, as WeatherDataPoint expects numbers for these.
+  // Pressure remains optional.
+  const finalTemperature = temperatureValue === undefined ? 0 : temperatureValue;
+  const finalHumidity = humidityValue === undefined ? 0 : humidityValue;
+  const finalLux = luxValue === undefined ? 0 : luxValue;
+  const finalAqiPpm = aqiPpmValue === undefined ? 0 : aqiPpmValue;
 
 
   const transformedPoint: WeatherDataPoint = {
     timestamp: numericalTimestamp,
     rawTimestampString: rawData.timestamp, // Store the original string
-    temperature: temperatureValue,
-    humidity: humidityValue,
+    temperature: finalTemperature,
+    humidity: finalHumidity,
     precipitation: precipitationValue,
     airQuality: airQualityStringValue,
-    aqiPpm: aqiPpmValue,
-    lux: luxValue,
+    aqiPpm: finalAqiPpm,
+    lux: finalLux,
     ...(pressureValue !== undefined && { pressure: pressureValue }),
   };
 
