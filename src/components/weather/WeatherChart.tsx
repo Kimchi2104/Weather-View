@@ -69,7 +69,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
       const canvas = await html2canvas(chartRef.current, {
         scale: 2,
         useCORS: true,
-        backgroundColor: null,
+        backgroundColor: null, // Ensure transparent background for the chart itself
       });
       
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
@@ -161,52 +161,35 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
 
   const commonCartesianProps = {
     data: formattedData,
-    margin: { top: 20, right: 30, left: 20, bottom: 90 },
+    margin:{ top: 20, right: 30, left: 20, bottom: 90 }, // Increased bottom margin for X-axis labels + legend
     onClick: handleChartClick,
   };
 
   const commonAxisAndGridComponents = (
     <>
       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-      <XAxis 
-          dataKey="timestampDisplay" 
-          stroke="hsl(var(--muted-foreground))"
-          axisLine={{ stroke: "hsl(var(--muted-foreground))" }}
-          tickLine={{ stroke: "hsl(var(--muted-foreground))" }}
-          tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-          angle={-30}
-          textAnchor="end"
-          minTickGap={20}
-          dy={10} // Adjusted from height to dy for better control with angle
-      />
-      <YAxis 
-          stroke="hsl(var(--muted-foreground))"
-          axisLine={{ stroke: "hsl(var(--muted-foreground))" }}
-          tickLine={{ stroke: "hsl(var(--muted-foreground))" }}
-          tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-          tickFormatter={(value) => typeof value === 'number' ? value.toFixed(1) : String(value)}
-          width={60}
-      />
+      <XAxis dataKey="timestampDisplay" />
+      <YAxis />
       <Tooltip
-        content={
-          <ChartTooltipContent
-            indicator={chartType === 'line' ? "line" : "dot"}
-            labelFormatter={(_label, payload) => { 
-              try {
-                if (payload && payload.length > 0 && payload[0] && payload[0].payload && typeof payload[0].payload.tooltipTimestampFull === 'string') {
-                  return payload[0].payload.tooltipTimestampFull;
-                }
-              } catch (e) { console.error("Tooltip labelFormatter error:", e); }
-              return 'Details'; 
-            }}
-          />
-        }
+        // content={
+        //   <ChartTooltipContent
+        //     indicator={chartType === 'line' ? "line" : "dot"}
+        //     labelFormatter={(_label, payload) => { 
+        //       try {
+        //         if (payload && payload.length > 0 && payload[0] && payload[0].payload && typeof payload[0].payload.tooltipTimestampFull === 'string') {
+        //           return payload[0].payload.tooltipTimestampFull;
+        //         }
+        //       } catch (e) { console.error("Tooltip labelFormatter error:", e); }
+        //       return 'Details'; 
+        //     }}
+        //   />
+        // }
         cursor={{ stroke: 'hsl(var(--accent))', strokeWidth: 1, strokeDasharray: '3 3' }}
         wrapperStyle={{ outline: 'none', zIndex: 100 }}
       />
       <ChartLegend 
         content={<ChartLegendContent />} 
-        wrapperStyle={{ paddingTop: "40px" }}
+        wrapperStyle={{ paddingTop: "40px" }} // Space between X-axis and legend text
       />
     </>
   );
@@ -225,10 +208,8 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
             dataKey={key}
             stroke={color}
             strokeWidth={2}
-            dot={{ r: 2, strokeWidth: 1, fill: 'hsl(var(--background))' }}
-            activeDot={{ r: 5, strokeWidth: 2, fill: 'hsl(var(--background))', stroke: color }}
+            dot={false}
             name={metricConfig.name}
-            unit={metricConfig.unit}
             connectNulls={false}
           />
         );
@@ -239,8 +220,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
             dataKey={key}
             fill={color}
             name={metricConfig.name}
-            unit={metricConfig.unit}
-            radius={[4, 4, 0, 0]}
+            radius={[0, 0, 0, 0]} // Simplified radius
           />
         );
       } else if (chartType === 'scatter') {
@@ -258,14 +238,17 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
   };
   
   const renderChart = () => {
+    const chartProps = { ...commonCartesianProps }; // Use a copy to avoid potential direct modification issues
+
     if (chartType === 'line') {
-      return <LineChart {...commonCartesianProps}>{commonAxisAndGridComponents}{renderChartSpecificElements()}</LineChart>;
+      return <LineChart {...chartProps}>{commonAxisAndGridComponents}{renderChartSpecificElements()}</LineChart>;
     } else if (chartType === 'bar') {
-      return <BarChart {...commonCartesianProps}>{commonAxisAndGridComponents}{renderChartSpecificElements()}</BarChart>;
+      return <BarChart {...chartProps}>{commonAxisAndGridComponents}{renderChartSpecificElements()}</BarChart>;
     } else if (chartType === 'scatter') {
-      return <ScatterChart {...commonCartesianProps}>{commonAxisAndGridComponents}{renderChartSpecificElements()}</ScatterChart>;
+      return <ScatterChart {...chartProps}>{commonAxisAndGridComponents}{renderChartSpecificElements()}</ScatterChart>;
     }
-    return <LineChart {...commonCartesianProps}>{commonAxisAndGridComponents}{renderChartSpecificElements()}</LineChart>; 
+    // Default to LineChart if type is unrecognized, though Select should prevent this.
+    return <LineChart {...chartProps}>{commonAxisAndGridComponents}{renderChartSpecificElements()}</LineChart>; 
   };
 
 
@@ -284,7 +267,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
         <ChartContainer ref={chartRef} config={chartConfig} className="h-[450px] w-full aspect-auto">
            {renderChart()}
         </ChartContainer>
-        <div className="flex justify-center -mt-10">
+        <div className="flex justify-center -mt-10"> 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="default" disabled={isExporting} className="min-w-[150px]">
