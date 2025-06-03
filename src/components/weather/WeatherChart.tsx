@@ -72,6 +72,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
   const exportChart = async (format: 'png' | 'jpeg' | 'pdf') => {
     if (!chartRef.current) return;
+    // Prioritize capturing the .recharts-wrapper if available, otherwise fallback to the chartRef.current
     const chartElementToCapture = chartRef.current.querySelector('.recharts-wrapper') || chartRef.current;
 
     setIsExporting(true);
@@ -79,7 +80,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
       const canvas = await html2canvas(chartElementToCapture as HTMLElement, {
         scale: 2,
         useCORS: true,
-        backgroundColor: 'hsl(var(--card))',
+        backgroundColor: 'hsl(var(--card))', // This should resolve based on current theme
       });
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
       if (format === 'pdf') {
@@ -135,9 +136,10 @@ const WeatherChart: FC<WeatherChartProps> = ({
   }
 
   const commonCartesianProps = {
-    margin: { top: 5, right: 40, left: 20, bottom: 20 },
+    margin: { top: 5, right: 40, left: 20, bottom: 20 }, // Keep bottom margin reduced
   };
 
+  // Simplified for testing - always use Line for now
   const renderChartSpecificElements = () => {
     const firstNumericMetric = selectedMetrics.find(key => {
       const metricConfig = metricConfigs[key];
@@ -147,22 +149,26 @@ const WeatherChart: FC<WeatherChartProps> = ({
     if (!firstNumericMetric) return null;
 
     const metricConfig = metricConfigs[firstNumericMetric];
-    const color = metricConfig.color || '#8884d8';
+    const color = metricConfig.color || '#8884d8'; // Default color
     const name = metricConfig.name || firstNumericMetric;
-    const seriesKey = `${chartType}-${firstNumericMetric}`;
+    // const seriesKey = `line-${firstNumericMetric}`; // simplified key
 
-    switch (chartType) {
-      case 'bar':
-        return <Bar key={seriesKey} dataKey={firstNumericMetric} fill={color} name={name} radius={[4, 4, 0, 0]} /* onClick={(payload) => onPointClick && payload && onPointClick(payload as unknown as WeatherDataPoint)} */ />;
-      case 'scatter':
-        return <Scatter key={seriesKey} dataKey={firstNumericMetric} fill={color} name={name} /* onClick={(payload) => onPointClick && payload && onPointClick(payload as unknown as WeatherDataPoint)} */ />;
-      case 'line':
-      default:
-        return <Line key={seriesKey} type="monotone" dataKey={firstNumericMetric} stroke={color} name={name} dot={false} /* activeDot={{ r: 6 }} onClick={(payload) => onPointClick && payload && onPointClick(payload as unknown as WeatherDataPoint)} */ />;
-    }
+    return <Line 
+            key={`line-${firstNumericMetric}`} 
+            type="monotone" 
+            dataKey={firstNumericMetric} 
+            stroke={color} 
+            name={name} 
+            dot={false} 
+            // activeDot={false} // Simplification
+            // onClick={undefined} // Simplification
+           />;
   };
+  
+  // Force LineChart for this test
+  const ChartComponent = LineChart;
+  // const ChartComponent = chartType === 'bar' ? BarChart : chartType === 'scatter' ? ScatterChart : LineChart;
 
-  const ChartComponent = chartType === 'bar' ? BarChart : chartType === 'scatter' ? ScatterChart : LineChart;
   const chartDynamicKey = `${chartType}-${selectedMetrics.join('-')}-${formattedData.length}`;
 
   const yAxisTickFormatter = (value: any) => {
@@ -175,6 +181,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
     return String(value);
   };
 
+  // Tooltip formatter remains for data inspection if needed, but Tooltip component itself is commented out for now
   const tooltipFormatter = (value: any, name: any, entry: any) => {
     const dataKey = entry.dataKey as MetricKey;
     const config = metricConfigs[dataKey];
@@ -194,40 +201,34 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
 
   const renderChart = () => (
-      <ChartComponent key={chartDynamicKey} data={formattedData} {...commonCartesianProps}>
+      <ChartComponent 
+        key={chartDynamicKey} 
+        data={formattedData} 
+        width={700} // Fixed width
+        height={530} // Fixed height (550px container - margins)
+        {...commonCartesianProps}
+      >
         {/* <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" /> */}
         <XAxis
           dataKey="timestampDisplay"
           stroke="#888888"
           tick={{ fill: "hsl(var(--foreground))", fontSize: 11 }}
-          // angle={-45}
-          // textAnchor="end"
-          // dy={10}
-          height={60}
-          minTickGap={20} 
-          interval="preserveStartEnd"
+          // interval="preserveStartEnd" // Removed for simplification
+          // minTickGap={20} // Removed for simplification
         />
         <YAxis
           stroke="#888888"
           tick={{ fill: "hsl(var(--foreground))", fontSize: 12 }}
-          tickFormatter={yAxisTickFormatter}
+          // tickFormatter={yAxisTickFormatter} // Temporarily removed
         />
         {/*
         <Tooltip
-          wrapperStyle={{ backgroundColor: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: "0.25rem", padding: "0.5rem", color: "hsl(var(--popover-foreground))", boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)', zIndex: 1000 }}
-          labelStyle={{ fontWeight: "bold", color: "hsl(var(--popover-foreground))", marginBottom: "0.25rem" }}
-          itemStyle={{ color: "hsl(var(--popover-foreground))" }}
-          labelFormatter={(label, payload) => payload?.[0]?.payload?.tooltipTimestampFull || label}
-          formatter={tooltipFormatter}
+          // ... (Tooltip component remains commented out)
         />
         */}
         {/*
         <Legend
-           wrapperStyle={{paddingBottom: '20px', paddingTop: '0px'}}
-           iconSize={14}
-           layout="horizontal"
-           align="center"
-           verticalAlign="top"
+           // ... (Legend component remains commented out)
         />
         */}
         {renderChartSpecificElements()}
@@ -245,10 +246,9 @@ const WeatherChart: FC<WeatherChartProps> = ({
         </div>
       </CardHeader>
       <CardContent className="p-4 pt-0">
-        <div ref={chartRef} className="w-full h-[550px] bg-card">
-          <ResponsiveContainer width="100%" height="100%">
-            {renderChart()}
-          </ResponsiveContainer>
+        {/* The div with chartRef now directly contains the chart component without ResponsiveContainer */}
+        <div ref={chartRef} className="w-[700px] h-[550px] bg-card mx-auto overflow-hidden">
+          {renderChart()}
         </div>
         <div className="flex justify-center pt-2">
           <DropdownMenu>
@@ -285,3 +285,5 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
 export default WeatherChart;
 
+
+    
