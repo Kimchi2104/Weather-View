@@ -12,12 +12,12 @@ export function cn(...inputs: ClassValue[]) {
  * @returns A Unix timestamp in milliseconds, or null if parsing fails.
  */
 export function parseCustomTimestamp(timestampStr: string | undefined): number | null {
-  if (!timestampStr || typeof timestampStr !== 'string') return null;
+  if (!timestampStr || typeof timestampStr !== 'string') {
+    console.warn(`[parseCustomTimestamp] Invalid input: timestampStr is undefined or not a string:`, timestampStr);
+    return null;
+  }
   const parts = timestampStr.match(/(\d{2})\/(\d{2})\/(\d{4})\s(\d{2}):(\d{2}):(\d{2})/);
   if (parts) {
-    // parts[0] is the full match
-    // parts[1]=dd, parts[2]=MM, parts[3]=yyyy, parts[4]=HH, parts[5]=mm, parts[6]=ss
-    // JavaScript Date month is 0-indexed (0 for January, 11 for December)
     const year = parseInt(parts[3], 10);
     const month = parseInt(parts[2], 10) - 1; // Adjust month for 0-indexing
     const day = parseInt(parts[1], 10);
@@ -26,34 +26,40 @@ export function parseCustomTimestamp(timestampStr: string | undefined): number |
     const second = parseInt(parts[6], 10);
 
     const date = new Date(year, month, day, hour, minute, second);
-    // Check if date is valid, e.g. not "Invalid Date" due to out-of-range values
     if (isNaN(date.getTime())) {
-      console.warn(`[TimestampParsing] Invalid date constructed for timestamp: ${timestampStr}`);
+      console.warn(`[parseCustomTimestamp] Invalid date constructed for timestamp string: ${timestampStr}`);
       return null;
     }
     return date.getTime();
   }
-  console.warn(`[TimestampParsing] Could not parse timestamp format: ${timestampStr}. Expected "dd/MM/yyyy HH:mm:ss"`);
+  console.warn(`[parseCustomTimestamp] Could not parse timestamp format: ${timestampStr}. Expected "dd/MM/yyyy HH:mm:ss"`);
   return null;
 }
 
 // Helper to convert raw Firebase data to WeatherDataPoint
 import type { RawFirebaseDataPoint, WeatherDataPoint } from '@/types/weather';
 
-export function transformRawDataToWeatherDataPoint(rawData: RawFirebaseDataPoint): WeatherDataPoint | null {
+export function transformRawDataToWeatherDataPoint(rawData: RawFirebaseDataPoint, recordKey?: string): WeatherDataPoint | null {
+  console.log(`[transformRawDataToWeatherDataPoint] Processing raw record (key: ${recordKey || 'N/A'}):`, JSON.parse(JSON.stringify(rawData)));
+
+  if (!rawData || typeof rawData !== 'object') {
+    console.warn('[transformRawDataToWeatherDataPoint] Invalid rawData input (not an object or null):', rawData);
+    return null;
+  }
+
   const numericalTimestamp = parseCustomTimestamp(rawData.timestamp);
+  console.log(`[transformRawDataToWeatherDataPoint] Parsed timestamp for (key: ${recordKey || 'N/A'}):`, numericalTimestamp, rawData.timestamp);
+
   if (numericalTimestamp === null) {
-    console.warn('[DataTransform] Skipping record due to unparseable timestamp:', rawData);
+    console.warn(`[transformRawDataToWeatherDataPoint] Skipping record (key: ${recordKey || 'N/A'}) due to unparseable timestamp:`, rawData.timestamp);
     return null;
   }
 
   let aqiValue: number;
   if (typeof rawData.airQuality === 'string') {
-    // Basic mapping for "Safe Air". This can be expanded.
-    // Lower AQI is generally better.
     switch (rawData.airQuality.toLowerCase()) {
       case 'safe air':
-        aqiValue = 20; // Example value for "good" air quality
+        aqiValue = 20;
         break;
       case 'moderate':
         aqiValue = 75;
@@ -71,24 +77,39 @@ export function transformRawDataToWeatherDataPoint(rawData: RawFirebaseDataPoint
         aqiValue = 350;
         break;
       default:
-        aqiValue = 50; // Default if unknown string
+        console.warn(`[transformRawDataToWeatherDataPoint] Unknown airQuality string '${rawData.airQuality}' for (key: ${recordKey || 'N/A'}). Defaulting AQI.`);
+        aqiValue = 50; 
     }
   } else if (typeof rawData.airQuality === 'number') {
     aqiValue = rawData.airQuality;
   } else {
-    aqiValue = 0; // Default if missing or wrong type
+    console.warn(`[transformRawDataToWeatherDataPoint] airQuality is missing or not a string/number for (key: ${recordKey || 'N/A'}). Defaulting AQI. Value:`, rawData.airQuality);
+    aqiValue = 0; 
   }
+  console.log(`[transformRawDataToWeatherDataPoint] Derived AQI for (key: ${recordKey || 'N/A'}):`, aqiValue);
 
-  return {
+  const precipitationValue = rawData.rainStatus === "No Rain" ? 0 : (typeof rawData.rainAnalog === 'number' ? rawData.rainAnalog : 0);
+  console.log(`[transformRawDataToWeatherDataPoint] Derived precipitation for (key: ${recordKey || 'N/A'}):`, precipitationValue, `(Raw rainStatus: ${rawData.rainStatus}, rainAnalog: ${rawData.rainAnalog})`);
+  
+  const temperatureValue = typeof rawData.temperature === 'number' ? rawData.temperature : 0;
+  const humidityValue = typeof rawData.humidity === 'number' ? rawData.humidity : 0;
+  const luxValue = typeof rawData.lux === 'number' ? rawData.lux : 0;
+
+  if (typeof rawData.temperature !== 'number') console.warn(`[transformRawDataToWeatherDataPoint] Temperature is not a number for (key: ${recordKey || 'N/A'}). Defaulting to 0. Value:`, rawData.temperature);
+  if (typeof rawData.humidity !== 'number') console.warn(`[transformRawDataToWeatherDataPoint] Humidity is not a number for (key: ${recordKey || 'N/A'}). Defaulting to 0. Value:`, rawData.humidity);
+  if (typeof rawData.lux !== 'number') console.warn(`[transformRawDataToWeatherDataPoint] Lux is not a number for (key: ${recordKey || 'N/A'}). Defaulting to 0. Value:`, rawData.lux);
+
+
+  const transformedPoint: WeatherDataPoint = {
     timestamp: numericalTimestamp,
-    temperature: typeof rawData.temperature === 'number' ? rawData.temperature : 0,
-    humidity: typeof rawData.humidity === 'number' ? rawData.humidity : 0,
-    // Assuming rainAnalog can be used directly for precipitation.
-    // If 4095 means "No Rain", and lower values mean rain, this might need inversion
-    // or scaling depending on how it should be represented (e.g., in mm).
-    // For now, using raw value. Consider 0 if "No Rain".
-    precipitation: rawData.rainStatus === "No Rain" ? 0 : (typeof rawData.rainAnalog === 'number' ? rawData.rainAnalog : 0),
+    temperature: temperatureValue,
+    humidity: humidityValue,
+    precipitation: precipitationValue,
     airQualityIndex: aqiValue,
-    lux: typeof rawData.lux === 'number' ? rawData.lux : 0,
+    lux: luxValue,
   };
+
+  console.log(`[transformRawDataToWeatherDataPoint] Successfully transformed point for (key: ${recordKey || 'N/A'}):`, JSON.parse(JSON.stringify(transformedPoint)));
+  return transformedPoint;
 }
+

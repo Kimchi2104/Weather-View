@@ -12,9 +12,9 @@ import { generateWeatherForecast, type GenerateWeatherForecastInput } from '@/ai
 import { Wand2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from '@/components/ui/skeleton';
-import type { WeatherDataPoint } from '@/types/weather'; // Import WeatherDataPoint type
+import type { WeatherDataPoint } from '@/types/weather'; 
 
-// Sample historical data for the AI model, reflecting WeatherDataPoint structure
+// Sample historical data reflecting the transformed WeatherDataPoint structure
 const sampleHistoricalData: WeatherDataPoint[] = [
   { timestamp: Date.now() - 86400000 * 2, temperature: 22, humidity: 70, precipitation: 4000, airQualityIndex: 30, lux: 100 },
   { timestamp: Date.now() - 86400000, temperature: 24, humidity: 65, precipitation: 2000, airQualityIndex: 40, lux: 150 },
@@ -34,7 +34,6 @@ const AIForecastSection: FC = () => {
 
     let historicalDataToUse: string;
     try {
-      // Validate if customHistoricalData is valid JSON and conforms to WeatherDataPoint[]
       const parsedData = JSON.parse(customHistoricalData);
       if (!Array.isArray(parsedData) || !parsedData.every(item => 
         typeof item.timestamp === 'number' &&
@@ -42,7 +41,7 @@ const AIForecastSection: FC = () => {
         typeof item.humidity === 'number' &&
         typeof item.precipitation === 'number' &&
         typeof item.airQualityIndex === 'number' &&
-        typeof item.lux === 'number'
+        typeof item.lux === 'number'  // Changed from lightPollution to lux
       )) {
         throw new Error("Data does not conform to expected WeatherDataPoint structure.");
       }
@@ -155,3 +154,4 @@ const AIForecastSection: FC = () => {
 };
 
 export default AIForecastSection;
+
