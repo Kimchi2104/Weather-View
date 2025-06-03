@@ -72,7 +72,6 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
   const exportChart = async (format: 'png' | 'jpeg' | 'pdf') => {
     if (!chartRef.current) return;
-    // Prioritize capturing the .recharts-wrapper if available, otherwise fallback to the chartRef.current
     const chartElementToCapture = chartRef.current.querySelector('.recharts-wrapper') || chartRef.current;
 
     setIsExporting(true);
@@ -80,7 +79,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
       const canvas = await html2canvas(chartElementToCapture as HTMLElement, {
         scale: 2,
         useCORS: true,
-        backgroundColor: null, // Use element's own background or transparent
+        backgroundColor: null, // Crucial fix: use element's own background
       });
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
       if (format === 'pdf') {
@@ -99,7 +98,6 @@ const WeatherChart: FC<WeatherChartProps> = ({
       }
     } catch (error) {
       console.error('Error exporting chart:', error);
-      // Consider adding a user-facing toast notification here for export errors
     } finally {
       setIsExporting(false);
     }
@@ -165,52 +163,94 @@ const WeatherChart: FC<WeatherChartProps> = ({
     const unitString = (typeof value === 'number' && isFinite(value) && config?.unit) ? ` ${config.unit}` : '';
     return [`${displayValue}${unitString}`, config?.name || name];
   };
+  
+  const handleChartClick = (event: any) => {
+    if (event && event.activePayload && event.activePayload.length > 0 && onPointClick) {
+      const clickedPointData = event.activePayload[0].payload;
+      onPointClick(clickedPointData as WeatherDataPoint);
+    }
+  };
 
   const renderChartSpecificElements = () => {
-     const firstNumericMetric = selectedMetrics.find(key => {
+    return selectedMetrics.map((key) => {
       const metricConfig = metricConfigs[key];
-      return metricConfig && !metricConfig.isString;
+      if (!metricConfig || metricConfig.isString) return null;
+
+      const color = metricConfig.color || '#8884d8';
+      const name = metricConfig.name || key;
+
+      switch (chartType) {
+        case 'line':
+          return (
+            <Line
+              key={`line-${key}`}
+              type="monotone"
+              dataKey={key}
+              stroke={color}
+              name={name}
+              dot={false}
+              connectNulls={true} // Restore connectNulls
+              onClick={handleChartClick}
+            />
+          );
+        case 'bar':
+          return (
+            <Bar
+              key={`bar-${key}`}
+              dataKey={key}
+              fill={color}
+              name={name}
+              radius={[4, 4, 0, 0]}
+              onClick={handleChartClick}
+            />
+          );
+        case 'scatter':
+          return (
+            <Scatter
+              key={`scatter-${key}`}
+              dataKey={key}
+              fill={color}
+              name={name}
+              onClick={handleChartClick}
+            />
+          );
+        default:
+          return null;
+      }
     });
-
-    if (!firstNumericMetric) return null;
-
-    const metricConfig = metricConfigs[firstNumericMetric];
-    const color = metricConfig.color || '#8884d8'; 
-    const name = metricConfig.name || firstNumericMetric;
-    
-    return <Line 
-            key={`line-${firstNumericMetric}`} 
-            type="monotone" 
-            dataKey={firstNumericMetric} 
-            stroke={color} 
-            name={name} 
-            dot={false}
-           />;
   };
   
-  const ChartComponent = LineChart;
+  let ChartComponent: React.ComponentType<any> = LineChart;
+  if (chartType === 'bar') ChartComponent = BarChart;
+  else if (chartType === 'scatter') ChartComponent = ScatterChart;
+  
   const chartDynamicKey = `${chartType}-${selectedMetrics.join('-')}-${formattedData.length}`;
 
   const renderChart = () => (
+    <ResponsiveContainer width="100%" height="100%">
       <ChartComponent 
         key={chartDynamicKey} 
         data={formattedData} 
-        width={700} 
-        height={530} 
+        onClick={handleChartClick} 
         {...commonCartesianProps}
       >
-        {/* <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" /> */}
+        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
         <XAxis
           dataKey="timestampDisplay"
           stroke="#888888"
           tick={{ fill: "hsl(var(--foreground))", fontSize: 11 }}
+          height={60} // Restore height
+          interval="preserveStartEnd" // Restore interval
+          angle={-45} // Restore angled labels
+          textAnchor="end" // Restore angled labels
+          dy={10} // Restore angled labels
+          minTickGap={5} // Adjusted for angled labels
         />
         <YAxis
           stroke="#888888"
           tick={{ fill: "hsl(var(--foreground))", fontSize: 12 }}
-          // tickFormatter={yAxisTickFormatter}
+          tickFormatter={yAxisTickFormatter} // Restore tick formatter
         />
-        {/*
         <Tooltip
           formatter={tooltipFormatter}
           labelFormatter={(label, payload) => {
@@ -229,8 +269,6 @@ const WeatherChart: FC<WeatherChartProps> = ({
           itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
           cursor={{ stroke: 'hsl(var(--accent))', strokeWidth: 1, strokeDasharray: '3 3' }}
         />
-        */}
-        {/*
         <Legend
           wrapperStyle={{ paddingTop: '0px', paddingBottom: '5px' }}
           iconSize={14}
@@ -238,9 +276,9 @@ const WeatherChart: FC<WeatherChartProps> = ({
           align="center"
           verticalAlign="top"
         />
-        */}
         {renderChartSpecificElements()}
       </ChartComponent>
+    </ResponsiveContainer>
   );
 
   return (
@@ -254,7 +292,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
         </div>
       </CardHeader>
       <CardContent className="p-4 pt-0">
-        <div ref={chartRef} className="w-[700px] h-[550px] bg-card mx-auto overflow-hidden">
+        <div ref={chartRef} className="w-full h-[550px] bg-card mx-auto overflow-hidden">
           {renderChart()}
         </div>
         <div className="flex justify-center pt-2">
