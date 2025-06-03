@@ -66,7 +66,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
       const canvas = await html2canvas(chartRef.current, {
         scale: 2,
         useCORS: true,
-        backgroundColor: null,
+        backgroundColor: null, 
       });
       
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
@@ -214,7 +214,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
                 />
                 <ChartLegend 
                   content={<ChartLegendContent />} 
-                  wrapperStyle={{ paddingTop: "30px" }} 
+                  wrapperStyle={{ paddingTop: "20px" }} 
                 />
                 {selectedMetrics.map((key) => {
                   const metricConfig = metricConfigs[key];
@@ -236,7 +236,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
                 })}
             </LineChart>
         </ChartContainer>
-        <div className="flex justify-center">
+        <div className="-mt-3 flex justify-center">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="default" disabled={isExporting} className="min-w-[150px]">
