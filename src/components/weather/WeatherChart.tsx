@@ -2,7 +2,7 @@
 "use client";
 
 import type { FC } from 'react';
-import { format } from 'date-fns';
+// Removed direct import of 'format' from 'date-fns' as we'll format manually using UTC
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {
   ChartContainer,
@@ -22,8 +22,30 @@ interface WeatherChartProps {
   metricConfigs: Record<MetricKey, MetricConfig>;
   isLoading: boolean;
   onPointClick?: (point: WeatherDataPoint) => void;
-  // onRangeSelect is removed as Brush is removed
 }
+
+// Helper function to format a Date object into "dd/MM HH:mm" using UTC components
+const formatTimestampToDdMmHhMmUTC = (timestamp: number): string => {
+  const date = new Date(timestamp);
+  const day = date.getUTCDate().toString().padStart(2, '0');
+  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0'); // Month is 0-indexed
+  const hours = date.getUTCHours().toString().padStart(2, '0');
+  const minutes = date.getUTCMinutes().toString().padStart(2, '0');
+  return `${day}/${month} ${hours}:${minutes}`;
+};
+
+// Helper function to format a Date object into "dd/MM/yyyy HH:mm:ss" using UTC components
+const formatTimestampToFullUTC = (timestamp: number): string => {
+  const date = new Date(timestamp);
+  const day = date.getUTCDate().toString().padStart(2, '0');
+  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0'); // Month is 0-indexed
+  const year = date.getUTCFullYear();
+  const hours = date.getUTCHours().toString().padStart(2, '0');
+  const minutes = date.getUTCMinutes().toString().padStart(2, '0');
+  const seconds = date.getUTCSeconds().toString().padStart(2, '0');
+  return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+};
+
 
 const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConfigs, isLoading, onPointClick }) => {
   if (isLoading) {
@@ -53,10 +75,8 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
   
   const formattedData = data.map(point => ({
     ...point,
-    // For X-axis: dd/MM HH:mm
-    timestampDisplay: typeof point.timestamp === 'number' ? format(new Date(point.timestamp), 'dd/MM HH:mm') : 'Invalid Date',
-    // For Tooltip label: full dd/MM/yyyy HH:mm:ss
-    tooltipTimestampFull: typeof point.timestamp === 'number' ? format(new Date(point.timestamp), 'dd/MM/yyyy HH:mm:ss') : 'Invalid Date',
+    timestampDisplay: typeof point.timestamp === 'number' ? formatTimestampToDdMmHhMmUTC(point.timestamp) : 'Invalid Date',
+    tooltipTimestampFull: typeof point.timestamp === 'number' ? formatTimestampToFullUTC(point.timestamp) : 'Invalid Date',
   }));
 
   const handleChartClick = (event: any) => {
@@ -105,7 +125,7 @@ const WeatherChart: FC<WeatherChartProps> = ({ data, selectedMetrics, metricConf
                 tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} 
                 angle={-30} 
                 textAnchor="end"
-                minTickGap={25} // Adjusted for potentially more ticks with dd/MM HH:mm
+                minTickGap={25}
                 height={60} 
               />
               <YAxis 
