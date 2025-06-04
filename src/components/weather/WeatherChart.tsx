@@ -43,49 +43,38 @@ export const formatTimestampToFullUTC = (timestamp: number): string => {
 };
 
 const getPaddedMinYDomain = (dataMin: number): number | 'auto' => {
-    // console.log('[WeatherChart] getPaddedMinYDomain received dataMin:', dataMin);
     if (typeof dataMin !== 'number' || !isFinite(dataMin)) {
-        // console.log('[WeatherChart] getPaddedMinYDomain returning "auto" (invalid input).');
         return 'auto';
     }
 
     let result;
-    if (dataMin > 0 && dataMin <= 10) { // e.g. lux 7.8 or an AQI value
-        result = -2; // Force a negative start to ensure 0-10 range has space
-        // console.log(`[WeatherChart] getPaddedMinYDomain: dataMin is between 0 and 10, forcing result to -2.`);
-    } else if (dataMin === 0) {
-        result = -2; // Ensure space below zero, -2 should be fine
-        // console.log(`[WeatherChart] getPaddedMinYDomain: dataMin is 0, forcing result to -2.`);
+    if (dataMin >= 0 && dataMin <= 10) { // Catches 0 up to 10 inclusive
+        result = -10; // Force significant negative start for small positive/zero minimums
     } else if (dataMin > 10) {
-        const padding = Math.max(3, dataMin * 0.10); // 10% or 3 units
+        const padding = Math.max(3, dataMin * 0.10);
         result = Math.floor(dataMin - padding);
-    } else { // dataMin < 0
-        const padding = Math.max(2, Math.abs(dataMin * 0.10)); // 10% or 2 units based on absolute value
+    } else { // dataMin < 0 (already negative)
+        const padding = Math.max(2, Math.abs(dataMin * 0.10));
         result = Math.floor(dataMin - padding);
     }
-    // console.log(`[WeatherChart] getPaddedMinYDomain: input=${dataMin}, output=${result}`);
     return result;
 };
 
 const getPaddedMaxYDomain = (dataMax: number): number | 'auto' => {
-    // console.log('[WeatherChart] getPaddedMaxYDomain received dataMax:', dataMax);
     if (typeof dataMax !== 'number' || !isFinite(dataMax)) {
-        // console.log('[WeatherChart] getPaddedMaxYDomain returning "auto" (invalid input).');
         return 'auto';
     }
     let result;
-    if (dataMax >= 0 && dataMax < 10) {
+    if (dataMax >= 0 && dataMax < 10) { 
          result = Math.ceil(dataMax + Math.max(3, (5 - dataMax > 0 ? 5 - dataMax : 3)));
-        // console.log(`[WeatherChart] getPaddedMaxYDomain: dataMax is between 0 and 10 (exclusive), result: ${result}`);
     } else if (dataMax >= 10) {
-        const padding = Math.max(3, dataMax * 0.10); // 10% or 3 units
+        const padding = Math.max(3, dataMax * 0.10);
         result = Math.ceil(dataMax + padding);
     } else { // dataMax < 0 (is negative)
-        const padding = Math.max(2, Math.abs(dataMax * 0.10)); // 10% or 2 units based on absolute value
+        const padding = Math.max(2, Math.abs(dataMax * 0.10)); 
         result = Math.ceil(dataMax + padding);
-        if (dataMax < 0 && result > 0) result = 0; // Ensure a negative max doesn't cross to positive unless it was very close to 0
+        if (result > 0) result = 0; 
     }
-    // console.log(`[WeatherChart] getPaddedMaxYDomain: input=${dataMax}, output=${result}`);
     return result;
 };
 
@@ -212,9 +201,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
       htmlElement.classList.add('dark');
     }
     
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const _ = (chartElementToCapture as HTMLElement).offsetHeight; 
-    await new Promise(resolve => setTimeout(resolve, 50)); 
+    await new Promise(resolve => setTimeout(resolve, 100));
 
 
     try {
@@ -404,6 +391,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
             const metricConfig = metricConfigs[metricKey];
             
             if (!metricMinMax || !metricConfig || metricConfig.isString) {
+              console.log(`[WeatherChart] Skipping MinMax lines for ${metricKey} due to missing config or string type. metricMinMax:`, metricMinMax, "metricConfig:", metricConfig);
               return [];
             }
 
@@ -530,3 +518,4 @@ const WeatherChart: FC<WeatherChartProps> = ({
 };
 
 export default WeatherChart;
+
