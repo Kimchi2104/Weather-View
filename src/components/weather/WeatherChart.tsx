@@ -42,7 +42,6 @@ export const formatTimestampToFullUTC = (timestamp: number): string => {
   return `${day}/${month}/${year} ${hours}:${minutes}:${seconds} UTC`;
 };
 
-// Adjusted padding functions for Y-axis domain
 const getPaddedMinYDomain = (dataMin: number, dataMax: number): number => {
   let paddedMin;
 
@@ -51,9 +50,10 @@ const getPaddedMinYDomain = (dataMin: number, dataMax: number): number => {
     if (dataMax <= 200) { // And dataMax is also relatively small
       paddedMin = -10; // Fixed offset for small scales, ensures 0 is visible
     } else { // dataMin is small, but dataMax is large (e.g., AQI 0 to 5000)
+      // Make padding proportional to the larger dataMax
       const proportionalPadding = Math.max(10, 0.05 * dataMax); // At least 10 units, or 5% of max
       paddedMin = Math.floor(dataMin - proportionalPadding);
-       if (dataMin >= 0 && paddedMin > -10) paddedMin = -10; // Ensure it's at least -10 if dataMin was positive and small
+      if (dataMin >= 0 && paddedMin > -10) paddedMin = -10; // Ensure it's at least -10 if dataMin was positive and small
     }
   } else if (dataMin > 30) {
     // dataMin is a larger positive number
@@ -73,20 +73,20 @@ const getPaddedMaxYDomain = (dataMax: number, dataMin: number): number => {
 
   if (dataMax >= 0 && dataMax < 10) { // dataMax is very small positive
      if (dataMin >= -100) { // Overall data range is relatively small
-      paddedMax = Math.ceil(dataMax + Math.max(3, 0.5 * (dataMax - Math.max(0, dataMin) +1))); // e.g. if max 8, min 0, padded max 8 + 3 = 11
-      if (dataMax === 0 && paddedMax < 10) paddedMax = 10; // Ensure if max is 0, it goes up to at least 10
+      paddedMax = Math.ceil(dataMax + Math.max(3, 0.5 * (dataMax - Math.max(0, dataMin) +1)));
+      if (dataMax === 0 && paddedMax < 10) paddedMax = 10;
     } else { // dataMax is small, but dataMin is very negative (large range)
       const proportionalPadding = Math.max(10, 0.05 * Math.abs(dataMin));
       paddedMax = Math.ceil(dataMax + proportionalPadding);
     }
   } else if (dataMax >= 10) { // dataMax is larger positive
-    const padding = Math.max(5, 0.15 * dataMax); // 15% or at least 5 units
+    const padding = Math.max(5, 0.15 * dataMax);
     paddedMax = Math.ceil(dataMax + padding);
   } else {
     // dataMax is negative
-    const padding = Math.max(3, 0.15 * Math.abs(dataMax)); // 15% of absolute value or at least 3 units
+    const padding = Math.max(3, 0.15 * Math.abs(dataMax));
     paddedMax = Math.ceil(dataMax + padding);
-    if (paddedMax > 0 && dataMax < 0) paddedMax = 0; // Don't cross into positive if data was all negative
+    if (paddedMax > 0 && dataMax < 0) paddedMax = 0;
   }
   // console.log(`[WeatherChart] getPaddedMaxYDomain: dataMax=${dataMax}, dataMin=${dataMin}, output=${paddedMax}`);
   return paddedMax;
@@ -143,11 +143,10 @@ const WeatherChart: FC<WeatherChartProps> = ({
     let effectiveMin = dataValues.length > 0 ? Math.min(...dataValues) : Infinity;
     let effectiveMax = dataValues.length > 0 ? Math.max(...dataValues) : -Infinity;
     
-    if (dataValues.length === 0) { // Handle case with no valid data points
+    if (dataValues.length === 0) { 
         effectiveMin = 0;
         effectiveMax = 10;
     }
-
 
     if (showMinMaxLines && minMaxReferenceData && chartType === 'line') {
         selectedMetrics.forEach(metricKey => {
@@ -177,7 +176,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
         if (!metricMinMax || !metricConfig || metricConfig.isString) return false;
         const { minValue, maxValue } = metricMinMax;
         return typeof minValue === 'number' && isFinite(minValue) && typeof maxValue === 'number' && isFinite(maxValue);
-    }).sort(); // Sort to ensure consistent ordering for dy staggering
+    }).sort();
   }, [showMinMaxLines, minMaxReferenceData, selectedMetrics, metricConfigs, chartType]);
 
 
@@ -269,7 +268,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
   const yAxisTickFormatter = (value: any) => {
     if (typeof value === 'number' && isFinite(value)) {
-      return value.toFixed(0); 
+      return value.toFixed(2); 
     }
     if (value === undefined || value === null || (typeof value === 'number' && !isFinite(value))) {
       return 'N/A';
@@ -390,6 +389,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           type="number"
           scale="linear"
           allowDataOverflow={chartType === 'line' ? true : undefined}
+          interval={chartType === 'line' ? undefined : undefined} 
         />
         <Tooltip
           formatter={tooltipFormatter}
@@ -527,16 +527,19 @@ const WeatherChart: FC<WeatherChartProps> = ({
                         <Laptop className="mr-2 h-3.5 w-3.5" /> Current View Theme
                       </div>
                     </SelectItem>
-                    <SelectItem value="light" className="text-xs">
-                      <div className="flex items-center">
-                        <Sun className="mr-2 h-3.5 w-3.5" /> Light Theme
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="dark" className="text-xs">
-                      <div className="flex items-center">
-                        <Moon className="mr-2 h-3.5 w-3.5" /> Dark Theme
-                      </div>
-                    </SelectItem>
+                    {resolvedTheme === 'dark' ? (
+                      <SelectItem value="light" className="text-xs">
+                        <div className="flex items-center">
+                          <Sun className="mr-2 h-3.5 w-3.5" /> Light Theme
+                        </div>
+                      </SelectItem>
+                    ) : (
+                      <SelectItem value="dark" className="text-xs">
+                        <div className="flex items-center">
+                          <Moon className="mr-2 h-3.5 w-3.5" /> Dark Theme
+                        </div>
+                      </SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
