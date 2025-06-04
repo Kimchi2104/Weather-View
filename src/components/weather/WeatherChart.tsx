@@ -12,7 +12,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
@@ -102,16 +101,14 @@ const WeatherChart: FC<WeatherChartProps> = ({
       htmlElement.classList.add('dark');
     }
     
-    // Force a reflow by reading a property. This helps ensure styles are applied.
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const _ = (chartElementToCapture as HTMLElement).offsetHeight;
-    await new Promise(resolve => setTimeout(resolve, 50)); // A small delay can also help
+    await new Promise(resolve => setTimeout(resolve, 50)); 
 
     try {
       const canvas = await html2canvas(chartElementToCapture as HTMLElement, {
         scale: 2,
         useCORS: true,
-        // Attempt to use the theme's actual background color
         backgroundColor: targetExportTheme === 'dark' ? 'hsl(210 20% 5%)' : 'hsl(210 20% 98%)',
       });
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
@@ -132,7 +129,6 @@ const WeatherChart: FC<WeatherChartProps> = ({
     } catch (error) {
       console.error('Error exporting chart:', error);
     } finally {
-      // Restore original theme class on html element
       htmlElement.className = originalHtmlClasses;
       setIsExporting(false);
     }
@@ -140,11 +136,10 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
   const getPaddedMaxYDomain = (dataMax: number): number | 'auto' => {
     if (typeof dataMax !== 'number' || !isFinite(dataMax)) return 'auto';
-    if (dataMax === 0) return 5;
-    const padding = Math.max(Math.abs(dataMax * 0.05), 1); // Ensure at least 1 unit padding
+    if (dataMax === 0) return 5; // Ensure some space if max is 0
+    const padding = Math.max(Math.abs(dataMax * 0.05), 1); // At least 1 unit padding
     return Math.ceil(dataMax + padding);
   };
-
 
   if (isLoading) {
     return (
@@ -179,7 +174,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
   }
 
   const commonCartesianProps = {
-    margin: { top: 5, right: 40, left: 20, bottom: 20 },
+    margin: { top: 50, right: 40, left: 20, bottom: 20 },
   };
 
   const yAxisTickFormatter = (value: any) => {
@@ -318,7 +313,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           cursor={{ stroke: 'hsl(var(--accent))', strokeWidth: 1, strokeDasharray: '3 3' }}
         />
         <Legend
-          wrapperStyle={{ paddingTop: '10px', marginTop: "15px" }} // Increased top padding/margin
+          wrapperStyle={{ paddingTop: '10px' }}
           iconSize={14}
           layout="horizontal"
           align="center"
@@ -337,7 +332,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
             const { minValue, maxValue } = metricMinMax;
             
-            if (typeof minValue !== 'number' || !isFinite(minValue) || typeof maxValue !== 'number' || !isFinite(maxValue)) {
+             if (typeof minValue !== 'number' || !isFinite(minValue) || typeof maxValue !== 'number' || !isFinite(maxValue)) {
                 return [];
             }
 
