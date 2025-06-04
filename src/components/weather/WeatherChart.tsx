@@ -56,6 +56,14 @@ interface WeatherChartProps {
 
 type ExportThemeOption = 'current' | 'light' | 'dark';
 
+const getPaddedMaxYDomain = (dataMax: number): number | 'auto' => {
+    if (typeof dataMax !== 'number' || !isFinite(dataMax)) return 'auto';
+    if (dataMax === 0) return 5;
+    const padding = Math.max(Math.abs(dataMax * 0.05), 1); 
+    return Math.ceil(dataMax + padding);
+};
+
+
 const WeatherChart: FC<WeatherChartProps> = ({
   data: chartInputData,
   selectedMetrics,
@@ -135,13 +143,6 @@ const WeatherChart: FC<WeatherChartProps> = ({
     }
   };
 
-  const getPaddedMaxYDomain = (dataMax: number): number | 'auto' => {
-    if (typeof dataMax !== 'number' || !isFinite(dataMax)) return 'auto';
-    if (dataMax === 0) return 5; 
-    const padding = Math.max(Math.abs(dataMax * 0.05), 1); 
-    return Math.ceil(dataMax + padding);
-  };
-
 
   if (isLoading) {
     return (
@@ -176,7 +177,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
   }
 
   const commonCartesianProps = {
-    margin: { top: 20, right: 40, left: 20, bottom: 20 },
+    margin: { top: 10, right: 40, left: 20, bottom: 20 },
   };
 
   const yAxisTickFormatter = (value: any) => {
@@ -315,7 +316,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           cursor={{ stroke: 'hsl(var(--accent))', strokeWidth: 1, strokeDasharray: '3 3' }}
         />
         <Legend
-          wrapperStyle={{ paddingTop: '5px' }}
+          wrapperStyle={{ paddingTop: '2px' }}
           iconSize={14}
           layout="horizontal"
           align="center"
@@ -458,6 +459,7 @@ export default WeatherChart;
     
 
     
+
 
 
 
