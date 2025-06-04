@@ -21,6 +21,7 @@ export default function HomePage() {
               <li>Weather Station Data Integration</li>
               <li>Realtime Database Setup & Rules Configuration</li>
               <li>AI-Powered Forecasting Flow Implementation</li>
+              <li>Deep Learning and LLM Models Trained for Forecast</li>
               <li>Weather Viewer Application Development & UI Design</li>
               <li>Application Publishing & Deployment Setup</li>
             </ul>
