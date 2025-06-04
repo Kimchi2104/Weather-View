@@ -129,8 +129,8 @@ const WeatherChart: FC<WeatherChartProps> = ({
           <CardTitle className="font-headline">Historical Data Trends</CardTitle>
           <CardDescription>
             Displaying {chartType.charAt(0).toUpperCase() + chartType.slice(1)} Chart
-            {chartType !== 'scatter' && (isAggregated ? ` (Aggregated Data)` : ` (Raw Data)`)}.
-            {((chartType === 'line' && !isAggregated) || chartType === 'scatter') && " Point clicks can populate AI forecast."}
+            {(chartType === 'line' || chartType === 'bar') && (isAggregated ? ` (Aggregated Data)` : ` (Raw Data)`)}.
+            {(((chartType === 'line' && !isAggregated)) || chartType === 'scatter') && " Point clicks can populate AI forecast."}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-4 pt-0 h-[450px] flex items-center justify-center">
@@ -175,7 +175,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
   const handleChartClick = (event: any) => {
     if (onPointClick && event && event.activePayload && event.activePayload.length > 0) {
       const clickedPointData = event.activePayload[0].payload;
-      if (((chartType === 'line' && !isAggregated) || chartType === 'scatter')) {
+       if (((chartType === 'line' && !isAggregated) || chartType === 'scatter')) {
          if ('rawTimestampString' in clickedPointData || chartType === 'scatter' || ('timestamp' in clickedPointData && !isAggregated) ) {
             onPointClick(clickedPointData as WeatherDataPoint);
          }
@@ -287,40 +287,20 @@ const WeatherChart: FC<WeatherChartProps> = ({
         />
         {renderChartSpecificElements()}
 
-        {chartType === 'line' && selectedMetrics.includes('temperature') && showMinMaxLines && (
-          <ReferenceLine
-            y={15}
-            stroke={metricConfigs['temperature']?.color || 'red'}
-            strokeDasharray="3 3"
-            strokeWidth={1}
-            strokeOpacity={0.9}
-            label={{ value: "Test Line @ 15°C", position: "right", fill: metricConfigs['temperature']?.color || 'red', fontSize: 10, dx: -25 }}
-          />
-        )}
-
         {showMinMaxLines && chartType === 'line' && minMaxReferenceData &&
           selectedMetrics.flatMap(metricKey => {
             const metricMinMax = minMaxReferenceData[metricKey];
             const metricConfig = metricConfigs[metricKey];
             
-            console.log(
-              `[WeatherChart] Processing MinMax for ${metricKey}:`,
-              `MinMax Object:`, metricMinMax,
-              `Metric Config:`, metricConfig
-            );
-
             if (!metricMinMax || !metricConfig || metricConfig.isString) {
-              console.warn(`[WeatherChart] Skipping MinMax for ${metricKey} due to missing data/config or string type.`);
               return [];
             }
 
             const { minValue, maxValue } = metricMinMax;
             
             if (typeof minValue !== 'number' || !isFinite(minValue) || typeof maxValue !== 'number' || !isFinite(maxValue)) {
-                console.warn(`[WeatherChart] Invalid min/max values for ${metricKey}: min=${minValue}, max=${maxValue}. Skipping lines.`);
                 return [];
             }
-            console.log(`[WeatherChart] Rendering MinMax for ${metricKey}: MinVal: ${minValue}, MaxVal: ${maxValue}, Color: ${metricConfig.color}`);
 
             return [
               <ReferenceLine
@@ -330,6 +310,14 @@ const WeatherChart: FC<WeatherChartProps> = ({
                 strokeDasharray="2 2"
                 strokeOpacity={0.7}
                 strokeWidth={1}
+                label={{ 
+                  value: `Min: ${minValue.toFixed(1)}${metricConfig.unit || ''}`, 
+                  position: "right", 
+                  fill: metricConfig.color, 
+                  fontSize: 10, 
+                  dx: -30,
+                  dy: 7 
+                }}
               />,
               <ReferenceLine
                 key={`max-line-${metricKey}`}
@@ -338,6 +326,14 @@ const WeatherChart: FC<WeatherChartProps> = ({
                 strokeDasharray="2 2"
                 strokeOpacity={0.7}
                 strokeWidth={1}
+                label={{ 
+                  value: `Max: ${maxValue.toFixed(1)}${metricConfig.unit || ''}`, 
+                  position: "right", 
+                  fill: metricConfig.color, 
+                  fontSize: 10, 
+                  dx: -30,
+                  dy: -7
+                }}
               />
             ];
           })
@@ -353,8 +349,8 @@ const WeatherChart: FC<WeatherChartProps> = ({
           <CardTitle className="font-headline">Historical Data Trends</CardTitle>
           <CardDescription>
             Displaying {chartType.charAt(0).toUpperCase() + chartType.slice(1)} Chart
-            {chartType !== 'scatter' && (isAggregated ? ` (Aggregated Data)` : ` (Raw Data)`)}.
-            {((chartType === 'line' && !isAggregated) || chartType === 'scatter') && " Point clicks can populate AI forecast."}
+            {(chartType === 'line' || chartType === 'bar') && (isAggregated ? ` (Aggregated Data)` : ` (Raw Data)`)}.
+            {(((chartType === 'line' && !isAggregated)) || chartType === 'scatter') && " Point clicks can populate AI forecast."}
           </CardDescription>
         </div>
       </CardHeader>
@@ -397,3 +393,5 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
 export default WeatherChart;
     
+
+      
