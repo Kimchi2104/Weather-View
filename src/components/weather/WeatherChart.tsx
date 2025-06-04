@@ -42,6 +42,49 @@ export const formatTimestampToFullUTC = (timestamp: number): string => {
   return `${day}/${month}/${year} ${hours}:${minutes}:${seconds} UTC`;
 };
 
+const getPaddedMaxYDomain = (dataMax: number): number | 'auto' => {
+  console.log('[WeatherChart] getPaddedMaxYDomain received dataMax:', dataMax);
+  if (typeof dataMax !== 'number' || !isFinite(dataMax)) {
+    console.log('[WeatherChart] getPaddedMaxYDomain returning "auto" (invalid input).');
+    return 'auto';
+  }
+
+  let result;
+  if (dataMax === 0) {
+    result = 5; 
+  } else if (dataMax < 0) {
+    const padding = Math.max(2, Math.abs(dataMax * 0.10)); 
+    result = Math.ceil(dataMax + padding);
+  } else { // dataMax > 0
+    const padding = Math.max(2, dataMax * 0.10);
+    result = Math.ceil(dataMax + padding);
+  }
+  console.log(`[WeatherChart] getPaddedMaxYDomain: input=${dataMax}, output=${result}`);
+  return result;
+};
+
+const getPaddedMinYDomain = (dataMin: number): number | 'auto' => {
+  console.log('[WeatherChart] getPaddedMinYDomain received dataMin:', dataMin);
+  if (typeof dataMin !== 'number' || !isFinite(dataMin)) {
+    console.log('[WeatherChart] getPaddedMinYDomain returning "auto" (invalid input).');
+    return 'auto';
+  }
+
+  let result;
+  if (dataMin === 0) {
+    result = -2; 
+  } else if (dataMin > 0) {
+    const padding = Math.max(2, dataMin * 0.10); 
+    result = Math.floor(dataMin - padding);
+  } else { // dataMin < 0
+    const padding = Math.max(2, Math.abs(dataMin * 0.10));
+    result = Math.floor(dataMin - padding);
+  }
+  console.log(`[WeatherChart] getPaddedMinYDomain: input=${dataMin}, output=${result}`);
+  return result;
+};
+
+
 interface WeatherChartProps {
   data: WeatherDataPoint[] | any[];
   selectedMetrics: MetricKey[];
@@ -55,21 +98,6 @@ interface WeatherChartProps {
 }
 
 type ExportThemeOption = 'current' | 'light' | 'dark';
-
-const getPaddedMaxYDomain = (dataMax: number): number | 'auto' => {
-    if (typeof dataMax !== 'number' || !isFinite(dataMax)) return 'auto';
-    if (dataMax === 0) return 5; // Ensure some space if max is 0
-    const padding = Math.max(Math.abs(dataMax * 0.05), 1); 
-    return Math.ceil(dataMax + padding);
-};
-
-const getPaddedMinYDomain = (dataMin: number): number | 'auto' => {
-  if (typeof dataMin !== 'number' || !isFinite(dataMin)) return 'auto';
-  if (dataMin === 0) return -1; // Provide a little space below 0 if data reaches 0
-  const padding = Math.max(Math.abs(dataMin * 0.05), 1);
-  return Math.floor(dataMin - padding);
-};
-
 
 const WeatherChart: FC<WeatherChartProps> = ({
   data: chartInputData,
@@ -343,40 +371,41 @@ const WeatherChart: FC<WeatherChartProps> = ({
             const { minValue, maxValue } = metricMinMax;
             
             if (typeof minValue !== 'number' || !isFinite(minValue) || typeof maxValue !== 'number' || !isFinite(maxValue)) {
+               console.warn(`[WeatherChart] Invalid min/max values for ReferenceLine, skipping for ${metricKey}:`, minValue, maxValue);
               return [];
             }
-
+            
             return [
               <ReferenceLine
                 key={`min-line-${metricKey}`}
                 y={Number(minValue)}
                 stroke={metricConfig.color}
-                strokeDasharray="2 2"
-                strokeOpacity={0.7}
-                strokeWidth={1}
+                strokeDasharray="3 3"
+                strokeOpacity={0.8}
+                strokeWidth={1.5}
                 label={{ 
                   value: `Min: ${Number(minValue).toFixed(isAggregated ? 1 : 0)}${metricConfig.unit || ''}`, 
-                  position: "right", 
+                  position: "insideBottomRight", 
                   fill: metricConfig.color, 
-                  fontSize: 10, 
-                  dx: -30, 
-                  dy: 10 
+                  fontSize: 10,
+                  dy: -2,
+                  dx: 5
                 }}
               />,
               <ReferenceLine
                 key={`max-line-${metricKey}`}
                 y={Number(maxValue)}
                 stroke={metricConfig.color}
-                strokeDasharray="2 2"
-                strokeOpacity={0.7}
-                strokeWidth={1}
+                strokeDasharray="3 3"
+                strokeOpacity={0.8}
+                strokeWidth={1.5}
                 label={{ 
                   value: `Max: ${Number(maxValue).toFixed(isAggregated ? 1 : 0)}${metricConfig.unit || ''}`, 
-                  position: "right", 
+                  position: "insideTopRight", 
                   fill: metricConfig.color, 
-                  fontSize: 10, 
-                  dx: -30, 
-                  dy: -5
+                  fontSize: 10,
+                  dy: 2,
+                  dx: 5
                 }}
               />
             ];
@@ -466,6 +495,7 @@ export default WeatherChart;
     
 
     
+
 
 
 
