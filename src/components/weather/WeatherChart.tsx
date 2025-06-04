@@ -14,7 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuLabel,
-  DropdownMenuTrigger, // Added missing import
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, ScatterChart, Scatter, ReferenceLine } from 'recharts';
@@ -142,6 +142,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
     return Math.ceil(dataMax + padding);
   };
 
+
   if (isLoading) {
     return (
       <Card className="shadow-lg">
@@ -175,7 +176,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
   }
 
   const commonCartesianProps = {
-    margin: { top: 50, right: 40, left: 20, bottom: 20 },
+    margin: { top: 30, right: 40, left: 20, bottom: 20 },
   };
 
   const yAxisTickFormatter = (value: any) => {
@@ -457,4 +458,5 @@ export default WeatherChart;
     
 
     
+
 
