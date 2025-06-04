@@ -43,17 +43,24 @@ export const formatTimestampToFullUTC = (timestamp: number): string => {
 };
 
 const getPaddedMinYDomain = (dataMin: number): number | 'auto' => {
+    // console.log('[WeatherChart] getPaddedMinYDomain received dataMin:', dataMin);
     if (typeof dataMin !== 'number' || !isFinite(dataMin)) {
+        // console.log('[WeatherChart] getPaddedMinYDomain returning "auto" (invalid input).');
         return 'auto';
     }
+
     let result;
-    if (dataMin > 0 && dataMin <= 10) {
-        result = -2; // Force negative start for small positive data to ensure space
+    if (dataMin > 0 && dataMin <= 10) { // e.g. lux 7.8 or an AQI value
+        result = -2; // Force a negative start to ensure 0-10 range has space
+        // console.log(`[WeatherChart] getPaddedMinYDomain: dataMin is between 0 and 10, forcing result to -2.`);
+    } else if (dataMin === 0) {
+        result = -2; // Ensure space below zero, -2 should be fine
+        // console.log(`[WeatherChart] getPaddedMinYDomain: dataMin is 0, forcing result to -2.`);
     } else if (dataMin > 10) {
         const padding = Math.max(3, dataMin * 0.10); // 10% or 3 units
         result = Math.floor(dataMin - padding);
-    } else { // dataMin <= 0 (is zero or negative)
-        const padding = Math.max(2, Math.abs(dataMin) * 0.10); // 10% or 2 units based on absolute value
+    } else { // dataMin < 0
+        const padding = Math.max(2, Math.abs(dataMin * 0.10)); // 10% or 2 units based on absolute value
         result = Math.floor(dataMin - padding);
     }
     // console.log(`[WeatherChart] getPaddedMinYDomain: input=${dataMin}, output=${result}`);
@@ -61,40 +68,25 @@ const getPaddedMinYDomain = (dataMin: number): number | 'auto' => {
 };
 
 const getPaddedMaxYDomain = (dataMax: number): number | 'auto' => {
+    // console.log('[WeatherChart] getPaddedMaxYDomain received dataMax:', dataMax);
     if (typeof dataMax !== 'number' || !isFinite(dataMax)) {
+        // console.log('[WeatherChart] getPaddedMaxYDomain returning "auto" (invalid input).');
         return 'auto';
     }
     let result;
     if (dataMax >= 0 && dataMax < 10) {
-         // Ensure it goes up by at least 3, or more if dataMax is very small to make chart visible
-        result = Math.ceil(dataMax + Math.max(3, (5 - dataMax > 0 ? 5 - dataMax : 3)));
+         result = Math.ceil(dataMax + Math.max(3, (5 - dataMax > 0 ? 5 - dataMax : 3)));
+        // console.log(`[WeatherChart] getPaddedMaxYDomain: dataMax is between 0 and 10 (exclusive), result: ${result}`);
     } else if (dataMax >= 10) {
         const padding = Math.max(3, dataMax * 0.10); // 10% or 3 units
         result = Math.ceil(dataMax + padding);
     } else { // dataMax < 0 (is negative)
-        const padding = Math.max(2, Math.abs(dataMax) * 0.10); // 10% or 2 units based on absolute value
+        const padding = Math.max(2, Math.abs(dataMax * 0.10)); // 10% or 2 units based on absolute value
         result = Math.ceil(dataMax + padding);
-        // Ensure a negative max doesn't cross to positive unless it was very close to 0
-        if (dataMax < 0 && result > 0) result = 0;
+        if (dataMax < 0 && result > 0) result = 0; // Ensure a negative max doesn't cross to positive unless it was very close to 0
     }
     // console.log(`[WeatherChart] getPaddedMaxYDomain: input=${dataMax}, output=${result}`);
     return result;
-};
-
-const calculateYTicks = (min: number, max: number, count: number): number[] => {
-  if (min === max || count <= 1 || !isFinite(min) || !isFinite(max)) {
-    const finiteValues = [min, max].filter(isFinite);
-    if (finiteValues.length === 0) return [0];
-    if (finiteValues.length === 1) return [finiteValues[0]];
-    return finiteValues;
-  }
-  const ticks: number[] = [];
-  const step = (max - min) / (count - 1);
-  for (let i = 0; i < count; i++) {
-    ticks.push(min + i * step);
-  }
-  // console.log(`[WeatherChart] calculateYTicks: min=${min}, max=${max}, count=${count}, generatedTicks=${JSON.stringify(ticks)}`);
-  return ticks;
 };
 
 
@@ -145,46 +137,29 @@ const WeatherChart: FC<WeatherChartProps> = ({
       formattedData.map(p => p[metricKey] as number).filter(v => typeof v === 'number' && isFinite(v))
     );
 
-    if (dataValues.length === 0 && !(showMinMaxLines && minMaxReferenceData && Object.keys(minMaxReferenceData).length > 0)) {
-        return ['auto', 'auto'] as [number | 'auto', number | 'auto'];
-    }
-
-    let minVal = dataValues.length > 0 ? Math.min(...dataValues) : Infinity;
-    let maxVal = dataValues.length > 0 ? Math.max(...dataValues) : -Infinity;
+    let effectiveMin = dataValues.length > 0 ? Math.min(...dataValues) : Infinity;
+    let effectiveMax = dataValues.length > 0 ? Math.max(...dataValues) : -Infinity;
 
     if (showMinMaxLines && minMaxReferenceData) {
         selectedMetrics.forEach(metricKey => {
             if (minMaxReferenceData[metricKey]) {
-                minVal = Math.min(minVal, minMaxReferenceData[metricKey].minValue);
-                maxVal = Math.max(maxVal, minMaxReferenceData[metricKey].maxValue);
+                effectiveMin = Math.min(effectiveMin, minMaxReferenceData[metricKey].minValue);
+                effectiveMax = Math.max(effectiveMax, minMaxReferenceData[metricKey].maxValue);
             }
         });
     }
     
-    if (!isFinite(minVal) || !isFinite(maxVal)) {
+    if (!isFinite(effectiveMin) || !isFinite(effectiveMax)) {
        return ['auto', 'auto'] as [number | 'auto', number | 'auto'];
     }
 
-    const paddedMin = getPaddedMinYDomain(minVal);
-    const paddedMax = getPaddedMaxYDomain(maxVal);
+    const paddedMin = getPaddedMinYDomain(effectiveMin);
+    const paddedMax = getPaddedMaxYDomain(effectiveMax);
     
-    console.log(`[WeatherChart] yAxisDomain useMemo: effectiveMin=${minVal}, effectiveMax=${maxVal}, paddedMin=${paddedMin}, paddedMax=${paddedMax}`);
+    console.log(`[WeatherChart] yAxisDomain useMemo: effectiveMin=${isFinite(effectiveMin) ? effectiveMin.toFixed(2) : 'N/A'}, effectiveMax=${isFinite(effectiveMax) ? effectiveMax.toFixed(2) : 'N/A'}, paddedMin=${paddedMin}, paddedMax=${paddedMax}`);
     
     return [paddedMin, paddedMax] as [number | 'auto', number | 'auto'];
   }, [formattedData, selectedMetrics, showMinMaxLines, minMaxReferenceData]);
-
-  const yAxisTicks = useMemo(() => {
-    if (chartType !== 'line') {
-        return undefined;
-    }
-    const [minDomain, maxDomain] = yAxisDomain;
-    if (typeof minDomain !== 'number' || typeof maxDomain !== 'number' || !isFinite(minDomain) || !isFinite(maxDomain)) {
-      return undefined;
-    }
-    const ticks = calculateYTicks(minDomain, maxDomain, 8);
-    console.log(`[WeatherChart] yAxisTicks calculated for line chart: ${JSON.stringify(ticks)} based on domain [${minDomain}, ${maxDomain}]`);
-    return ticks;
-  }, [yAxisDomain, chartType]);
 
 
   if (isLoading) {
@@ -364,7 +339,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
   if (chartType === 'bar') ChartComponent = BarChart;
   else if (chartType === 'scatter') ChartComponent = ScatterChart;
 
-  const chartDynamicKey = `${chartType}-${selectedMetrics.join('-')}-${formattedData.length}-${isAggregated}-${showMinMaxLines}-${JSON.stringify(yAxisDomain)}-${JSON.stringify(yAxisTicks)}`;
+  const chartDynamicKey = `${chartType}-${selectedMetrics.join('-')}-${formattedData.length}-${isAggregated}-${showMinMaxLines}-${JSON.stringify(yAxisDomain)}`;
   
   const renderChart = () => (
     <ResponsiveContainer width="100%" height="100%">
@@ -390,13 +365,11 @@ const WeatherChart: FC<WeatherChartProps> = ({
           stroke="#888888"
           tick={{ fill: "hsl(var(--foreground))", fontSize: 12 }}
           tickFormatter={yAxisTickFormatter}
-          domain={chartType === 'line' ? yAxisDomain : ['auto', 'auto']}
-          ticks={chartType === 'line' ? yAxisTicks : undefined}
+          domain={yAxisDomain}
           allowDecimals={true}
           type="number"
           scale="linear"
           allowDataOverflow={chartType === 'line' ? true : undefined}
-          interval={chartType === 'line' ? 0 : undefined}
         />
         <Tooltip
           formatter={tooltipFormatter}
@@ -437,6 +410,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
             const { minValue, maxValue } = metricMinMax;
             
             if (typeof minValue !== 'number' || !isFinite(minValue) || typeof maxValue !== 'number' || !isFinite(maxValue)) {
+                console.log(`[WeatherChart] Skipping MinMax lines for ${metricKey} due to non-finite values: minValue=${minValue}, maxValue=${maxValue}`);
                 return [];
             }
             console.log(`[WeatherChart] Rendering MinMax lines for ${metricKey} with minValue: ${minValue}, maxValue: ${maxValue}, color: ${metricConfig.color}`);
@@ -556,4 +530,3 @@ const WeatherChart: FC<WeatherChartProps> = ({
 };
 
 export default WeatherChart;
-
