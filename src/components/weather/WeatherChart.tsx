@@ -49,19 +49,28 @@ const getPaddedMinYDomain = (dataMin: number, dataMax: number): number | 'auto' 
 
   let paddedMin;
 
-  if (dataMin >= 0 && dataMin <= 30) { // Case: dataMin is small and positive
-    if (dataMax <= 200) { // Sub-case: Overall data range is also relatively small
-      paddedMin = -10; // Fixed offset for small scales
-    } else { // Sub-case: Overall data range is large (e.g., AQI 0 to 5000)
-      const padding = Math.max(10, 0.05 * dataMax); // Pad by 5% of dataMax, or at least 10 units
-      paddedMin = Math.floor(dataMin - padding);
-      if (paddedMin > -10) paddedMin = -10; 
+  // Case 1: dataMin is small (0 to 30)
+  if (dataMin >= 0 && dataMin <= 30) {
+    // Subcase 1a: Overall data range is also relatively small (e.g., max is 200 or less)
+    if (dataMax <= 200) {
+      paddedMin = -10; // Fixed offset for small scales ensures space below 0
+    } else {
+      // Subcase 1b: dataMin is small, but dataMax is large (e.g., AQI 0 to 5000)
+      // Pad by a percentage of dataMax to make the padding proportional and significant
+      const proportionalPadding = Math.max(10, 0.05 * dataMax); // At least 10 units, or 5% of max
+      paddedMin = Math.floor(dataMin - proportionalPadding);
+      // Ensure it's at least -10 if dataMin was positive, or more negative if needed
+      if (dataMin >= 0 && paddedMin > -10) paddedMin = -10;
     }
-  } else if (dataMin > 30) { // Case: dataMin is a larger positive number
-    const padding = Math.max(5, 0.15 * dataMin); 
+  }
+  // Case 2: dataMin is a larger positive number (> 30)
+  else if (dataMin > 30) {
+    const padding = Math.max(5, 0.15 * dataMin); // 15% or at least 5 units
     paddedMin = Math.floor(dataMin - padding);
-  } else { // Case: dataMin is negative
-    const padding = Math.max(3, 0.15 * Math.abs(dataMin)); 
+  }
+  // Case 3: dataMin is negative
+  else {
+    const padding = Math.max(3, 0.15 * Math.abs(dataMin)); // 15% of absolute value or at least 3 units
     paddedMin = Math.floor(dataMin - padding);
   }
   return paddedMin;
@@ -73,23 +82,29 @@ const getPaddedMaxYDomain = (dataMax: number, dataMin: number): number | 'auto' 
   }
   let paddedMax;
 
+  // Case 1: dataMax is small and positive (0 to 30)
   if (dataMax >= 0 && dataMax <= 30) {
-    if (dataMin < -100) { // Large negative range means small positive max needs proportional padding
-       const range = dataMax - dataMin;
-       const padding = Math.max(5, 0.05 * range);
-       paddedMax = Math.ceil(dataMax + padding);
+    // Subcase 1a: Overall data range is also relatively small (e.g., min is -100 or greater)
+    if (dataMin >= -100) {
+      const basePadding = Math.max(5, 0.15 * (dataMax - Math.max(0, dataMin) + 1));
+      paddedMax = Math.ceil(dataMax + basePadding);
+      if (dataMax === 0 && paddedMax < 10) paddedMax = 10; // Ensure if max is 0, axis goes up to at least 10
     } else {
-       const basePadding = Math.max(5, 0.15 * (dataMax - Math.max(0, dataMin) + 1)); 
-       paddedMax = Math.ceil(dataMax + basePadding);
-       if (dataMax === 0 && paddedMax < 10) paddedMax = 10;
+      // Subcase 1b: dataMax is small, but dataMin is very negative (large range)
+      const proportionalPadding = Math.max(10, 0.05 * Math.abs(dataMin)); // 5% of |dataMin| or at least 10
+      paddedMax = Math.ceil(dataMax + proportionalPadding);
     }
-  } else if (dataMax < 0) {
-    const padding = Math.max(3, 0.15 * Math.abs(dataMax));
+  }
+  // Case 2: dataMax is a larger positive number (> 30)
+  else if (dataMax > 30) {
+    const padding = Math.max(5, 0.15 * dataMax); // 15% or at least 5 units
     paddedMax = Math.ceil(dataMax + padding);
-    if (paddedMax > 0 && dataMax < 0) paddedMax = 0;
-  } else { // dataMax > 30
-    const padding = Math.max(5, 0.15 * dataMax);
+  }
+  // Case 3: dataMax is negative
+  else {
+    const padding = Math.max(3, 0.15 * Math.abs(dataMax)); // 15% of absolute value or at least 3 units
     paddedMax = Math.ceil(dataMax + padding);
+    if (paddedMax > 0 && dataMax < 0) paddedMax = 0; // Don't cross 0 unnecessarily if max was negative
   }
   return paddedMax;
 };
@@ -154,7 +169,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
         });
     }
     
-    if (!isFinite(effectiveMin) || !isFinite(effectiveMax)) {
+    if (!isFinite(effectiveMin) || !isFinite(effectiveMax) || dataValues.length === 0) {
         // Default domain if no valid data points or reference lines are found
         effectiveMin = 0;
         effectiveMax = 10; 
@@ -252,7 +267,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
   };
 
   const commonCartesianProps = {
-    margin: { top: 10, right: 60, left: 30, bottom: 20 },
+    margin: { top: 10, right: 80, left: 30, bottom: 20 },
   };
 
   const yAxisTickFormatter = (value: any) => {
@@ -431,8 +446,8 @@ const WeatherChart: FC<WeatherChartProps> = ({
                 label={{ 
                   value: `Min: ${Number(minValue).toFixed(isAggregated ? 1 : (metricConfig.unit === 'ppm' ? 0 : 2))}${metricConfig.unit || ''}`, 
                   position: "right",
-                  textAnchor: "end",
-                  dx: -5, 
+                  textAnchor: "end", // Anchor end of text to the (dx-adjusted) position
+                  dx: -5, // Shift left
                   fill: metricConfig.color, 
                   fontSize: 10,
                   dy: 5 
@@ -448,8 +463,8 @@ const WeatherChart: FC<WeatherChartProps> = ({
                 label={{ 
                   value: `Max: ${Number(maxValue).toFixed(isAggregated ? 1 : (metricConfig.unit === 'ppm' ? 0 : 2))}${metricConfig.unit || ''}`, 
                   position: "right",
-                  textAnchor: "end",
-                  dx: -5,
+                  textAnchor: "end", // Anchor end of text to the (dx-adjusted) position
+                  dx: -5, // Shift left
                   fill: metricConfig.color, 
                   fontSize: 10,
                   dy: -5
@@ -539,3 +554,5 @@ const WeatherChart: FC<WeatherChartProps> = ({
 };
 
 export default WeatherChart;
+
+    
