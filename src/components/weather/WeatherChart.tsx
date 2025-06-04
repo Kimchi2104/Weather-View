@@ -21,26 +21,8 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import type { WeatherDataPoint, MetricKey, MetricConfig } from '@/types/weather';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Download, FileImage, FileText, Loader2, Sun, Moon, Laptop } from 'lucide-react';
+import { formatTimestampToDdMmHhMmUTC, formatTimestampToFullUTC } from '@/lib/utils';
 
-export const formatTimestampToDdMmHhMmUTC = (timestamp: number): string => {
-  const date = new Date(timestamp);
-  const day = date.getUTCDate().toString().padStart(2, '0');
-  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
-  const hours = date.getUTCHours().toString().padStart(2, '0');
-  const minutes = date.getUTCMinutes().toString().padStart(2, '0');
-  return `${day}/${month} ${hours}:${minutes}`;
-};
-
-export const formatTimestampToFullUTC = (timestamp: number): string => {
-  const date = new Date(timestamp);
-  const day = date.getUTCDate().toString().padStart(2, '0');
-  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
-  const year = date.getUTCFullYear();
-  const hours = date.getUTCHours().toString().padStart(2, '0');
-  const minutes = date.getUTCMinutes().toString().padStart(2, '0');
-  const seconds = date.getUTCSeconds().toString().padStart(2, '0');
-  return `${day}/${month}/${year} ${hours}:${minutes}:${seconds} UTC`;
-};
 
 const MIN_BUBBLE_AREA = 60; 
 const MAX_BUBBLE_AREA = 1000;
@@ -49,21 +31,21 @@ const getPaddedMinYDomain = (dataMin: number, dataMax: number): number => {
   let paddedMin;
   const range = dataMax - dataMin;
 
-  if (dataMin >= 0 && dataMin <= 30) { // Covers 0, Lux=8, low AQI
-    if (range <= 200 && dataMax <= 200) { // Small min, small overall range
-      paddedMin = -10; // Fixed offset for small scales
+  if (dataMin >= 0 && dataMin <= 30) { 
+    if (range <= 200 && dataMax <= 200) { 
+      paddedMin = -10; 
       // console.log(`[WeatherChart] getPaddedMinYDomain (case A: small min, small range): dataMin=${dataMin}, dataMax=${dataMax}, output=${paddedMin}`);
-    } else { // Small min, large overall range (e.g. AQI 0 to 5000)
-      const proportionalPadding = Math.max(10, 0.05 * dataMax); // 5% of max, or at least 10
+    } else { 
+      const proportionalPadding = Math.max(10, 0.05 * dataMax); 
       paddedMin = Math.floor(dataMin - proportionalPadding);
-      if (dataMin >= 0 && paddedMin > -2) paddedMin = -2; // Ensure it's at least -2 for visibility if original min was 0
+      if (dataMin >= 0 && paddedMin > -2) paddedMin = -2; 
       // console.log(`[WeatherChart] getPaddedMinYDomain (case B: small min, large range): dataMin=${dataMin}, dataMax=${dataMax}, proportionalPadding=${proportionalPadding}, output=${paddedMin}`);
     }
-  } else if (dataMin > 30) { // Larger positive minimum
+  } else if (dataMin > 30) { 
     const padding = Math.max(5, 0.15 * dataMin); 
     paddedMin = Math.floor(dataMin - padding);
     // console.log(`[WeatherChart] getPaddedMinYDomain (case C: larger positive min): dataMin=${dataMin}, dataMax=${dataMax}, padding=${padding}, output=${paddedMin}`);
-  } else { // dataMin is negative
+  } else { 
     const padding = Math.max(3, 0.15 * Math.abs(dataMin));
     paddedMin = Math.floor(dataMin - padding);
     // console.log(`[WeatherChart] getPaddedMinYDomain (case D: negative min): dataMin=${dataMin}, dataMax=${dataMax}, padding=${padding}, output=${paddedMin}`);
@@ -77,11 +59,11 @@ const getPaddedMaxYDomain = (dataMax: number, dataMin: number): number => {
 
   if (dataMax >= 0 && dataMax < 10) { 
      if (range <= 200 && dataMin >= -100) { 
-      paddedMax = Math.ceil(dataMax + Math.max(3, 0.5 * (dataMax - Math.max(0, dataMin) + 3))); // Ensure at least 3 units padding
-      if (dataMax === 0 && paddedMax < 10) paddedMax = 10; // If max is 0, push it to 10
+      paddedMax = Math.ceil(dataMax + Math.max(3, 0.5 * (dataMax - Math.max(0, dataMin) + 3))); 
+      if (dataMax === 0 && paddedMax < 10) paddedMax = 10; 
       // console.log(`[WeatherChart] getPaddedMaxYDomain (case A: small max, small range): dataMax=${dataMax}, dataMin=${dataMin}, output=${paddedMax}`);
-    } else { // Small max, but potentially very negative min (large range)
-      const proportionalPadding = Math.max(10, 0.05 * Math.abs(dataMin)); // Pad based on magnitude of min
+    } else { 
+      const proportionalPadding = Math.max(10, 0.05 * Math.abs(dataMin)); 
       paddedMax = Math.ceil(dataMax + proportionalPadding);
       // console.log(`[WeatherChart] getPaddedMaxYDomain (case B: small max, large range): dataMax=${dataMax}, dataMin=${dataMin}, proportionalPadding=${proportionalPadding}, output=${paddedMax}`);
     }
@@ -89,10 +71,10 @@ const getPaddedMaxYDomain = (dataMax: number, dataMin: number): number => {
     const padding = Math.max(5, 0.15 * dataMax);
     paddedMax = Math.ceil(dataMax + padding);
     // console.log(`[WeatherChart] getPaddedMaxYDomain (case C: larger positive max): dataMax=${dataMax}, dataMin=${dataMin}, padding=${padding}, output=${paddedMax}`);
-  } else { // dataMax is negative
-    const padding = Math.max(3, 0.15 * Math.abs(dataMax)); // Pad based on magnitude of max
+  } else { 
+    const padding = Math.max(3, 0.15 * Math.abs(dataMax)); 
     paddedMax = Math.ceil(dataMax + padding);
-    if (paddedMax > 0 && dataMax < 0) paddedMax = 0; // Don't cross 0 unnecessarily
+    if (paddedMax > 0 && dataMax < 0) paddedMax = 0; 
     // console.log(`[WeatherChart] getPaddedMaxYDomain (case D: negative max): dataMax=${dataMax}, dataMin=${dataMin}, padding=${padding}, output=${paddedMax}`);
   }
   return paddedMax;
@@ -134,8 +116,6 @@ const WeatherChart: FC<WeatherChartProps> = ({
     if (!chartInputData) {
       return [];
     }
-    // For aggregated scatter, timestampDisplay is already set in HistoricalDataSection
-    // For other types, or raw scatter, ensure they have the display formats.
     return chartInputData.map(point => ({
         ...point,
         timestampDisplay: point.timestampDisplay || formatTimestampToDdMmHhMmUTC(point.timestamp),
@@ -155,18 +135,14 @@ const WeatherChart: FC<WeatherChartProps> = ({
         return value;
       }).filter(v => typeof v === 'number' && isFinite(v))
     );
-
-    // console.log(`[WeatherChart] yAxisDomain: All finite dataValues for domain calc:`, dataValues);
     
-    let effectiveMin = dataValues.length > 0 ? Math.min(...dataValues) : 0; // Default to 0 if no data
-    let effectiveMax = dataValues.length > 0 ? Math.max(...dataValues) : 10; // Default to 10 if no data
+    let effectiveMin = dataValues.length > 0 ? Math.min(...dataValues) : 0; 
+    let effectiveMax = dataValues.length > 0 ? Math.max(...dataValues) : 10; 
     
     if (dataValues.length === 0 && (!minMaxReferenceData || Object.keys(minMaxReferenceData).length === 0)) {
-      // console.log(`[WeatherChart] yAxisDomain: No data values and no reference lines. Defaulting domain [0, 10].`);
       effectiveMin = 0;
       effectiveMax = 10;
     }
-
 
     if (showMinMaxLines && minMaxReferenceData && chartType === 'line') {
         selectedMetrics.forEach(metricKey => {
@@ -182,9 +158,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
     
     const paddedMin = getPaddedMinYDomain(effectiveMin, effectiveMax);
     const paddedMax = getPaddedMaxYDomain(effectiveMax, effectiveMin);
-    
-    // console.log(`[WeatherChart] yAxisDomain useMemo: effectiveMin=${effectiveMin}, effectiveMax=${effectiveMax}, paddedMin=${paddedMin}, paddedMax=${paddedMax}`);
-    
+        
     return [paddedMin, paddedMax] as [number | 'auto', number | 'auto'];
   }, [formattedData, selectedMetrics, showMinMaxLines, minMaxReferenceData, chartType, isAggregated]);
 
@@ -213,6 +187,13 @@ const WeatherChart: FC<WeatherChartProps> = ({
       </Card>
     );
   }
+  
+  if (chartType === 'scatter') {
+    // console.log('[WeatherChart] Scatter: formattedData (first 5):', JSON.parse(JSON.stringify(formattedData.slice(0, 5))));
+    // console.log('[WeatherChart] Scatter: selectedMetrics:', selectedMetrics);
+    // console.log('[WeatherChart] Scatter: isAggregated:', isAggregated);
+  }
+
 
   if (!formattedData || formattedData.length === 0 || !selectedMetrics || selectedMetrics.length === 0) {
     return (
@@ -320,14 +301,19 @@ const WeatherChart: FC<WeatherChartProps> = ({
         const stdDev = entry.payload[`${originalMetricKey}_stdDev`];
         const count = entry.payload[`${originalMetricKey}_count`];
         let tooltipContent = [`Avg. ${baseLabel}: ${displayValue}${unitString}`];
-        if (typeof stdDev === 'number') {
+        if (typeof stdDev === 'number' && isFinite(stdDev)) { // Check if stdDev is a finite number
             tooltipContent.push(`Std. Dev: ${stdDev.toFixed(2)}${unitString}`);
         }
-        if (typeof count === 'number') {
+        if (typeof count === 'number' && isFinite(count)) { // Check if count is a finite number
             tooltipContent.push(`Data Points: ${count}`);
         }
         return [tooltipContent.join('\n'), null]; 
     }
+    
+    if (chartType === 'scatter' && !isAggregated && entry.payload) {
+        return [`${baseLabel}: ${displayValue}${unitString}`, null];
+    }
+
 
     return [`${displayValue}${unitString}`, baseLabel];
   };
@@ -347,7 +333,19 @@ const WeatherChart: FC<WeatherChartProps> = ({
   const renderChartSpecificElements = () => {
     return selectedMetrics.map((key) => {
       const metricConfig = metricConfigs[key];
-      if (!metricConfig || (metricConfig.isString && chartType !== 'bar')) return null;
+      if (!metricConfig || (metricConfig.isString && chartType !== 'bar' && !(chartType === 'scatter' && isAggregated) ) ) {
+        // Allow string metrics for aggregated scatter if they have _avg (though they won't have _stdDev for sizing)
+        if (chartType === 'scatter' && isAggregated && metricConfig?.isString) {
+           // console.log(`[WeatherChart] Allowing string metric ${key} for aggregated scatter (will plot _avg if present).`);
+        } else if (metricConfig?.isString) {
+            // console.log(`[WeatherChart] Skipping string metric ${key} for chart type ${chartType}.`);
+            return null;
+        } else if (!metricConfig) {
+            // console.log(`[WeatherChart] No metricConfig found for key ${key}. Skipping.`);
+            return null;
+        }
+      }
+
 
       const color = metricConfig.color || '#8884d8';
       const name = metricConfig.name || key;
@@ -367,6 +365,10 @@ const WeatherChart: FC<WeatherChartProps> = ({
             />
           );
         case 'bar':
+           if (metricConfig.isString) { // Do not render string data as bars
+             // console.log(`[WeatherChart] Skipping string metric ${key} for Bar chart.`);
+             return null;
+           }
           return (
             <Bar
               key={`bar-${key}`}
@@ -380,26 +382,21 @@ const WeatherChart: FC<WeatherChartProps> = ({
         case 'scatter':
           const avgDataKey = isAggregated ? `${key}_avg` : key; 
           const stdDevDataKey = isAggregated ? `${key}_stdDev` : undefined;
-          const zAxisId = isAggregated && stdDevDataKey ? `${key}_z` : undefined;
+          const zAxisId = isAggregated && stdDevDataKey && !metricConfig.isString ? `${key}_z` : undefined; // Only add ZAxis for numeric metrics with stdDev
 
-          // console.log(`[WeatherChart] Scatter metric: ${key}, isAggregated: ${isAggregated}, avgDataKey: ${avgDataKey}, stdDevDataKey: ${stdDevDataKey}, zAxisId: ${zAxisId}`);
+          // console.log(`[WeatherChart] Scatter metric: ${key}, isAggregated: ${isAggregated}, avgDataKey: ${avgDataKey}, stdDevDataKey: ${stdDevDataKey}, zAxisId: ${zAxisId}, isString: ${metricConfig.isString}`);
           // if (formattedData.length > 0 && isAggregated) {
-          //   console.log(`[WeatherChart] Scatter data sample for ${key} (first 3):`, formattedData.slice(0, 3).map(p => ({
-          //     timestampDisplay: p.timestampDisplay,
-          //     avgValue: p[avgDataKey],
-          //     stdDevValue: stdDevDataKey ? p[stdDevDataKey] : 'N/A',
-          //   })));
-          // } else if (formattedData.length > 0 && !isAggregated) {
-          //   console.log(`[WeatherChart] Scatter RAW data sample for ${key} (first 3):`, formattedData.slice(0,3).map(p => ({
-          //     timestampDisplay: p.timestampDisplay,
-          //     value: p[key]
-          //   })));
+            // console.log(`[WeatherChart] Scatter data sample for ${key} (first 3 for ${avgDataKey}):`, formattedData.slice(0, 3).map(p => ({
+              // timestampDisplay: p.timestampDisplay,
+              // avgValue: p[avgDataKey],
+              // stdDevValue: stdDevDataKey ? p[stdDevDataKey] : 'N/A',
+            // })));
           // }
 
 
           return (
             <React.Fragment key={`scatter-frag-${key}`}>
-              {isAggregated && stdDevDataKey && ( 
+              {isAggregated && stdDevDataKey && !metricConfig.isString && ( 
                 <ZAxis
                   key={`zaxis-${key}`}
                   zAxisId={zAxisId}
@@ -414,7 +411,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
                 name={name}
                 dataKey={avgDataKey} 
                 fill={color}
-                shape="circle"
+                shape={metricConfig.isString && isAggregated ? "square" : "circle"} // Different shape if it's a string's "average" (first value)
                 zAxisId={zAxisId} 
                 animationDuration={300}
               />
@@ -638,4 +635,3 @@ const WeatherChart: FC<WeatherChartProps> = ({
 };
 
 export default WeatherChart;
-
