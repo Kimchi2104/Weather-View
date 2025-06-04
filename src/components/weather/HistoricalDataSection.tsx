@@ -212,7 +212,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
         
         selectedMetrics.forEach(metricKey => {
           const config = METRIC_CONFIGS[metricKey];
-          if (config && !config.isString) {
+          if (config && !config.isString) { // Numeric metrics
             const values = pointsInGroup.map(p => p[metricKey] as number).filter(v => typeof v === 'number' && isFinite(v));
             if (values.length > 0) {
               const average = values.reduce((sum, val) => sum + val, 0) / values.length;
@@ -223,21 +223,20 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
               } else {
                 aggregatedPoint[metricKey] = average;
               }
-            } else {
+            } else { 
               if (selectedChartType === 'scatter') {
                 (aggregatedPoint as any)[`${metricKey}_avg`] = null; 
                 (aggregatedPoint as any)[`${metricKey}_stdDev`] = 0;    
                 (aggregatedPoint as any)[`${metricKey}_count`] = 0;
-                 // console.log(`[HistoricalDataSection] No data for metric ${metricKey} in group ${groupKey} during ${currentAggregationPeriod} aggregation. Scatter fields set.`);
               } else {
                 aggregatedPoint[metricKey] = null; 
               }
             }
-          } else if (config && config.isString) { 
+          } else if (config && config.isString) { // String metrics
              const firstValue = pointsInGroup[0]?.[metricKey];
-             aggregatedPoint[metricKey] = firstValue;
+             aggregatedPoint[metricKey] = firstValue; 
              if (selectedChartType === 'scatter') { 
-                (aggregatedPoint as any)[`${metricKey}_avg`] = firstValue; 
+                (aggregatedPoint as any)[`${metricKey}_avg`] = null; 
                 (aggregatedPoint as any)[`${metricKey}_stdDev`] = 0; 
                 (aggregatedPoint as any)[`${metricKey}_count`] = pointsInGroup.length;
              }
@@ -248,17 +247,13 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
       return aggregatedResult;
     }
     
-    if (selectedChartType === 'scatter' && !isActuallyAggregated) {
+    if (selectedChartType === 'scatter' && !isActuallyAggregated) { 
         return displayedData.map(point => {
             const rawScatterPoint: any = {
                 ...point, 
                 timestampDisplay: formatTimestampToDdMmHhMmUTC(point.timestamp),
                 tooltipTimestampFull: formatTimestampToFullUTC(point.timestamp),
             };
-            selectedMetrics.forEach(metricKey => {
-                rawScatterPoint[`${metricKey}_stdDev`] = undefined; 
-                rawScatterPoint[`${metricKey}_count`] = 1;     
-            });
             return rawScatterPoint;
         });
     }
@@ -276,7 +271,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
     }
     const result: Record<string, { minValue: number; maxValue: number }> = {};
     selectedMetrics.forEach(metricKey => {
-      const config = METRIC_CONFIGS[metricKey];
+      const config = METRIC_CONFIGS[metricKey]; // Using METRIC_CONFIGS from module scope
       if (config && !config.isString) {
         const values = chartData.map(p => {
           if (selectedChartType === 'scatter' && isActuallyAggregated) {
