@@ -2,9 +2,10 @@
 "use client";
 
 import type { FC } from 'react';
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useRef, useState, useMemo, useEffect } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import { useTheme } from 'next-themes';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,11 +13,14 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, ScatterChart, Scatter, ReferenceLine } from 'recharts';
 import type { WeatherDataPoint, MetricKey, MetricConfig } from '@/types/weather';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Download, FileImage, FileText, Loader2 } from 'lucide-react';
+import { Download, FileImage, FileText, Loader2, Sun, Moon, Laptop } from 'lucide-react';
 
 export const formatTimestampToDdMmHhMmUTC = (timestamp: number): string => {
   const date = new Date(timestamp);
@@ -50,6 +54,8 @@ interface WeatherChartProps {
   minMaxReferenceData?: Record<string, { minValue: number; maxValue: number }>;
 }
 
+type ExportThemeOption = 'current' | 'light' | 'dark';
+
 const WeatherChart: FC<WeatherChartProps> = ({
   data: chartInputData,
   selectedMetrics,
@@ -63,6 +69,9 @@ const WeatherChart: FC<WeatherChartProps> = ({
 }) => {
   const chartRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const { theme: currentSystemTheme, resolvedTheme } = useTheme();
+  const [exportThemeOption, setExportThemeOption] = useState<ExportThemeOption>('current');
+
 
   const formattedData = useMemo(() => {
     if (!chartInputData) {
@@ -76,15 +85,34 @@ const WeatherChart: FC<WeatherChartProps> = ({
   }, [chartInputData, isAggregated]);
 
   const exportChart = async (format: 'png' | 'jpeg' | 'pdf') => {
-    if (!chartRef.current) return;
-    const chartElementToCapture = chartRef.current.querySelector('.recharts-wrapper') || chartRef.current;
+    if (!chartRef.current || isExporting) return;
 
+    const chartElementToCapture = chartRef.current.querySelector('.recharts-wrapper') || chartRef.current;
     setIsExporting(true);
+
+    const actualCurrentTheme = resolvedTheme || currentSystemTheme || 'light';
+    const targetExportTheme = exportThemeOption === 'current' ? actualCurrentTheme : exportThemeOption;
+
+    const htmlElement = document.documentElement;
+    const originalHtmlClasses = htmlElement.className;
+
+    if (targetExportTheme === 'light') {
+      htmlElement.classList.remove('dark');
+    } else if (targetExportTheme === 'dark') {
+      htmlElement.classList.add('dark');
+    }
+    
+    // Force a reflow by reading a property. This helps ensure styles are applied.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _ = (chartElementToCapture as HTMLElement).offsetHeight;
+    await new Promise(resolve => setTimeout(resolve, 50)); // A small delay can also help
+
     try {
       const canvas = await html2canvas(chartElementToCapture as HTMLElement, {
         scale: 2,
         useCORS: true,
-        backgroundColor: null,
+        // Attempt to use the theme's actual background color
+        backgroundColor: targetExportTheme === 'dark' ? 'hsl(210 20% 5%)' : 'hsl(210 20% 98%)',
       });
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
       if (format === 'pdf') {
@@ -97,27 +125,26 @@ const WeatherChart: FC<WeatherChartProps> = ({
         pdf.save('weather-chart.pdf');
       } else {
         const link = document.createElement('a');
-        link.download = `weather-chart.${format}`;
+        link.download = `weather-chart-${targetExportTheme}.${format}`;
         link.href = imgData;
         link.click();
       }
     } catch (error) {
       console.error('Error exporting chart:', error);
     } finally {
+      // Restore original theme class on html element
+      htmlElement.className = originalHtmlClasses;
       setIsExporting(false);
     }
   };
 
   const getPaddedMaxYDomain = (dataMax: number): number | 'auto' => {
-    if (typeof dataMax !== 'number' || !isFinite(dataMax)) {
-      return 'auto'; 
-    }
-    if (dataMax === 0) {
-      return 5; 
-    }
-    const padding = Math.max(Math.abs(dataMax * 0.05), 1);
+    if (typeof dataMax !== 'number' || !isFinite(dataMax)) return 'auto';
+    if (dataMax === 0) return 5;
+    const padding = Math.max(Math.abs(dataMax * 0.05), 1); // Ensure at least 1 unit padding
     return Math.ceil(dataMax + padding);
   };
+
 
   if (isLoading) {
     return (
@@ -212,7 +239,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
               stroke={color}
               name={name}
               dot={isAggregated ? { r: 3 } : false}
-              connectNulls={false} // Set to false to break lines on null/undefined values explicitly
+              connectNulls={false} 
             />
           );
         case 'bar':
@@ -291,7 +318,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           cursor={{ stroke: 'hsl(var(--accent))', strokeWidth: 1, strokeDasharray: '3 3' }}
         />
         <Legend
-          wrapperStyle={{ paddingTop: '0px', paddingBottom: '5px', marginTop: "10px" }}
+          wrapperStyle={{ paddingTop: '10px', marginTop: "15px" }} // Increased top padding/margin
           iconSize={14}
           layout="horizontal"
           align="center"
@@ -327,7 +354,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
                   position: "right", 
                   fill: metricConfig.color, 
                   fontSize: 10, 
-                  dx: -30, // Adjusted for right position
+                  dx: -30, 
                   dy: 7 
                 }}
               />,
@@ -343,7 +370,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
                   position: "right", 
                   fill: metricConfig.color, 
                   fontSize: 10, 
-                  dx: -30, // Adjusted for right position
+                  dx: -30, 
                   dy: -7
                 }}
               />
@@ -370,7 +397,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
         <div ref={chartRef} className="w-full h-[550px] bg-card mx-auto overflow-hidden">
           {renderChart()}
         </div>
-        <div className="flex justify-center pt-2">
+        <div className="flex justify-center items-center pt-2 space-x-4">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="default" disabled={isExporting || !formattedData || formattedData.length === 0} className="min-w-[150px]">
@@ -383,6 +410,33 @@ const WeatherChart: FC<WeatherChartProps> = ({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="center">
+              <DropdownMenuLabel>Export Options</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <div className="px-2 py-1.5">
+                <Select value={exportThemeOption} onValueChange={(value) => setExportThemeOption(value as ExportThemeOption)}>
+                  <SelectTrigger className="w-full h-9 text-xs mb-1">
+                    <SelectValue placeholder="Select export theme" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="current" className="text-xs">
+                      <div className="flex items-center">
+                        <Laptop className="mr-2 h-3.5 w-3.5" /> Current View Theme
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="light" className="text-xs">
+                      <div className="flex items-center">
+                        <Sun className="mr-2 h-3.5 w-3.5" /> Light Theme
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="dark" className="text-xs">
+                      <div className="flex items-center">
+                        <Moon className="mr-2 h-3.5 w-3.5" /> Dark Theme
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => exportChart('png')}>
                 <FileImage className="mr-2 h-4 w-4" />
                 Export as PNG
@@ -406,4 +460,4 @@ const WeatherChart: FC<WeatherChartProps> = ({
 export default WeatherChart;
     
 
-      
+    
