@@ -112,3 +112,24 @@ export function transformRawDataToWeatherDataPoint(rawData: RawFirebaseDataPoint
   // console.log(`[transformRawDataToWeatherDataPoint] Successfully transformed point for (key: ${recordKey || 'N/A'}):`, JSON.parse(JSON.stringify(transformedPoint)));
   return transformedPoint;
 }
+
+export const formatTimestampToDdMmHhMmUTC = (timestamp: number): string => {
+  const date = new Date(timestamp);
+  const day = date.getUTCDate().toString().padStart(2, '0');
+  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+  const hours = date.getUTCHours().toString().padStart(2, '0');
+  const minutes = date.getUTCMinutes().toString().padStart(2, '0');
+  return `${day}/${month} ${hours}:${minutes}`;
+};
+
+export const formatTimestampToFullUTC = (timestamp: number): string => {
+  const date = new Date(timestamp);
+  const day = date.getUTCDate().toString().padStart(2, '0');
+  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+  const year = date.getUTCFullYear();
+  const hours = date.getUTCHours().toString().padStart(2, '0');
+  const minutes = date.getUTCMinutes().toString().padStart(2, '0');
+  const seconds = date.getUTCSeconds().toString().padStart(2, '0');
+  return `${day}/${month}/${year} ${hours}:${minutes}:${seconds} UTC`;
+};
+

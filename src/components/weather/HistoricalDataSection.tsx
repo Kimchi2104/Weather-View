@@ -15,7 +15,7 @@ import { Label as ShadcnLabel } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { transformRawDataToWeatherDataPoint } from '@/lib/utils';
+import { transformRawDataToWeatherDataPoint, formatTimestampToDdMmHhMmUTC, formatTimestampToFullUTC } from '@/lib/utils';
 import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge, ShieldCheck } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from '@/components/ui/skeleton';
@@ -53,8 +53,7 @@ interface AggregatedDataPoint {
   timestamp: number;
   timestampDisplay: string;
   aggregationPeriod?: AggregationPeriod;
-  [metricKey: string]: number | string | undefined | AggregationPeriod; // Will hold general values for line/bar
-  // For scatter chart with aggregation, specific fields like temperature_avg, temperature_stdDev
+  [metricKey: string]: number | string | undefined | AggregationPeriod;
 }
 
 interface HistoricalDataSectionProps {
@@ -62,7 +61,7 @@ interface HistoricalDataSectionProps {
 }
 
 const calculateStandardDeviation = (values: number[]): number => {
-  if (values.length <= 1) return 0; 
+  if (values.length <= 1) return 0;
   const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
   const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
   return Math.sqrt(variance);
@@ -161,7 +160,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
   const handleChartTypeChange = (newChartType: ChartType) => {
     setSelectedChartType(newChartType);
     if (newChartType === 'bar' && aggregationType === 'raw') {
-      setAggregationType('daily'); 
+      setAggregationType('daily');
     }
   };
 
@@ -174,7 +173,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
     }
 
     if (isActuallyAggregated) {
-      const currentAggregationPeriod = aggregationType as AggregationPeriod; 
+      const currentAggregationPeriod = aggregationType as AggregationPeriod;
       const groupedData: Record<string, WeatherDataPoint[]> = {};
       displayedData.forEach(point => {
         let key = '';
@@ -195,81 +194,68 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
         groupedData[key].push(point);
       });
       
-      // console.log(`[HistoricalDataSection] Aggregation (${selectedChartType}, ${currentAggregationPeriod}): Grouped data keys:`, Object.keys(groupedData));
-
       return Object.entries(groupedData).map(([groupKey, pointsInGroup]) => {
         const aggregatedPoint: AggregatedDataPoint = {
-          timestamp: pointsInGroup[0].timestamp, 
-          timestampDisplay: '', 
+          timestamp: pointsInGroup[0].timestamp,
+          timestampDisplay: '',
           aggregationPeriod: currentAggregationPeriod,
         };
 
         if (currentAggregationPeriod === 'daily') {
           aggregatedPoint.timestampDisplay = format(new Date(pointsInGroup[0].timestamp), 'MMM dd');
         } else if (currentAggregationPeriod === 'weekly') {
-           const dateFromKey = new Date(pointsInGroup[0].timestamp); 
+           const dateFromKey = new Date(pointsInGroup[0].timestamp);
            aggregatedPoint.timestampDisplay = `W${getISOWeek(dateFromKey)}, ${getYear(dateFromKey)}`;
         } else if (currentAggregationPeriod === 'monthly') {
           aggregatedPoint.timestampDisplay = format(new Date(pointsInGroup[0].timestamp), 'MMM yyyy');
         }
         
-        // console.log(`[HistoricalDataSection] Aggregating for group ${groupKey} (${selectedChartType}, ${currentAggregationPeriod}): ${pointsInGroup.length} points`);
-
         selectedMetrics.forEach(metricKey => {
           const config = METRIC_CONFIGS[metricKey];
-          if (config && !config.isString) { 
+          if (config && !config.isString) {
             const values = pointsInGroup.map(p => p[metricKey] as number).filter(v => typeof v === 'number' && isFinite(v));
             if (values.length > 0) {
               const average = values.reduce((sum, val) => sum + val, 0) / values.length;
               if (selectedChartType === 'scatter') {
-                aggregatedPoint[`${metricKey}_avg`] = average;
-                aggregatedPoint[`${metricKey}_stdDev`] = calculateStandardDeviation(values);
-                aggregatedPoint[`${metricKey}_count`] = values.length;
-                // console.log(`[HistoricalDataSection] Scatter Agg for ${metricKey} in group ${groupKey}: avg=${average.toFixed(2)}, stdDev=${(aggregatedPoint[`${metricKey}_stdDev`] as number).toFixed(2)}, count=${values.length}`);
+                (aggregatedPoint as any)[`${metricKey}_avg`] = average;
+                (aggregatedPoint as any)[`${metricKey}_stdDev`] = calculateStandardDeviation(values);
+                (aggregatedPoint as any)[`${metricKey}_count`] = values.length;
               } else {
                 aggregatedPoint[metricKey] = average;
               }
             } else {
                if (selectedChartType === 'scatter') {
-                aggregatedPoint[`${metricKey}_avg`] = undefined;
-                aggregatedPoint[`${metricKey}_stdDev`] = undefined;
-                aggregatedPoint[`${metricKey}_count`] = 0;
-                // console.log(`[HistoricalDataSection] Scatter Agg for ${metricKey} in group ${groupKey}: No valid data, setting avg/stdDev to undefined, count to 0`);
+                (aggregatedPoint as any)[`${metricKey}_avg`] = undefined;
+                (aggregatedPoint as any)[`${metricKey}_stdDev`] = undefined;
+                (aggregatedPoint as any)[`${metricKey}_count`] = 0;
               } else {
-                aggregatedPoint[metricKey] = undefined; 
+                aggregatedPoint[metricKey] = undefined;
               }
             }
-          } else if (config && config.isString) { 
+          } else if (config && config.isString) {
              aggregatedPoint[metricKey] = pointsInGroup[0]?.[metricKey];
              if (selectedChartType === 'scatter') {
-                aggregatedPoint[`${metricKey}_avg`] = pointsInGroup[0]?.[metricKey]; 
-                aggregatedPoint[`${metricKey}_stdDev`] = undefined; 
-                aggregatedPoint[`${metricKey}_count`] = pointsInGroup.length;
-                // console.log(`[HistoricalDataSection] Scatter Agg for STRING metric ${metricKey} in group ${groupKey}: value=${aggregatedPoint[`${metricKey}_avg`]}, count=${pointsInGroup.length}`);
+                (aggregatedPoint as any)[`${metricKey}_avg`] = pointsInGroup[0]?.[metricKey];
+                (aggregatedPoint as any)[`${metricKey}_stdDev`] = undefined;
+                (aggregatedPoint as any)[`${metricKey}_count`] = pointsInGroup.length;
              }
           }
         });
-        // console.log(`[HistoricalDataSection] Aggregated (${selectedChartType}, ${currentAggregationPeriod}) - Final point for group ${groupKey}:`, JSON.parse(JSON.stringify(aggregatedPoint)));
         return aggregatedPoint;
       }).sort((a, b) => a.timestamp - b.timestamp);
     }
     
-    // Raw data path
     if (selectedChartType === 'scatter' && !isActuallyAggregated) {
-        // console.log(`[HistoricalDataSection] Scatter RAW: Processing ${displayedData.length} points.`);
         return displayedData.map(point => {
-            const rawScatterPoint = {
-                ...point, // This already contains temperature, humidity etc. for direct plotting
+            const rawScatterPoint: any = {
+                ...point,
                 timestampDisplay: formatTimestampToDdMmHhMmUTC(point.timestamp),
                 tooltipTimestampFull: formatTimestampToFullUTC(point.timestamp),
-                // Add _stdDev and _count for tooltip/data structure consistency if scatter tooltips always expect them
-                ...(selectedMetrics.reduce((acc, metricKey) => {
-                    acc[`${metricKey}_stdDev`] = undefined; 
-                    acc[`${metricKey}_count`] = 1; 
-                    return acc;
-                }, {} as Record<string, any>))
             };
-            // console.log(`[HistoricalDataSection] Scatter RAW - Processed point:`, JSON.parse(JSON.stringify(rawScatterPoint)));
+            selectedMetrics.forEach(metricKey => {
+                rawScatterPoint[`${metricKey}_stdDev`] = undefined; 
+                rawScatterPoint[`${metricKey}_count`] = 1;
+            });
             return rawScatterPoint;
         });
     }
@@ -291,9 +277,9 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
       if (config && !config.isString) {
         const values = chartData.map(p => {
           if (selectedChartType === 'scatter' && isActuallyAggregated) {
-            return p[`${metricKey}_avg`] as number;
+            return (p as any)[`${metricKey}_avg`] as number;
           }
-          return p[metricKey] as number;
+          return (p as any)[metricKey] as number;
         }).filter(v => typeof v === 'number' && isFinite(v));
         
         if (values.length > 0) {
@@ -423,3 +409,4 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
 
 export default HistoricalDataSection;
 
+    
