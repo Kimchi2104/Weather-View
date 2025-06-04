@@ -54,10 +54,10 @@ interface AggregatedDataPoint {
 
 interface HistoricalDataSectionProps {
   onChartPointClick?: (point: WeatherDataPoint) => void;
-  onChartRangeSelect?: (points: WeatherDataPoint[]) => void;
+  // onChartRangeSelect prop removed
 }
 
-const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointClick, onChartRangeSelect }) => {
+const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointClick }) => {
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [startTime, setStartTime] = useState<string>("00:00");
   const [endTime, setEndTime] = useState<string>("23:59");
@@ -207,16 +207,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
 
   }, [displayedData, selectedChartType, aggregationType, selectedMetrics]);
 
-
-  const handleUseAllDataForForecast = () => {
-    if (onChartRangeSelect) {
-      if (displayedData.length > 0) { // Always use the original, non-aggregated displayedData
-        onChartRangeSelect(displayedData);
-      } else {
-        onChartRangeSelect([]);
-      }
-    }
-  };
+  // handleUseAllDataForForecast function removed
 
   return (
     <section className="mb-8">
@@ -292,9 +283,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
               </Select>
             </div>
           )}
-          <Button onClick={handleUseAllDataForForecast} className="w-full sm:w-auto" disabled={isLoading && displayedData.length === 0}>
-            Use All Displayed Data for AI Forecast
-          </Button>
+          {/* "Use All Displayed Data for AI Forecast" button removed */}
         </div>
       </div>
       <div className="mt-6">

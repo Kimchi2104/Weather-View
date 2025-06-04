@@ -19,23 +19,14 @@ const WeatherDashboard: FC = () => {
     // Toast notification is now handled by AIForecastSection on prop update
   };
 
-  const handleChartRangeSelect = (selectedPoints: WeatherDataPoint[]) => {
-    if (selectedPoints && selectedPoints.length > 0) {
-      setDataForAiForecast(selectedPoints);
-      // Toast notification is now handled by AIForecastSection on prop update
-    } else {
-      // Potentially handle brush clear if needed, e.g., setDataForAiForecast(null);
-      // For now, we only update if there's a valid selection.
-       setDataForAiForecast(null); // Clear if selection is empty
-    }
-  };
+  // handleChartRangeSelect function removed as it's no longer needed
 
   return (
     <div className="space-y-8">
       <RealtimeDataSection />
       <HistoricalDataSection 
         onChartPointClick={handleChartPointClick}
-        onChartRangeSelect={handleChartRangeSelect} 
+        // onChartRangeSelect prop removed
       />
       <AIForecastSection initialDataForForecast={dataForAiForecast} />
       <RawDataViewer /> {/* Add the new raw data viewer section */}
