@@ -39,7 +39,7 @@ export const formatTimestampToFullUTC = (timestamp: number): string => {
 };
 
 interface WeatherChartProps {
-  data: WeatherDataPoint[] | any[]; 
+  data: WeatherDataPoint[] | any[];
   selectedMetrics: MetricKey[];
   metricConfigs: Record<MetricKey, MetricConfig>;
   isLoading: boolean;
@@ -70,8 +70,8 @@ const WeatherChart: FC<WeatherChartProps> = ({
     }
     return chartInputData.map(point => ({
         ...point,
-        timestampDisplay: point.timestampDisplay || formatTimestampToDdMmHhMmUTC(point.timestamp), // Use pre-formatted if available (for aggregation)
-        tooltipTimestampFull: point.tooltipTimestampFull || (isAggregated ? point.timestampDisplay : formatTimestampToFullUTC(point.timestamp)), // Use pre-formatted for aggregated
+        timestampDisplay: point.timestampDisplay || formatTimestampToDdMmHhMmUTC(point.timestamp),
+        tooltipTimestampFull: point.tooltipTimestampFull || (isAggregated ? point.timestampDisplay : formatTimestampToFullUTC(point.timestamp)),
     }));
   }, [chartInputData, isAggregated]);
 
@@ -175,8 +175,8 @@ const WeatherChart: FC<WeatherChartProps> = ({
   const handleChartClick = (event: any) => {
     if (onPointClick && event && event.activePayload && event.activePayload.length > 0) {
       const clickedPointData = event.activePayload[0].payload;
-      if ((chartType === 'line' && !isAggregated) || chartType === 'scatter') {
-         if ('rawTimestampString' in clickedPointData || chartType === 'scatter') { 
+      if (((chartType === 'line' && !isAggregated) || chartType === 'scatter')) {
+         if ('rawTimestampString' in clickedPointData || chartType === 'scatter' || ('timestamp' in clickedPointData && !isAggregated) ) {
             onPointClick(clickedPointData as WeatherDataPoint);
          }
       }
@@ -286,22 +286,20 @@ const WeatherChart: FC<WeatherChartProps> = ({
           verticalAlign="top"
         />
         {renderChartSpecificElements()}
-        
-        {/* Hardcoded Test Line for Temperature - KEEP FOR DEBUGGING UNTIL DYNAMIC LINES WORK */}
+
         {chartType === 'line' && selectedMetrics.includes('temperature') && showMinMaxLines && (
           <ReferenceLine
-            y={15} 
+            y={15}
             stroke={metricConfigs['temperature']?.color || 'red'}
             strokeDasharray="3 3"
             strokeWidth={1}
             strokeOpacity={0.9}
-            label={{ value: "Test Line @ 15°C", position: "right", fill: metricConfigs['temperature']?.color || 'red', fontSize: 10, dx: -30 }}
+            label={{ value: "Test Line @ 15°C", position: "right", fill: metricConfigs['temperature']?.color || 'red', fontSize: 10, dx: -25 }}
           />
         )}
 
-        {/* Dynamically generated Min/Max Reference Lines */}
         {showMinMaxLines && chartType === 'line' && minMaxReferenceData &&
-          selectedMetrics.map(metricKey => {
+          selectedMetrics.flatMap(metricKey => {
             const metricMinMax = minMaxReferenceData[metricKey];
             const metricConfig = metricConfigs[metricKey];
             
@@ -312,39 +310,36 @@ const WeatherChart: FC<WeatherChartProps> = ({
             );
 
             if (!metricMinMax || !metricConfig || metricConfig.isString) {
-              return null;
+              console.warn(`[WeatherChart] Skipping MinMax for ${metricKey} due to missing data/config or string type.`);
+              return [];
             }
 
             const { minValue, maxValue } = metricMinMax;
             
             if (typeof minValue !== 'number' || !isFinite(minValue) || typeof maxValue !== 'number' || !isFinite(maxValue)) {
                 console.warn(`[WeatherChart] Invalid min/max values for ${metricKey}: min=${minValue}, max=${maxValue}. Skipping lines.`);
-                return null;
+                return [];
             }
             console.log(`[WeatherChart] Rendering MinMax for ${metricKey}: MinVal: ${minValue}, MaxVal: ${maxValue}, Color: ${metricConfig.color}`);
 
-            return (
-              <React.Fragment key={`ref-lines-frag-${metricKey}`}>
-                <ReferenceLine
-                  key={`min-line-${metricKey}`}
-                  y={Number(minValue)} 
-                  stroke={metricConfig.color}
-                  strokeDasharray="2 2" 
-                  strokeOpacity={0.7}
-                  strokeWidth={1}
-                  // Removed ifOverflow="extendDomain" for testing
-                />
-                <ReferenceLine
-                  key={`max-line-${metricKey}`}
-                  y={Number(maxValue)} 
-                  stroke={metricConfig.color}
-                  strokeDasharray="2 2" 
-                  strokeOpacity={0.7}
-                  strokeWidth={1}
-                  // Removed ifOverflow="extendDomain" for testing
-                />
-              </React.Fragment>
-            );
+            return [
+              <ReferenceLine
+                key={`min-line-${metricKey}`}
+                y={Number(minValue)}
+                stroke={metricConfig.color}
+                strokeDasharray="2 2"
+                strokeOpacity={0.7}
+                strokeWidth={1}
+              />,
+              <ReferenceLine
+                key={`max-line-${metricKey}`}
+                y={Number(maxValue)}
+                stroke={metricConfig.color}
+                strokeDasharray="2 2"
+                strokeOpacity={0.7}
+                strokeWidth={1}
+              />
+            ];
           })
         }
       </ChartComponent>
@@ -401,3 +396,4 @@ const WeatherChart: FC<WeatherChartProps> = ({
 };
 
 export default WeatherChart;
+    
