@@ -7,7 +7,7 @@ import dynamic from 'next/dynamic';
 import DateRangePicker from './DateRangePicker';
 import DataSelector from './DataSelector';
 import type { DateRange } from 'react-day-picker';
-import { subDays, format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, getISOWeek, getMonth, getYear } from 'date-fns';
+import { subDays, format, getISOWeek, getYear } from 'date-fns';
 import type { WeatherDataPoint, MetricKey, MetricConfig, RawFirebaseDataPoint } from '@/types/weather';
 import { database } from '@/lib/firebase';
 import { ref, get, type DataSnapshot } from "firebase/database";
@@ -47,14 +47,14 @@ type ChartType = 'line' | 'bar' | 'scatter';
 type AggregationType = 'daily' | 'weekly' | 'monthly';
 
 interface AggregatedDataPoint {
-  timestamp: number; // Start of the period, for sorting/reference
-  timestampDisplay: string; // e.g., "2024-07-16", "Week 29, 2024", "July 2024"
-  [metricKey: string]: number | string | undefined; // Average values for selected metrics
+  timestamp: number; 
+  timestampDisplay: string; 
+  aggregationPeriod?: AggregationType;
+  [metricKey: string]: number | string | undefined | AggregationType;
 }
 
 interface HistoricalDataSectionProps {
   onChartPointClick?: (point: WeatherDataPoint) => void;
-  // onChartRangeSelect prop removed
 }
 
 const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointClick }) => {
@@ -146,68 +146,67 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
   }, [dateRange, allFetchedData, filterDataByDateRange, startTime, endTime, isLoading]);
 
   const chartData = useMemo(() => {
-    if (selectedChartType !== 'bar') {
-      return displayedData; // Return raw data for line/scatter
-    }
-
-    if (!displayedData || displayedData.length === 0) {
-      return [];
-    }
-
-    const groupedData: Record<string, WeatherDataPoint[]> = {};
-
-    displayedData.forEach(point => {
-      let key = '';
-      const pointDate = new Date(point.timestamp);
-      if (aggregationType === 'daily') {
-        key = format(pointDate, 'yyyy-MM-dd');
-      } else if (aggregationType === 'weekly') {
-        // Ensure week starts on Monday for ISO standard if desired, or locale's start otherwise
-        const weekYear = getYear(pointDate);
-        const weekNumber = getISOWeek(pointDate); // ISO week number
-        key = `${weekYear}-W${String(weekNumber).padStart(2, '0')}`;
-      } else if (aggregationType === 'monthly') {
-        key = format(pointDate, 'yyyy-MM');
+    if (selectedChartType === 'line' || selectedChartType === 'bar') {
+      if (!displayedData || displayedData.length === 0) {
+        return [];
       }
 
-      if (!groupedData[key]) {
-        groupedData[key] = [];
-      }
-      groupedData[key].push(point);
-    });
+      const groupedData: Record<string, WeatherDataPoint[]> = {};
 
-    return Object.entries(groupedData).map(([key, pointsInGroup]) => {
-      const aggregatedPoint: AggregatedDataPoint = {
-        timestamp: pointsInGroup[0].timestamp, // Use timestamp of first point in group for sorting
-        timestampDisplay: '',
-      };
-
-      if (aggregationType === 'daily') {
-        aggregatedPoint.timestampDisplay = format(new Date(pointsInGroup[0].timestamp), 'MMM dd');
-      } else if (aggregationType === 'weekly') {
-         const dateFromKey = new Date(pointsInGroup[0].timestamp); // approx date for week label
-         aggregatedPoint.timestampDisplay = `W${getISOWeek(dateFromKey)}, ${getYear(dateFromKey)}`;
-      } else if (aggregationType === 'monthly') {
-        aggregatedPoint.timestampDisplay = format(new Date(pointsInGroup[0].timestamp), 'MMM yyyy');
-      }
-      
-      selectedMetrics.forEach(metricKey => {
-        const config = METRIC_CONFIGS[metricKey];
-        if (config && !config.isString) {
-          const values = pointsInGroup.map(p => p[metricKey] as number).filter(v => typeof v === 'number' && isFinite(v));
-          if (values.length > 0) {
-            aggregatedPoint[metricKey] = values.reduce((sum, val) => sum + val, 0) / values.length;
-          } else {
-            aggregatedPoint[metricKey] = undefined; // Or some placeholder like 'N/A' if preferred
-          }
+      displayedData.forEach(point => {
+        let key = '';
+        const pointDate = new Date(point.timestamp);
+        if (aggregationType === 'daily') {
+          key = format(pointDate, 'yyyy-MM-dd');
+        } else if (aggregationType === 'weekly') {
+          const weekYear = getYear(pointDate);
+          const weekNumber = getISOWeek(pointDate);
+          key = `${weekYear}-W${String(weekNumber).padStart(2, '0')}`;
+        } else if (aggregationType === 'monthly') {
+          key = format(pointDate, 'yyyy-MM');
         }
+
+        if (!groupedData[key]) {
+          groupedData[key] = [];
+        }
+        groupedData[key].push(point);
       });
-      return aggregatedPoint;
-    }).sort((a, b) => a.timestamp - b.timestamp);
 
+      return Object.entries(groupedData).map(([key, pointsInGroup]) => {
+        const aggregatedPoint: AggregatedDataPoint = {
+          timestamp: pointsInGroup[0].timestamp, 
+          timestampDisplay: '',
+          aggregationPeriod: aggregationType,
+        };
+
+        if (aggregationType === 'daily') {
+          aggregatedPoint.timestampDisplay = format(new Date(pointsInGroup[0].timestamp), 'MMM dd');
+        } else if (aggregationType === 'weekly') {
+           const dateFromKey = new Date(pointsInGroup[0].timestamp); 
+           aggregatedPoint.timestampDisplay = `W${getISOWeek(dateFromKey)}, ${getYear(dateFromKey)}`;
+        } else if (aggregationType === 'monthly') {
+          aggregatedPoint.timestampDisplay = format(new Date(pointsInGroup[0].timestamp), 'MMM yyyy');
+        }
+        
+        selectedMetrics.forEach(metricKey => {
+          const config = METRIC_CONFIGS[metricKey];
+          if (config && !config.isString) {
+            const values = pointsInGroup.map(p => p[metricKey] as number).filter(v => typeof v === 'number' && isFinite(v));
+            if (values.length > 0) {
+              aggregatedPoint[metricKey] = values.reduce((sum, val) => sum + val, 0) / values.length;
+            } else {
+              aggregatedPoint[metricKey] = undefined; 
+            }
+          }
+        });
+        return aggregatedPoint;
+      }).sort((a, b) => a.timestamp - b.timestamp);
+    }
+    // For scatter chart, return raw (but filtered) data
+    return displayedData;
   }, [displayedData, selectedChartType, aggregationType, selectedMetrics]);
-
-  // handleUseAllDataForForecast function removed
+  
+  const isAggregatedChart = selectedChartType === 'line' || selectedChartType === 'bar';
 
   return (
     <section className="mb-8">
@@ -268,9 +267,9 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
               </SelectContent>
             </Select>
           </div>
-          {selectedChartType === 'bar' && (
+          {isAggregatedChart && (
             <div>
-              <Label htmlFor="aggregation-type-select" className="text-sm font-medium text-muted-foreground mb-1 block">Bar Aggregation:</Label>
+              <Label htmlFor="aggregation-type-select" className="text-sm font-medium text-muted-foreground mb-1 block">Aggregation:</Label>
               <Select value={aggregationType} onValueChange={(value) => setAggregationType(value as AggregationType)}>
                 <SelectTrigger id="aggregation-type-select" className="w-full sm:w-auto sm:min-w-[200px]">
                   <SelectValue placeholder="Select aggregation" />
@@ -283,7 +282,6 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
               </Select>
             </div>
           )}
-          {/* "Use All Displayed Data for AI Forecast" button removed */}
         </div>
       </div>
       <div className="mt-6">
@@ -292,9 +290,9 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           selectedMetrics={selectedMetrics}
           metricConfigs={METRIC_CONFIGS}
           isLoading={isLoading && allFetchedData.length === 0 && chartData.length === 0} 
-          onPointClick={selectedChartType === 'bar' ? undefined : onChartPointClick} // Disable onPointClick for aggregated bar charts
+          onPointClick={onChartPointClick} 
           chartType={selectedChartType}
-          isAggregated={selectedChartType === 'bar'}
+          isAggregated={isAggregatedChart}
         />
       </div>
     </section>

@@ -2,7 +2,7 @@
 "use client";
 
 import type { FC } from 'react';
-import { useRef, useState, useMemo, useEffect } from 'react';
+import { useRef, useState, useMemo } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -21,7 +21,7 @@ import { Download, FileImage, FileText, Loader2 } from 'lucide-react';
 export const formatTimestampToDdMmHhMmUTC = (timestamp: number): string => {
   const date = new Date(timestamp);
   const day = date.getUTCDate().toString().padStart(2, '0');
-  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0'); // UTC month is 0-indexed
+  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0'); 
   const hours = date.getUTCHours().toString().padStart(2, '0');
   const minutes = date.getUTCMinutes().toString().padStart(2, '0');
   return `${day}/${month} ${hours}:${minutes}`;
@@ -30,7 +30,7 @@ export const formatTimestampToDdMmHhMmUTC = (timestamp: number): string => {
 export const formatTimestampToFullUTC = (timestamp: number): string => {
   const date = new Date(timestamp);
   const day = date.getUTCDate().toString().padStart(2, '0');
-  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0'); // UTC month is 0-indexed
+  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0'); 
   const year = date.getUTCFullYear();
   const hours = date.getUTCHours().toString().padStart(2, '0');
   const minutes = date.getUTCMinutes().toString().padStart(2, '0');
@@ -39,13 +39,13 @@ export const formatTimestampToFullUTC = (timestamp: number): string => {
 };
 
 interface WeatherChartProps {
-  data: WeatherDataPoint[] | any[]; // Can be WeatherDataPoint[] or AggregatedDataPoint[]
+  data: WeatherDataPoint[] | any[]; 
   selectedMetrics: MetricKey[];
   metricConfigs: Record<MetricKey, MetricConfig>;
   isLoading: boolean;
   onPointClick?: (point: WeatherDataPoint) => void;
   chartType: 'line' | 'bar' | 'scatter';
-  isAggregated?: boolean; // New prop
+  isAggregated?: boolean; 
 }
 
 const WeatherChart: FC<WeatherChartProps> = ({
@@ -55,7 +55,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
   isLoading,
   onPointClick,
   chartType,
-  isAggregated = false, // Default to false
+  isAggregated = false, 
 }) => {
   const chartRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -64,14 +64,12 @@ const WeatherChart: FC<WeatherChartProps> = ({
     if (!data) {
       return [];
     }
-    if (isAggregated) { // If data is already aggregated, use its timestampDisplay
+    if (isAggregated) { 
       return data.map(point => ({
         ...point,
-        // timestampDisplay is already set by HistoricalDataSection for aggregated data
-        tooltipTimestampFull: point.timestampDisplay, // For tooltip, show the period label
+        tooltipTimestampFull: point.timestampDisplay, 
       }));
     }
-    // For non-aggregated data (line/scatter)
     return data.map((point) => ({
       ...point,
       timestampDisplay: formatTimestampToDdMmHhMmUTC(point.timestamp),
@@ -88,7 +86,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
       const canvas = await html2canvas(chartElementToCapture as HTMLElement, {
         scale: 2,
         useCORS: true,
-        backgroundColor: null,
+        backgroundColor: null, 
       });
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
       if (format === 'pdf') {
@@ -133,7 +131,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           <CardTitle className="font-headline">Historical Data Trends</CardTitle>
           <CardDescription>
             Displaying {chartType.charAt(0).toUpperCase() + chartType.slice(1)} Chart for selected metrics. 
-            {chartType !== 'bar' && " Click data points to use for AI forecast."}
+            {!isAggregated && " Click data points to use for AI forecast."}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-4 pt-0 h-[450px] flex items-center justify-center">
@@ -149,9 +147,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
   
   const yAxisTickFormatter = (value: any) => {
     if (typeof value === 'number' && isFinite(value)) {
-      // For aggregated bar charts, averages might have decimals.
-      // For other metrics, keep it to 0 or 2 decimal places.
-      return chartType === 'bar' ? value.toFixed(1) : value.toFixed(0);
+      return isAggregated ? value.toFixed(1) : value.toFixed(0);
     }
     if (value === undefined || value === null || (typeof value === 'number' && !isFinite(value))) {
       return 'N/A';
@@ -178,12 +174,9 @@ const WeatherChart: FC<WeatherChartProps> = ({
   };
   
   const handleChartClick = (event: any) => {
-    // Only call onPointClick if it's provided AND the chart is NOT an aggregated bar chart
     if (onPointClick && !isAggregated && event && event.activePayload && event.activePayload.length > 0) {
       const clickedPointData = event.activePayload[0].payload;
-      // Ensure the payload is a valid WeatherDataPoint (it might be an AggregatedDataPoint for bar charts internally)
-      // This check might need refinement if the payload structure differs significantly
-      if ('rawTimestampString' in clickedPointData) { // A heuristic to check if it's likely a WeatherDataPoint
+      if ('rawTimestampString' in clickedPointData || chartType === 'scatter') { // Allow for scatter, or if it has rawTimestampString
          onPointClick(clickedPointData as WeatherDataPoint);
       }
     }
@@ -192,13 +185,11 @@ const WeatherChart: FC<WeatherChartProps> = ({
   const renderChartSpecificElements = () => {
     return selectedMetrics.map((key) => {
       const metricConfig = metricConfigs[key];
-      if (!metricConfig || (metricConfig.isString && chartType !== 'bar')) return null; // Allow string "metrics" if needed for bar chart, but usually numeric
+      if (!metricConfig || (metricConfig.isString && chartType !== 'bar')) return null;
 
       const color = metricConfig.color || '#8884d8';
       const name = metricConfig.name || key;
-      const clickHandler = isAggregated ? undefined : handleChartClick;
-
-
+      
       switch (chartType) {
         case 'line':
           return (
@@ -208,9 +199,8 @@ const WeatherChart: FC<WeatherChartProps> = ({
               dataKey={key}
               stroke={color}
               name={name}
-              dot={false}
-              connectNulls={true}
-              onClick={clickHandler}
+              dot={isAggregated ? { r: 3 } : false} // Show dots for aggregated line chart for clarity
+              connectNulls={true} // Re-enabled as per prior state
             />
           );
         case 'bar':
@@ -221,7 +211,6 @@ const WeatherChart: FC<WeatherChartProps> = ({
               fill={color}
               name={name}
               radius={[4, 4, 0, 0]}
-              onClick={clickHandler} // Aggregated bars won't trigger AI point click
             />
           );
         case 'scatter':
@@ -231,7 +220,6 @@ const WeatherChart: FC<WeatherChartProps> = ({
               dataKey={key}
               fill={color}
               name={name}
-              onClick={clickHandler}
             />
           );
         default:
@@ -251,7 +239,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
       <ChartComponent 
         key={chartDynamicKey} 
         data={formattedData} 
-        onClick={isAggregated ? undefined : handleChartClick} // General click on chart area
+        onClick={handleChartClick}
         {...commonCartesianProps}
       >
         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -264,7 +252,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           angle={isAggregated ? 0 : -45}
           textAnchor={isAggregated ? "middle" : "end"}
           dy={isAggregated ? 0 : 10}
-          minTickGap={isAggregated ? 5 : 5}
+          minTickGap={isAggregated ? 5 : 15}
         />
         <YAxis
           stroke="#888888"
@@ -274,12 +262,10 @@ const WeatherChart: FC<WeatherChartProps> = ({
         <Tooltip
           formatter={tooltipFormatter}
           labelFormatter={(label, payload) => {
-            // For non-aggregated data, payload[0].payload.tooltipTimestampFull exists.
-            // For aggregated data, the label itself (timestampDisplay) is the period string.
             if (payload && payload.length > 0 && payload[0].payload.tooltipTimestampFull) {
               return payload[0].payload.tooltipTimestampFull;
             }
-            return label; // This will be like "Jul 2024" or "W29" for aggregated
+            return label; 
           }}
           contentStyle={{
             backgroundColor: 'hsl(var(--popover))',
@@ -309,7 +295,8 @@ const WeatherChart: FC<WeatherChartProps> = ({
         <div>
           <CardTitle className="font-headline">Historical Data Trends</CardTitle>
           <CardDescription>
-            Displaying {chartType.charAt(0).toUpperCase() + chartType.slice(1)} Chart {isAggregated ? `(${data[0]?.aggregationType} Averages)` : ''} for selected metrics.
+            Displaying {chartType.charAt(0).toUpperCase() + chartType.slice(1)} Chart
+            {isAggregated ? ` (Aggregated Data)` : ''} for selected metrics.
             {!isAggregated && " Click data points to use for AI forecast."}
           </CardDescription>
         </div>
