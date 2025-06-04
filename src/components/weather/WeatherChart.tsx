@@ -51,7 +51,7 @@ interface WeatherChartProps {
 }
 
 const WeatherChart: FC<WeatherChartProps> = ({
-  data: chartInputData, // Renamed prop to avoid conflict
+  data: chartInputData,
   selectedMetrics,
   metricConfigs,
   isLoading,
@@ -68,14 +68,13 @@ const WeatherChart: FC<WeatherChartProps> = ({
     if (!chartInputData) {
       return [];
     }
-    if (!isAggregated && chartType !== 'scatter') { // Raw data for line chart
+    if (!isAggregated && chartType !== 'scatter') { 
       return chartInputData.map((point) => ({
         ...point,
         timestampDisplay: formatTimestampToDdMmHhMmUTC(point.timestamp),
         tooltipTimestampFull: formatTimestampToFullUTC(point.timestamp),
       }));
     }
-    // For aggregated data (line or bar) or scatter (which uses raw timestamps)
     return chartInputData.map(point => ({
         ...point,
         timestampDisplay: isAggregated ? point.timestampDisplay : formatTimestampToDdMmHhMmUTC(point.timestamp),
@@ -92,7 +91,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
       const canvas = await html2canvas(chartElementToCapture as HTMLElement, {
         scale: 2,
         useCORS: true,
-        backgroundColor: null,
+        backgroundColor: null, 
       });
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
       if (format === 'pdf') {
@@ -137,8 +136,8 @@ const WeatherChart: FC<WeatherChartProps> = ({
           <CardTitle className="font-headline">Historical Data Trends</CardTitle>
           <CardDescription>
             Displaying {chartType.charAt(0).toUpperCase() + chartType.slice(1)} Chart
-            {isAggregated ? ` (Aggregated Data)` : ` (Raw Data)`}.
-            {!isAggregated && " Click data points to use for AI forecast."}
+            {chartType !== 'scatter' && (isAggregated ? ` (Aggregated Data)` : ` (Raw Data)`)}.
+            {(chartType === 'scatter' || (chartType === 'line' && !isAggregated)) && " Click data points to use for AI forecast."}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-4 pt-0 h-[450px] flex items-center justify-center">
@@ -254,12 +253,12 @@ const WeatherChart: FC<WeatherChartProps> = ({
           dataKey="timestampDisplay"
           stroke="#888888"
           tick={{ fill: "hsl(var(--foreground))", fontSize: 11 }}
-          height={(isAggregated && chartType !== 'bar') ? 30 : 60} // Adjusted height for non-bar aggregated
+          height={(isAggregated && chartType !== 'bar') ? 30 : 60} 
           interval="preserveStartEnd"
-          angle={(isAggregated && chartType !== 'bar') ? 0 : -45} // Adjusted angle for non-bar aggregated
-          textAnchor={(isAggregated && chartType !== 'bar') ? "middle" : "end"} // Adjusted anchor
-          dy={(isAggregated && chartType !== 'bar') ? 0 : 10} // Adjusted dy
-          minTickGap={(isAggregated && chartType !== 'bar') ? 5 : 20} // Adjusted gap
+          angle={(isAggregated && chartType !== 'bar') ? 0 : -45} 
+          textAnchor={(isAggregated && chartType !== 'bar') ? "middle" : "end"} 
+          dy={(isAggregated && chartType !== 'bar') ? 0 : 10} 
+          minTickGap={(isAggregated && chartType !== 'bar') ? 5 : 20} 
         />
         <YAxis
           stroke="#888888"
@@ -292,43 +291,71 @@ const WeatherChart: FC<WeatherChartProps> = ({
           verticalAlign="top"
         />
         {renderChartSpecificElements()}
+        
+        {/* Hardcoded Test ReferenceLine for 'temperature' if it's a selected metric */}
+        {chartType === 'line' && selectedMetrics.includes('temperature') && showMinMaxLines && (
+          <ReferenceLine
+            y={15} // Fixed Y value for testing
+            stroke={metricConfigs['temperature']?.color || 'red'} // Use temperature color or fallback
+            strokeDasharray="3 3"
+            strokeOpacity={0.9}
+            label={{ value: "Test Line @ 15°C", position: "right", fill: metricConfigs['temperature']?.color || 'red', fontSize: 10, dx: -30 }}
+          />
+        )}
+
         {showMinMaxLines && chartType === 'line' && minMaxReferenceData &&
           selectedMetrics.map(metricKey => {
             const metricMinMax = minMaxReferenceData[metricKey];
             const metricConfig = metricConfigs[metricKey];
-            if (!metricMinMax || !metricConfig || metricConfig.isString) return null;
+            
+            console.log(`[WeatherChart] Processing MinMax for ${metricKey}: metricMinMax:`, metricMinMax, "metricConfig:", metricConfig);
+
+            if (!metricMinMax || !metricConfig || metricConfig.isString) {
+              console.log(`[WeatherChart] Skipping MinMax lines for ${metricKey} - Condition not met.`);
+              return null;
+            }
 
             const { minValue, maxValue } = metricMinMax;
+            console.log(`[WeatherChart] Rendering MinMax lines for ${metricKey} with minValue: ${minValue}, maxValue: ${maxValue}, color: ${metricConfig.color}`);
+
+            if (typeof minValue !== 'number' || !isFinite(minValue) || typeof maxValue !== 'number' || !isFinite(maxValue)) {
+                console.warn(`[WeatherChart] Invalid min/max values for ${metricKey}: min=${minValue}, max=${maxValue}. Skipping lines.`);
+                return null;
+            }
 
             return (
-              <React.Fragment key={`ref-lines-${metricKey}`}>
+              <React.Fragment key={`ref-lines-frag-${metricKey}`}>
                 <ReferenceLine
+                  key={`min-line-${metricKey}`}
                   y={minValue}
                   stroke={metricConfig.color}
-                  strokeDasharray="4 4"
-                  strokeOpacity={0.6}
-                  label={{
-                    value: `Min`,
-                    position: 'right', // Changed from 'left'
-                    fill: metricConfig.color,
-                    fontSize: 10,
-                    dx: -25, // Adjusted dx to pull from right towards y-axis
-                    dy: 5
-                  }}
+                  strokeDasharray="2 2" // Simplified dash array
+                  strokeOpacity={0.7} // Slightly more opaque for visibility
+                  // Temporarily removed label for simplicity
+                  // label={{
+                  //   value: `Min`, 
+                  //   position: 'right', 
+                  //   fill: metricConfig.color,
+                  //   fontSize: 10,
+                  //   dx: -25, 
+                  //   dy: 5 
+                  // }}
                 />
                 <ReferenceLine
+                  key={`max-line-${metricKey}`}
                   y={maxValue}
                   stroke={metricConfig.color}
-                  strokeDasharray="4 4"
-                  strokeOpacity={0.6}
-                  label={{
-                    value: `Max`,
-                    position: 'right', // Changed from 'left'
-                    fill: metricConfig.color,
-                    fontSize: 10,
-                    dx: -25, // Adjusted dx
-                    dy: -5
-                  }}
+                  strokeDasharray="2 2" // Simplified dash array
+                  strokeOpacity={0.7} // Slightly more opaque
+                  // Temporarily removed label for simplicity
+                  // label={{
+                  //   value: `Max`,
+                  //   position: 'right',
+                  //   fill: metricConfig.color,
+                  //   fontSize: 10,
+                  //   dx: -25, 
+                  //   dy: -5
+                  // }}
                 />
               </React.Fragment>
             );
