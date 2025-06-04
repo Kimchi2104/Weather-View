@@ -43,53 +43,45 @@ export const formatTimestampToFullUTC = (timestamp: number): string => {
 };
 
 const getPaddedMinYDomain = (dataMin: number): number | 'auto' => {
-  console.log('[WeatherChart] getPaddedMinYDomain received dataMin:', dataMin);
   if (typeof dataMin !== 'number' || !isFinite(dataMin)) {
-    console.log('[WeatherChart] getPaddedMinYDomain returning "auto" (invalid input).');
     return 'auto';
   }
 
   let result;
-  if (dataMin <= 1) { // Covers 0, 1, and negative values
-    result = Math.floor(dataMin - 2); // Ensure at least 2 units below
-    if (dataMin >=0 && result > -1) result = -1; // If original min was 0 or 1, make sure axis starts at -1 or lower
-  } else if (dataMin <= 10) { // Small positive numbers (e.g., 7.8)
-    const padding = Math.max(2, dataMin * 0.20); // 20% or 2 units
+  if (dataMin <= 1) { 
+    result = Math.floor(dataMin - 2); 
+    if (dataMin >=0 && result > -1) result = -1; 
+  } else if (dataMin <= 10) { 
+    const padding = Math.max(2, dataMin * 0.20); 
     result = Math.floor(dataMin - padding);
-    if (result > 0) result = 0; // Push to 0 if padding doesn't make it negative
-  } else { // Larger positive numbers
-    const padding = Math.max(3, dataMin * 0.10); // 10% or 3 units
+    if (result > 0) result = 0; 
+  } else { 
+    const padding = Math.max(3, dataMin * 0.10); 
     result = Math.floor(dataMin - padding);
   }
-
-  console.log(`[WeatherChart] getPaddedMinYDomain: input=${dataMin}, output=${result}`);
   return result;
 };
 
 const getPaddedMaxYDomain = (dataMax: number): number | 'auto' => {
-  console.log('[WeatherChart] getPaddedMaxYDomain received dataMax:', dataMax);
   if (typeof dataMax !== 'number' || !isFinite(dataMax)) {
-    console.log('[WeatherChart] getPaddedMaxYDomain returning "auto" (invalid input).');
     return 'auto';
   }
-
   let result;
-  if (dataMax >= -1 && dataMax <=1 ) { // Covers 0, 1, -1
-    result = Math.ceil(dataMax + 2); // Ensure at least 2 units above
-    if (dataMax <=0 && result < 1) result = 1; // If original max was 0 or -1, make sure axis ends at 1 or higher
-  } else if (dataMax > 1 && dataMax <= 10) { // Small positive numbers
-    const padding = Math.max(2, dataMax * 0.20); // 20% or 2 units
+  if (dataMax >= -1 && dataMax <=1 ) { 
+    result = Math.ceil(dataMax + 2); 
+    if (dataMax <=0 && result < 1) result = 1; 
+  } else if (dataMax > 1 && dataMax <= 10) { 
+    const padding = Math.max(2, dataMax * 0.20); 
     result = Math.ceil(dataMax + padding);
-  } else if (dataMax < -1 && dataMax >= -10) { // Small negative numbers
+  } else if (dataMax < -1 && dataMax >= -10) { 
     const padding = Math.max(2, Math.abs(dataMax * 0.20));
     result = Math.ceil(dataMax + padding);
-    if (result < 0) result = 0; // Push to 0 if padding doesn't make it positive
+    if (result < 0) result = 0; 
   }
-  else { // Larger numbers (positive or negative)
-    const padding = Math.max(3, Math.abs(dataMax) * 0.10); // 10% or 3 units
+  else { 
+    const padding = Math.max(3, Math.abs(dataMax) * 0.10); 
     result = dataMax > 0 ? Math.ceil(dataMax + padding) : Math.floor(dataMax - padding);
   }
-  console.log(`[WeatherChart] getPaddedMaxYDomain: input=${dataMax}, output=${result}`);
   return result;
 };
 
@@ -337,6 +329,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           minTickGap={(chartType === 'line' && !isAggregated) ? 20 : 5}
         />
         <YAxis
+          type="number"
           stroke="#888888"
           tick={{ fill: "hsl(var(--foreground))", fontSize: 12 }}
           tickFormatter={yAxisTickFormatter}
