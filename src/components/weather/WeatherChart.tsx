@@ -68,19 +68,12 @@ const WeatherChart: FC<WeatherChartProps> = ({
     if (!chartInputData) {
       return [];
     }
-    if (!isAggregated && chartType !== 'scatter') { 
-      return chartInputData.map((point) => ({
-        ...point,
-        timestampDisplay: formatTimestampToDdMmHhMmUTC(point.timestamp),
-        tooltipTimestampFull: formatTimestampToFullUTC(point.timestamp),
-      }));
-    }
     return chartInputData.map(point => ({
         ...point,
-        timestampDisplay: point.timestampDisplay || formatTimestampToDdMmHhMmUTC(point.timestamp),
-        tooltipTimestampFull: point.tooltipTimestampFull || (isAggregated ? point.timestampDisplay : formatTimestampToFullUTC(point.timestamp)),
+        timestampDisplay: point.timestampDisplay || formatTimestampToDdMmHhMmUTC(point.timestamp), // Use pre-formatted if available (for aggregation)
+        tooltipTimestampFull: point.tooltipTimestampFull || (isAggregated ? point.timestampDisplay : formatTimestampToFullUTC(point.timestamp)), // Use pre-formatted for aggregated
     }));
-  }, [chartInputData, isAggregated, chartType]);
+  }, [chartInputData, isAggregated]);
 
   const exportChart = async (format: 'png' | 'jpeg' | 'pdf') => {
     if (!chartRef.current) return;
@@ -137,7 +130,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           <CardDescription>
             Displaying {chartType.charAt(0).toUpperCase() + chartType.slice(1)} Chart
             {chartType !== 'scatter' && (isAggregated ? ` (Aggregated Data)` : ` (Raw Data)`)}.
-            {(chartType === 'scatter' || (chartType === 'line' && !isAggregated)) && " Point clicks can populate AI forecast."}
+            {((chartType === 'line' && !isAggregated) || chartType === 'scatter') && " Point clicks can populate AI forecast."}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-4 pt-0 h-[450px] flex items-center justify-center">
@@ -182,7 +175,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
   const handleChartClick = (event: any) => {
     if (onPointClick && event && event.activePayload && event.activePayload.length > 0) {
       const clickedPointData = event.activePayload[0].payload;
-      if (chartType === 'scatter' || (chartType === 'line' && !isAggregated)) {
+      if ((chartType === 'line' && !isAggregated) || chartType === 'scatter') {
          if ('rawTimestampString' in clickedPointData || chartType === 'scatter') { 
             onPointClick(clickedPointData as WeatherDataPoint);
          }
@@ -255,12 +248,12 @@ const WeatherChart: FC<WeatherChartProps> = ({
           dataKey="timestampDisplay"
           stroke="#888888"
           tick={{ fill: "hsl(var(--foreground))", fontSize: 11 }}
-          height={(!isAggregated && chartType !== 'scatter') ? 60 : 30}
+          height={(chartType === 'line' && !isAggregated) ? 60 : 30}
           interval="preserveStartEnd"
-          angle={(!isAggregated && chartType !== 'scatter') ? -45 : 0}
-          textAnchor={(!isAggregated && chartType !== 'scatter') ? "end" : "middle"}
-          dy={(!isAggregated && chartType !== 'scatter') ? 10 : 0}
-          minTickGap={(!isAggregated && chartType !== 'scatter') ? 20 : 5}
+          angle={(chartType === 'line' && !isAggregated) ? -45 : 0}
+          textAnchor={(chartType === 'line' && !isAggregated) ? "end" : "middle"}
+          dy={(chartType === 'line' && !isAggregated) ? 10 : 0}
+          minTickGap={(chartType === 'line' && !isAggregated) ? 20 : 5}
         />
         <YAxis
           stroke="#888888"
@@ -294,6 +287,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
         />
         {renderChartSpecificElements()}
         
+        {/* Hardcoded Test Line for Temperature - KEEP FOR DEBUGGING UNTIL DYNAMIC LINES WORK */}
         {chartType === 'line' && selectedMetrics.includes('temperature') && showMinMaxLines && (
           <ReferenceLine
             y={15} 
@@ -305,26 +299,29 @@ const WeatherChart: FC<WeatherChartProps> = ({
           />
         )}
 
+        {/* Dynamically generated Min/Max Reference Lines */}
         {showMinMaxLines && chartType === 'line' && minMaxReferenceData &&
           selectedMetrics.map(metricKey => {
             const metricMinMax = minMaxReferenceData[metricKey];
             const metricConfig = metricConfigs[metricKey];
             
+            console.log(
+              `[WeatherChart] Processing MinMax for ${metricKey}:`,
+              `MinMax Object:`, metricMinMax,
+              `Metric Config:`, metricConfig
+            );
+
             if (!metricMinMax || !metricConfig || metricConfig.isString) {
               return null;
             }
 
             const { minValue, maxValue } = metricMinMax;
             
-            console.log(
-              `[WeatherChart] Rendering MinMax for ${metricKey}:`,
-              `MinVal: ${minValue}, MaxVal: ${maxValue}, Color: ${metricConfig.color}`
-            );
-
             if (typeof minValue !== 'number' || !isFinite(minValue) || typeof maxValue !== 'number' || !isFinite(maxValue)) {
                 console.warn(`[WeatherChart] Invalid min/max values for ${metricKey}: min=${minValue}, max=${maxValue}. Skipping lines.`);
                 return null;
             }
+            console.log(`[WeatherChart] Rendering MinMax for ${metricKey}: MinVal: ${minValue}, MaxVal: ${maxValue}, Color: ${metricConfig.color}`);
 
             return (
               <React.Fragment key={`ref-lines-frag-${metricKey}`}>
@@ -335,7 +332,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
                   strokeDasharray="2 2" 
                   strokeOpacity={0.7}
                   strokeWidth={1}
-                  ifOverflow="extendDomain" 
+                  // Removed ifOverflow="extendDomain" for testing
                 />
                 <ReferenceLine
                   key={`max-line-${metricKey}`}
@@ -344,7 +341,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
                   strokeDasharray="2 2" 
                   strokeOpacity={0.7}
                   strokeWidth={1}
-                  ifOverflow="extendDomain" 
+                  // Removed ifOverflow="extendDomain" for testing
                 />
               </React.Fragment>
             );
@@ -362,7 +359,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           <CardDescription>
             Displaying {chartType.charAt(0).toUpperCase() + chartType.slice(1)} Chart
             {chartType !== 'scatter' && (isAggregated ? ` (Aggregated Data)` : ` (Raw Data)`)}.
-            {(chartType === 'scatter' || (chartType === 'line' && !isAggregated)) && " Point clicks can populate AI forecast."}
+            {((chartType === 'line' && !isAggregated) || chartType === 'scatter') && " Point clicks can populate AI forecast."}
           </CardDescription>
         </div>
       </CardHeader>

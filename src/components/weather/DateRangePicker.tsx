@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { FC } from 'react';
@@ -13,12 +14,14 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 interface DateRangePickerProps {
   onDateChange: (range: DateRange | undefined) => void;
   initialRange?: DateRange;
+  id?: string; // Added id to props
 }
 
 const DateRangePicker: FC<DateRangePickerProps & React.HTMLAttributes<HTMLDivElement>> = ({
   className,
   onDateChange,
   initialRange,
+  id, // Destructure id
 }) => {
   const [date, setDate] = useState<DateRange | undefined>(initialRange);
   const [isOpen, setIsOpen] = useState(false);
@@ -42,7 +45,7 @@ const DateRangePicker: FC<DateRangePickerProps & React.HTMLAttributes<HTMLDivEle
       <Popover open={isOpen} onOpenChange={setIsOpen}>
         <PopoverTrigger asChild>
           <Button
-            id="date"
+            id={id || 'date-range-picker-trigger'} // Use passed id or a default
             variant={'outline'}
             className={cn(
               'w-full justify-start text-left font-normal',
