@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { FC } from 'react';
@@ -46,17 +45,16 @@ const getPaddedMinYDomain = (dataMin: number): number | 'auto' => {
   if (typeof dataMin !== 'number' || !isFinite(dataMin)) {
     return 'auto';
   }
-
   let result;
-  if (dataMin <= 1) { 
-    result = Math.floor(dataMin - 2); 
-    if (dataMin >=0 && result > -1) result = -1; 
-  } else if (dataMin <= 10) { 
-    const padding = Math.max(2, dataMin * 0.20); 
+  if (dataMin <= 1) {
+    result = Math.floor(dataMin - 2);
+    if (dataMin >=0 && result > -1) result = -1;
+  } else if (dataMin <= 10) {
+    const padding = Math.max(2, dataMin * 0.20);
     result = Math.floor(dataMin - padding);
-    if (result > 0) result = 0; 
-  } else { 
-    const padding = Math.max(3, dataMin * 0.10); 
+    if (result > 0) result = 0;
+  } else {
+    const padding = Math.max(3, dataMin * 0.10);
     result = Math.floor(dataMin - padding);
   }
   return result;
@@ -67,22 +65,36 @@ const getPaddedMaxYDomain = (dataMax: number): number | 'auto' => {
     return 'auto';
   }
   let result;
-  if (dataMax >= -1 && dataMax <=1 ) { 
-    result = Math.ceil(dataMax + 2); 
-    if (dataMax <=0 && result < 1) result = 1; 
-  } else if (dataMax > 1 && dataMax <= 10) { 
-    const padding = Math.max(2, dataMax * 0.20); 
+  if (dataMax === 0) {
+    result = 5;
+  } else if (dataMax < 0 && dataMax >= -1) {
+     result = Math.ceil(dataMax + 2);
+     if (dataMax <= 0 && result < 1) result = 1;
+  } else if (dataMax > 0 && dataMax <= 10) {
+    const padding = Math.max(2, dataMax * 0.20);
     result = Math.ceil(dataMax + padding);
-  } else if (dataMax < -1 && dataMax >= -10) { 
+  } else if (dataMax < -1 && dataMax >= -10) {
     const padding = Math.max(2, Math.abs(dataMax * 0.20));
     result = Math.ceil(dataMax + padding);
-    if (result < 0) result = 0; 
+    if (result < 0) result = 0;
   }
-  else { 
-    const padding = Math.max(3, Math.abs(dataMax) * 0.10); 
+  else {
+    const padding = Math.max(3, Math.abs(dataMax) * 0.10);
     result = dataMax > 0 ? Math.ceil(dataMax + padding) : Math.floor(dataMax - padding);
   }
   return result;
+};
+
+const calculateYTicks = (min: number, max: number, count: number): number[] => {
+  if (min === max || count <= 1 || !isFinite(min) || !isFinite(max)) {
+    return [min, max].filter(isFinite);
+  }
+  const ticks: number[] = [];
+  const step = (max - min) / (count - 1);
+  for (let i = 0; i < count; i++) {
+    ticks.push(min + i * step);
+  }
+  return ticks;
 };
 
 
@@ -219,7 +231,12 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
   const yAxisTickFormatter = (value: any) => {
     if (typeof value === 'number' && isFinite(value)) {
-      return isAggregated ? value.toFixed(1) : value.toFixed(0);
+      // Show more precision for smaller numbers or when aggregated.
+      const absValue = Math.abs(value);
+      if (absValue > 0 && absValue < 10 && !Number.isInteger(value)) {
+        return value.toFixed(2);
+      }
+      return value.toFixed(isAggregated ? 1 : 0);
     }
     if (value === undefined || value === null || (typeof value === 'number' && !isFinite(value))) {
       return 'N/A';
@@ -308,6 +325,43 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
   const chartDynamicKey = `${chartType}-${selectedMetrics.join('-')}-${formattedData.length}-${isAggregated}-${showMinMaxLines}`;
 
+  const yAxisDomain = useMemo(() => {
+    const dataValues = selectedMetrics.flatMap(metricKey => 
+      formattedData.map(p => p[metricKey] as number).filter(v => typeof v === 'number' && isFinite(v))
+    );
+    if (dataValues.length === 0) return ['auto', 'auto'];
+
+    const actualDataMin = Math.min(...dataValues);
+    const actualDataMax = Math.max(...dataValues);
+    
+    let paddedMin = getPaddedMinYDomain(actualDataMin);
+    let paddedMax = getPaddedMaxYDomain(actualDataMax);
+
+    // Ensure paddedMin is not greater than actualDataMin and paddedMax not less than actualDataMax
+    if (typeof paddedMin === 'number' && paddedMin > actualDataMin) paddedMin = actualDataMin;
+    if (typeof paddedMax === 'number' && paddedMax < actualDataMax) paddedMax = actualDataMax;
+    
+    // If min and max are the same (e.g. single value data or constant value), add some padding
+    if (typeof paddedMin === 'number' && typeof paddedMax === 'number' && paddedMin === paddedMax) {
+      paddedMin = paddedMin - (Math.abs(paddedMin * 0.1) || 1); // 10% padding or 1 unit
+      paddedMax = paddedMax + (Math.abs(paddedMax * 0.1) || 1);
+    }
+
+
+    return [paddedMin, paddedMax];
+  }, [formattedData, selectedMetrics, chartType]);
+
+
+  const yAxisTicks = useMemo(() => {
+    if (chartType !== 'line') return undefined; // Only for line charts for now
+    const [minDomain, maxDomain] = yAxisDomain;
+    if (typeof minDomain !== 'number' || typeof maxDomain !== 'number') {
+      return undefined;
+    }
+    return calculateYTicks(minDomain, maxDomain, 8); // Generate 8 ticks
+  }, [yAxisDomain, chartType]);
+
+
   const renderChart = () => (
     <ResponsiveContainer width="100%" height="100%">
       <ChartComponent
@@ -329,13 +383,13 @@ const WeatherChart: FC<WeatherChartProps> = ({
           minTickGap={(chartType === 'line' && !isAggregated) ? 20 : 5}
         />
         <YAxis
-          type="number"
           stroke="#888888"
           tick={{ fill: "hsl(var(--foreground))", fontSize: 12 }}
           tickFormatter={yAxisTickFormatter}
-          domain={chartType === 'line' ? [getPaddedMinYDomain, getPaddedMaxYDomain] : ['auto', 'auto']}
+          domain={chartType === 'line' ? yAxisDomain : ['auto', 'auto']}
+          ticks={chartType === 'line' ? yAxisTicks : undefined}
           allowDecimals={true}
-          tickCount={8}
+          type="number"
           scale="linear"
         />
         <Tooltip
@@ -500,3 +554,4 @@ export default WeatherChart;
     
 
     
+
