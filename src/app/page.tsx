@@ -17,6 +17,7 @@ export default function HomePage() {
           <div className="mt-4 border-t border-border/50 pt-4">
             <h4 className="text-xs font-semibold uppercase tracking-wider text-foreground/80">PROJECT CONTRIBUTIONS BY SUNZI & KIMJOO</h4>
             <ul className="text-xs mt-2 space-y-0.5 text-muted-foreground">
+              <li>Weather Station Setup for Data Collection</li>
               <li>Weather Station Data Integration</li>
               <li>Realtime Database Setup & Rules Configuration</li>
               <li>AI-Powered Forecasting Flow Implementation</li>
