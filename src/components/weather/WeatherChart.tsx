@@ -39,7 +39,7 @@ export const formatTimestampToFullUTC = (timestamp: number): string => {
 };
 
 interface WeatherChartProps {
-  data: WeatherDataPoint[] | any[];
+  data: WeatherDataPoint[] | any[]; // Renamed from 'data' to 'chartInputData' to avoid scope collision
   selectedMetrics: MetricKey[];
   metricConfigs: Record<MetricKey, MetricConfig>;
   isLoading: boolean;
@@ -51,7 +51,7 @@ interface WeatherChartProps {
 }
 
 const WeatherChart: FC<WeatherChartProps> = ({
-  data: chartInputData,
+  data: chartInputData, // Prop is 'data', aliased to chartInputData
   selectedMetrics,
   metricConfigs,
   isLoading,
@@ -75,10 +75,11 @@ const WeatherChart: FC<WeatherChartProps> = ({
         tooltipTimestampFull: formatTimestampToFullUTC(point.timestamp),
       }));
     }
+    // For aggregated data or scatter (which might already have 'timestampDisplay' or needs UTC formatting)
     return chartInputData.map(point => ({
         ...point,
-        timestampDisplay: isAggregated ? point.timestampDisplay : formatTimestampToDdMmHhMmUTC(point.timestamp),
-        tooltipTimestampFull: isAggregated ? point.timestampDisplay : formatTimestampToFullUTC(point.timestamp),
+        timestampDisplay: point.timestampDisplay || formatTimestampToDdMmHhMmUTC(point.timestamp), // Use existing if available (aggregated)
+        tooltipTimestampFull: point.tooltipTimestampFull || (isAggregated ? point.timestampDisplay : formatTimestampToFullUTC(point.timestamp)),
     }));
   }, [chartInputData, isAggregated, chartType]);
 
@@ -91,7 +92,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
       const canvas = await html2canvas(chartElementToCapture as HTMLElement, {
         scale: 2,
         useCORS: true,
-        backgroundColor: null, 
+        backgroundColor: null, // Let html2canvas use the element's actual background
       });
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
       if (format === 'pdf') {
@@ -137,7 +138,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           <CardDescription>
             Displaying {chartType.charAt(0).toUpperCase() + chartType.slice(1)} Chart
             {chartType !== 'scatter' && (isAggregated ? ` (Aggregated Data)` : ` (Raw Data)`)}.
-            {(chartType === 'scatter' || (chartType === 'line' && !isAggregated)) && " Click data points to use for AI forecast."}
+            {(chartType === 'scatter' || (chartType === 'line' && !isAggregated)) && " Click data points for AI forecast."}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-4 pt-0 h-[450px] flex items-center justify-center">
@@ -182,8 +183,11 @@ const WeatherChart: FC<WeatherChartProps> = ({
   const handleChartClick = (event: any) => {
     if (onPointClick && !isAggregated && event && event.activePayload && event.activePayload.length > 0) {
       const clickedPointData = event.activePayload[0].payload;
-      if ('rawTimestampString' in clickedPointData || chartType === 'scatter') {
-         onPointClick(clickedPointData as WeatherDataPoint);
+       // Enable click for scatter OR line chart showing raw data
+      if (chartType === 'scatter' || (chartType === 'line' && !isAggregated)) {
+         if ('rawTimestampString' in clickedPointData || chartType === 'scatter') { // Ensure it's a raw data point
+            onPointClick(clickedPointData as WeatherDataPoint);
+         }
       }
     }
   };
@@ -206,7 +210,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
               stroke={color}
               name={name}
               dot={isAggregated ? { r: 3 } : false}
-              connectNulls={false}
+              connectNulls={false} // Kept false as per original design for accuracy
             />
           );
         case 'bar':
@@ -238,6 +242,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
   if (chartType === 'bar') ChartComponent = BarChart;
   else if (chartType === 'scatter') ChartComponent = ScatterChart;
 
+  // Dynamic key for Recharts components to force re-render on prop changes if necessary
   const chartDynamicKey = `${chartType}-${selectedMetrics.join('-')}-${formattedData.length}-${isAggregated}-${showMinMaxLines}`;
 
   const renderChart = () => (
@@ -253,12 +258,12 @@ const WeatherChart: FC<WeatherChartProps> = ({
           dataKey="timestampDisplay"
           stroke="#888888"
           tick={{ fill: "hsl(var(--foreground))", fontSize: 11 }}
-          height={(isAggregated && chartType !== 'bar') ? 30 : 60} 
+          height={(!isAggregated && chartType !== 'scatter') ? 60 : 30} // Less height for aggregated/scatter
           interval="preserveStartEnd"
-          angle={(isAggregated && chartType !== 'bar') ? 0 : -45} 
-          textAnchor={(isAggregated && chartType !== 'bar') ? "middle" : "end"} 
-          dy={(isAggregated && chartType !== 'bar') ? 0 : 10} 
-          minTickGap={(isAggregated && chartType !== 'bar') ? 5 : 20} 
+          angle={(!isAggregated && chartType !== 'scatter') ? -45 : 0} // No angle for aggregated/scatter
+          textAnchor={(!isAggregated && chartType !== 'scatter') ? "end" : "middle"} // Adjust anchor
+          dy={(!isAggregated && chartType !== 'scatter') ? 10 : 0} // Adjust dy
+          minTickGap={(!isAggregated && chartType !== 'scatter') ? 20 : 5} // Adjust tick gap
         />
         <YAxis
           stroke="#888888"
@@ -271,7 +276,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
             if (payload && payload.length > 0 && payload[0].payload.tooltipTimestampFull) {
               return payload[0].payload.tooltipTimestampFull;
             }
-            return label;
+            return label; // Fallback to the original label (timestampDisplay)
           }}
           contentStyle={{
             backgroundColor: 'hsl(var(--popover))',
@@ -284,7 +289,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           cursor={{ stroke: 'hsl(var(--accent))', strokeWidth: 1, strokeDasharray: '3 3' }}
         />
         <Legend
-          wrapperStyle={{ paddingTop: '0px', paddingBottom: '5px', marginTop: "10px" }}
+          wrapperStyle={{ paddingTop: '0px', paddingBottom: '5px', marginTop: "10px" }} // Reduced top margin
           iconSize={14}
           layout="horizontal"
           align="center"
@@ -295,8 +300,8 @@ const WeatherChart: FC<WeatherChartProps> = ({
         {/* Hardcoded Test ReferenceLine for 'temperature' if it's a selected metric */}
         {chartType === 'line' && selectedMetrics.includes('temperature') && showMinMaxLines && (
           <ReferenceLine
-            y={15} // Fixed Y value for testing
-            stroke={metricConfigs['temperature']?.color || 'red'} // Use temperature color or fallback
+            y={15} 
+            stroke={metricConfigs['temperature']?.color || 'red'}
             strokeDasharray="3 3"
             strokeOpacity={0.9}
             label={{ value: "Test Line @ 15°C", position: "right", fill: metricConfigs['temperature']?.color || 'red', fontSize: 10, dx: -30 }}
@@ -308,54 +313,38 @@ const WeatherChart: FC<WeatherChartProps> = ({
             const metricMinMax = minMaxReferenceData[metricKey];
             const metricConfig = metricConfigs[metricKey];
             
-            console.log(`[WeatherChart] Processing MinMax for ${metricKey}: metricMinMax:`, metricMinMax, "metricConfig:", metricConfig);
+            // console.log(`[WeatherChart] Processing MinMax for ${metricKey}: metricMinMax:`, metricMinMax, "metricConfig:", metricConfig);
 
             if (!metricMinMax || !metricConfig || metricConfig.isString) {
-              console.log(`[WeatherChart] Skipping MinMax lines for ${metricKey} - Condition not met.`);
+              // console.log(`[WeatherChart] Skipping MinMax lines for ${metricKey} - Condition not met (no data, no config, or string metric).`);
               return null;
             }
 
             const { minValue, maxValue } = metricMinMax;
-            console.log(`[WeatherChart] Rendering MinMax lines for ${metricKey} with minValue: ${minValue}, maxValue: ${maxValue}, color: ${metricConfig.color}`);
 
             if (typeof minValue !== 'number' || !isFinite(minValue) || typeof maxValue !== 'number' || !isFinite(maxValue)) {
                 console.warn(`[WeatherChart] Invalid min/max values for ${metricKey}: min=${minValue}, max=${maxValue}. Skipping lines.`);
                 return null;
             }
+            // console.log(`[WeatherChart] Rendering MinMax lines for ${metricKey} with minValue: ${minValue}, maxValue: ${maxValue}, color: ${metricConfig.color}`);
 
             return (
               <React.Fragment key={`ref-lines-frag-${metricKey}`}>
                 <ReferenceLine
                   key={`min-line-${metricKey}`}
-                  y={minValue}
+                  y={Number(minValue)} 
                   stroke={metricConfig.color}
-                  strokeDasharray="2 2" // Simplified dash array
-                  strokeOpacity={0.7} // Slightly more opaque for visibility
-                  // Temporarily removed label for simplicity
-                  // label={{
-                  //   value: `Min`, 
-                  //   position: 'right', 
-                  //   fill: metricConfig.color,
-                  //   fontSize: 10,
-                  //   dx: -25, 
-                  //   dy: 5 
-                  // }}
+                  strokeDasharray="2 2" 
+                  strokeOpacity={0.7} 
+                  // Label removed for simplicity during debugging
                 />
                 <ReferenceLine
                   key={`max-line-${metricKey}`}
-                  y={maxValue}
+                  y={Number(maxValue)} 
                   stroke={metricConfig.color}
-                  strokeDasharray="2 2" // Simplified dash array
-                  strokeOpacity={0.7} // Slightly more opaque
-                  // Temporarily removed label for simplicity
-                  // label={{
-                  //   value: `Max`,
-                  //   position: 'right',
-                  //   fill: metricConfig.color,
-                  //   fontSize: 10,
-                  //   dx: -25, 
-                  //   dy: -5
-                  // }}
+                  strokeDasharray="2 2" 
+                  strokeOpacity={0.7} 
+                  // Label removed for simplicity during debugging
                 />
               </React.Fragment>
             );
@@ -373,7 +362,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           <CardDescription>
             Displaying {chartType.charAt(0).toUpperCase() + chartType.slice(1)} Chart
             {chartType !== 'scatter' && (isAggregated ? ` (Aggregated Data)` : ` (Raw Data)`)}.
-            {(chartType === 'scatter' || (chartType === 'line' && !isAggregated)) && " Click data points to use for AI forecast."}
+            {(chartType === 'scatter' || (chartType === 'line' && !isAggregated)) && " Click data points for AI forecast."}
           </CardDescription>
         </div>
       </CardHeader>
