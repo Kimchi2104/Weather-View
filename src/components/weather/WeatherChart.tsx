@@ -50,16 +50,15 @@ const getPaddedMinYDomain = (dataMin: number): number | 'auto' => {
   }
 
   let result;
-  if (dataMin <= 1) { 
-    result = Math.floor(dataMin - 2); 
-    if (dataMin >=0 && result > -1) result = -1; 
-  } else if (dataMin <= 10) { 
-    const padding = Math.max(2, dataMin * 0.20);
-    result = Math.floor(dataMin - padding); 
-    if (result >= dataMin) result = dataMin -2; 
-    if (result > 0) result = 0; 
-  } else { 
-    const padding = Math.max(3, dataMin * 0.10); 
+  if (dataMin <= 1) { // Covers 0, 1, and negative values
+    result = Math.floor(dataMin - 2); // Ensure at least 2 units below
+    if (dataMin >=0 && result > -1) result = -1; // If original min was 0 or 1, make sure axis starts at -1 or lower
+  } else if (dataMin <= 10) { // Small positive numbers (e.g., 7.8)
+    const padding = Math.max(2, dataMin * 0.20); // 20% or 2 units
+    result = Math.floor(dataMin - padding);
+    if (result > 0) result = 0; // Push to 0 if padding doesn't make it negative
+  } else { // Larger positive numbers
+    const padding = Math.max(3, dataMin * 0.10); // 10% or 3 units
     result = Math.floor(dataMin - padding);
   }
 
@@ -75,16 +74,20 @@ const getPaddedMaxYDomain = (dataMax: number): number | 'auto' => {
   }
 
   let result;
-  if (dataMax >= -1 && dataMax <=1 ) { 
-    result = Math.ceil(dataMax + 2); 
-    if (dataMax <=0 && result < 1) result = 1;
-  } else if (dataMax > 1 && dataMax <= 10) { 
-    const padding = Math.max(2, dataMax * 0.20);
-    result = Math.ceil(dataMax + padding); 
-    if (result <= dataMax) result = dataMax + 2; 
-  } else { 
-    const padding = Math.max(3, Math.abs(dataMax * 0.10)); 
+  if (dataMax >= -1 && dataMax <=1 ) { // Covers 0, 1, -1
+    result = Math.ceil(dataMax + 2); // Ensure at least 2 units above
+    if (dataMax <=0 && result < 1) result = 1; // If original max was 0 or -1, make sure axis ends at 1 or higher
+  } else if (dataMax > 1 && dataMax <= 10) { // Small positive numbers
+    const padding = Math.max(2, dataMax * 0.20); // 20% or 2 units
     result = Math.ceil(dataMax + padding);
+  } else if (dataMax < -1 && dataMax >= -10) { // Small negative numbers
+    const padding = Math.max(2, Math.abs(dataMax * 0.20));
+    result = Math.ceil(dataMax + padding);
+    if (result < 0) result = 0; // Push to 0 if padding doesn't make it positive
+  }
+  else { // Larger numbers (positive or negative)
+    const padding = Math.max(3, Math.abs(dataMax) * 0.10); // 10% or 3 units
+    result = dataMax > 0 ? Math.ceil(dataMax + padding) : Math.floor(dataMax - padding);
   }
   console.log(`[WeatherChart] getPaddedMaxYDomain: input=${dataMax}, output=${result}`);
   return result;
@@ -153,7 +156,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
     
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const _ = (chartElementToCapture as HTMLElement).offsetHeight; 
-    await new Promise(resolve => setTimeout(resolve, 100)); 
+    await new Promise(resolve => setTimeout(resolve, 50)); 
 
 
     try {
@@ -338,6 +341,9 @@ const WeatherChart: FC<WeatherChartProps> = ({
           tick={{ fill: "hsl(var(--foreground))", fontSize: 12 }}
           tickFormatter={yAxisTickFormatter}
           domain={chartType === 'line' ? [getPaddedMinYDomain, getPaddedMaxYDomain] : ['auto', 'auto']}
+          allowDecimals={true}
+          tickCount={8}
+          scale="linear"
         />
         <Tooltip
           formatter={tooltipFormatter}
@@ -372,17 +378,14 @@ const WeatherChart: FC<WeatherChartProps> = ({
             const metricConfig = metricConfigs[metricKey];
             
             if (!metricMinMax || !metricConfig || metricConfig.isString) {
-              console.log(`[WeatherChart] Skipping MinMax lines for ${metricKey} - No data or string type.`);
               return [];
             }
 
             const { minValue, maxValue } = metricMinMax;
             
             if (typeof minValue !== 'number' || !isFinite(minValue) || typeof maxValue !== 'number' || !isFinite(maxValue)) {
-               console.warn(`[WeatherChart] Invalid min/max values for ReferenceLine, skipping for ${metricKey}:`, minValue, maxValue);
               return [];
             }
-            console.log(`[WeatherChart] Rendering MinMax lines for ${metricKey} with minValue: ${minValue}, maxValue: ${maxValue}, color: ${metricConfig.color}`);
             
             return [
               <ReferenceLine
@@ -394,11 +397,10 @@ const WeatherChart: FC<WeatherChartProps> = ({
                 strokeWidth={1}
                 label={{ 
                   value: `Min: ${Number(minValue).toFixed(isAggregated ? 1 : 0)}${metricConfig.unit || ''}`, 
-                  position: "insideBottomRight", 
+                  position: "right", 
                   fill: metricConfig.color, 
                   fontSize: 10,
-                  dy: 10, // Adjusted for better visibility from bottom
-                  dx: 5
+                  dy: 5 
                 }}
               />,
               <ReferenceLine
@@ -410,11 +412,10 @@ const WeatherChart: FC<WeatherChartProps> = ({
                 strokeWidth={1}
                 label={{ 
                   value: `Max: ${Number(maxValue).toFixed(isAggregated ? 1 : 0)}${metricConfig.unit || ''}`, 
-                  position: "insideTopRight", 
+                  position: "right", 
                   fill: metricConfig.color, 
                   fontSize: 10,
-                  dy: -2, // Adjusted for better visibility from top
-                  dx: 5
+                  dy: -5
                 }}
               />
             ];
@@ -505,9 +506,4 @@ export default WeatherChart;
 
     
 
-
-
-
-
-
-
+    
