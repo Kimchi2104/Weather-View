@@ -2,7 +2,7 @@
 "use client";
 
 import type { FC } from 'react';
-import React, { useRef, useState, useMemo, useEffect } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { useTheme } from 'next-themes';
@@ -14,6 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuLabel,
+  DropdownMenuTrigger, // Added missing import
 } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, ScatterChart, Scatter, ReferenceLine } from 'recharts';
@@ -119,7 +120,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           format: [canvas.width, canvas.height],
         });
         pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
-        pdf.save('weather-chart.pdf');
+        pdf.save(`weather-chart-${targetExportTheme}.pdf`);
       } else {
         const link = document.createElement('a');
         link.download = `weather-chart-${targetExportTheme}.${format}`;
@@ -136,8 +137,8 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
   const getPaddedMaxYDomain = (dataMax: number): number | 'auto' => {
     if (typeof dataMax !== 'number' || !isFinite(dataMax)) return 'auto';
-    if (dataMax === 0) return 5; // Ensure some space if max is 0
-    const padding = Math.max(Math.abs(dataMax * 0.05), 1); // At least 1 unit padding
+    if (dataMax === 0) return 5; 
+    const padding = Math.max(Math.abs(dataMax * 0.05), 1); 
     return Math.ceil(dataMax + padding);
   };
 
@@ -163,7 +164,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           <CardDescription>
             Displaying {chartType.charAt(0).toUpperCase() + chartType.slice(1)} Chart
             {(chartType === 'line' || chartType === 'bar') && (isAggregated ? ` (Aggregated Data)` : ` (Raw Data)`)}.
-            {(((chartType === 'line' && !isAggregated)) || chartType === 'scatter') && " Point clicks can populate AI forecast."}
+            {((chartType === 'line' && !isAggregated) || chartType === 'scatter') && " Point clicks can populate AI forecast."}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-4 pt-0 h-[450px] flex items-center justify-center">
@@ -208,7 +209,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
   const handleChartClick = (event: any) => {
     if (onPointClick && event && event.activePayload && event.activePayload.length > 0) {
       const clickedPointData = event.activePayload[0].payload;
-       if (((chartType === 'line' && !isAggregated) || chartType === 'scatter')) {
+       if ((chartType === 'line' && !isAggregated) || chartType === 'scatter') {
          if ('rawTimestampString' in clickedPointData || chartType === 'scatter' || ('timestamp' in clickedPointData && !isAggregated && !('aggregationPeriod' in clickedPointData)) ) {
             onPointClick(clickedPointData as WeatherDataPoint);
          }
@@ -345,7 +346,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
                 strokeOpacity={0.7}
                 strokeWidth={1}
                 label={{ 
-                  value: `Min: ${minValue.toFixed(isAggregated ? 1 : 0)}${metricConfig.unit || ''}`, 
+                  value: `Min: ${Number(minValue).toFixed(isAggregated ? 1 : 0)}${metricConfig.unit || ''}`, 
                   position: "right", 
                   fill: metricConfig.color, 
                   fontSize: 10, 
@@ -361,7 +362,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
                 strokeOpacity={0.7}
                 strokeWidth={1}
                 label={{ 
-                  value: `Max: ${maxValue.toFixed(isAggregated ? 1 : 0)}${metricConfig.unit || ''}`, 
+                  value: `Max: ${Number(maxValue).toFixed(isAggregated ? 1 : 0)}${metricConfig.unit || ''}`, 
                   position: "right", 
                   fill: metricConfig.color, 
                   fontSize: 10, 
@@ -456,3 +457,4 @@ export default WeatherChart;
     
 
     
+
