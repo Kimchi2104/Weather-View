@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { FC } from 'react';
@@ -45,16 +46,17 @@ const getPaddedMinYDomain = (dataMin: number): number | 'auto' => {
   if (typeof dataMin !== 'number' || !isFinite(dataMin)) {
     return 'auto';
   }
+
   let result;
-  if (dataMin <= 1) {
-    result = Math.floor(dataMin - 2);
-    if (dataMin >=0 && result > -1) result = -1;
-  } else if (dataMin <= 10) {
-    const padding = Math.max(2, dataMin * 0.20);
+  if (dataMin <= 1) { // Catches 0, 1, and negative numbers
+    result = Math.floor(dataMin - 2); // Ensure at least 2 units below
+    if (dataMin >= 0 && result > -1) result = -1; // If dataMin was 0 or 1, push to at least -1
+  } else if (dataMin <= 10) { // Small positive numbers
+    const padding = Math.max(2, dataMin * 0.20); // 20% or 2 units
     result = Math.floor(dataMin - padding);
-    if (result > 0) result = 0;
-  } else {
-    const padding = Math.max(3, dataMin * 0.10);
+    if (result > 0) result = 0; // If still positive, push down to 0
+  } else { // Larger positive numbers
+    const padding = Math.max(3, dataMin * 0.10); // 10% or 3 units
     result = Math.floor(dataMin - padding);
   }
   return result;
@@ -67,19 +69,19 @@ const getPaddedMaxYDomain = (dataMax: number): number | 'auto' => {
   let result;
   if (dataMax === 0) {
     result = 5;
-  } else if (dataMax < 0 && dataMax >= -1) {
-     result = Math.ceil(dataMax + 2);
-     if (dataMax <= 0 && result < 1) result = 1;
-  } else if (dataMax > 0 && dataMax <= 10) {
-    const padding = Math.max(2, dataMax * 0.20);
+  } else if (dataMax < 0 && dataMax >= -1) { // Small negative numbers up to -1
+     result = Math.ceil(dataMax + 2); // Ensure at least 2 units above
+     if (dataMax <= 0 && result < 1) result = 1; // If dataMax was 0 or -1, push to at least 1
+  } else if (dataMax > 0 && dataMax <= 10) { // Small positive numbers
+    const padding = Math.max(2, dataMax * 0.20); // 20% or 2 units
     result = Math.ceil(dataMax + padding);
-  } else if (dataMax < -1 && dataMax >= -10) {
+  } else if (dataMax < -1 && dataMax >= -10) { // Small negative numbers
     const padding = Math.max(2, Math.abs(dataMax * 0.20));
     result = Math.ceil(dataMax + padding);
-    if (result < 0) result = 0;
+    if (result < 0) result = 0; // If still negative, push up to 0
   }
-  else {
-    const padding = Math.max(3, Math.abs(dataMax) * 0.10);
+  else { // Larger numbers (positive or negative)
+    const padding = Math.max(3, Math.abs(dataMax) * 0.10); // 10% or 3 units
     result = dataMax > 0 ? Math.ceil(dataMax + padding) : Math.floor(dataMax - padding);
   }
   return result;
@@ -112,6 +114,9 @@ interface WeatherChartProps {
 
 type ExportThemeOption = 'current' | 'light' | 'dark';
 
+// NOTE: If "Rules of Hooks" errors persist, it might be due to the `useTheme` hook (from next-themes)
+// internally varying its own hook call count based on system/forced themes. This component's
+// local hooks (useRef, useState, useMemo) are called unconditionally at the top level.
 const WeatherChart: FC<WeatherChartProps> = ({
   data: chartInputData,
   selectedMetrics,
@@ -140,57 +145,29 @@ const WeatherChart: FC<WeatherChartProps> = ({
     }));
   }, [chartInputData, isAggregated]);
 
-  const exportChart = async (format: 'png' | 'jpeg' | 'pdf') => {
-    if (!chartRef.current || isExporting) return;
-
-    const chartElementToCapture = chartRef.current.querySelector('.recharts-wrapper') || chartRef.current;
-    setIsExporting(true);
-
-    const actualCurrentTheme = resolvedTheme || currentSystemTheme || 'light';
-    const targetExportTheme = exportThemeOption === 'current' ? actualCurrentTheme : exportThemeOption;
-
-    const htmlElement = document.documentElement;
-    const originalHtmlClasses = htmlElement.className;
-
-    if (targetExportTheme === 'light') {
-      htmlElement.classList.remove('dark');
-    } else if (targetExportTheme === 'dark') {
-      htmlElement.classList.add('dark');
+  const yAxisDomain = useMemo(() => {
+    const dataValues = selectedMetrics.flatMap(metricKey =>
+      formattedData.map(p => p[metricKey] as number).filter(v => typeof v === 'number' && isFinite(v))
+    );
+    if (dataValues.length === 0) {
+      return ['auto', 'auto'] as [number | 'auto', number | 'auto'];
     }
-    
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const _ = (chartElementToCapture as HTMLElement).offsetHeight; 
-    await new Promise(resolve => setTimeout(resolve, 50)); 
+
+    const actualDataMin = Math.min(...dataValues);
+    const actualDataMax = Math.max(...dataValues);
+
+    return [getPaddedMinYDomain(actualDataMin), getPaddedMaxYDomain(actualDataMax)] as [number | 'auto', number | 'auto'];
+  }, [formattedData, selectedMetrics, chartType]);
 
 
-    try {
-      const canvas = await html2canvas(chartElementToCapture as HTMLElement, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: targetExportTheme === 'dark' ? 'hsl(210 20% 5%)' : 'hsl(210 20% 98%)',
-      });
-      const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
-      if (format === 'pdf') {
-        const pdf = new jsPDF({
-          orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
-          unit: 'px',
-          format: [canvas.width, canvas.height],
-        });
-        pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
-        pdf.save(`weather-chart-${targetExportTheme}.pdf`);
-      } else {
-        const link = document.createElement('a');
-        link.download = `weather-chart-${targetExportTheme}.${format}`;
-        link.href = imgData;
-        link.click();
-      }
-    } catch (error) {
-      console.error('Error exporting chart:', error);
-    } finally {
-      htmlElement.className = originalHtmlClasses;
-      setIsExporting(false);
+  const yAxisTicks = useMemo(() => {
+    if (chartType !== 'line') return undefined;
+    const [minDomain, maxDomain] = yAxisDomain;
+    if (typeof minDomain !== 'number' || typeof maxDomain !== 'number') {
+      return undefined;
     }
-  };
+    return calculateYTicks(minDomain, maxDomain, 8);
+  }, [yAxisDomain, chartType]);
 
 
   if (isLoading) {
@@ -225,18 +202,65 @@ const WeatherChart: FC<WeatherChartProps> = ({
     );
   }
 
+  const exportChart = async (format: 'png' | 'jpeg' | 'pdf') => {
+    if (!chartRef.current || isExporting) return;
+
+    const chartElementToCapture = chartRef.current.querySelector('.recharts-wrapper') || chartRef.current;
+    setIsExporting(true);
+
+    const actualCurrentTheme = resolvedTheme || currentSystemTheme || 'light';
+    const targetExportTheme = exportThemeOption === 'current' ? actualCurrentTheme : exportThemeOption;
+
+    const htmlElement = document.documentElement;
+    const originalHtmlClasses = htmlElement.className;
+
+    if (targetExportTheme === 'light') {
+      htmlElement.classList.remove('dark');
+    } else if (targetExportTheme === 'dark') {
+      htmlElement.classList.add('dark');
+    }
+    
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _ = (chartElementToCapture as HTMLElement).offsetHeight; 
+    await new Promise(resolve => setTimeout(resolve, 50)); 
+
+
+    try {
+      const canvas = await html2canvas(chartElementToCapture as HTMLElement, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: targetExportTheme === 'dark' ? 'hsl(210 20% 5%)' : 'hsl(210 20% 98%)', // Explicit background
+      });
+      const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
+      if (format === 'pdf') {
+        const pdf = new jsPDF({
+          orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
+          unit: 'px',
+          format: [canvas.width, canvas.height],
+        });
+        pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+        pdf.save(`weather-chart-${targetExportTheme}.pdf`);
+      } else {
+        const link = document.createElement('a');
+        link.download = `weather-chart-${targetExportTheme}.${format}`;
+        link.href = imgData;
+        link.click();
+      }
+    } catch (error) {
+      console.error('Error exporting chart:', error);
+    } finally {
+      htmlElement.className = originalHtmlClasses; // Restore original classes
+      setIsExporting(false);
+    }
+  };
+
   const commonCartesianProps = {
     margin: { top: 10, right: 40, left: 20, bottom: 20 },
   };
 
   const yAxisTickFormatter = (value: any) => {
     if (typeof value === 'number' && isFinite(value)) {
-      // Show more precision for smaller numbers or when aggregated.
-      const absValue = Math.abs(value);
-      if (absValue > 0 && absValue < 10 && !Number.isInteger(value)) {
-        return value.toFixed(2);
-      }
-      return value.toFixed(isAggregated ? 1 : 0);
+      return value.toFixed(2); // Show up to 2 decimal places for ticks
     }
     if (value === undefined || value === null || (typeof value === 'number' && !isFinite(value))) {
       return 'N/A';
@@ -325,43 +349,6 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
   const chartDynamicKey = `${chartType}-${selectedMetrics.join('-')}-${formattedData.length}-${isAggregated}-${showMinMaxLines}`;
 
-  const yAxisDomain = useMemo(() => {
-    const dataValues = selectedMetrics.flatMap(metricKey => 
-      formattedData.map(p => p[metricKey] as number).filter(v => typeof v === 'number' && isFinite(v))
-    );
-    if (dataValues.length === 0) return ['auto', 'auto'];
-
-    const actualDataMin = Math.min(...dataValues);
-    const actualDataMax = Math.max(...dataValues);
-    
-    let paddedMin = getPaddedMinYDomain(actualDataMin);
-    let paddedMax = getPaddedMaxYDomain(actualDataMax);
-
-    // Ensure paddedMin is not greater than actualDataMin and paddedMax not less than actualDataMax
-    if (typeof paddedMin === 'number' && paddedMin > actualDataMin) paddedMin = actualDataMin;
-    if (typeof paddedMax === 'number' && paddedMax < actualDataMax) paddedMax = actualDataMax;
-    
-    // If min and max are the same (e.g. single value data or constant value), add some padding
-    if (typeof paddedMin === 'number' && typeof paddedMax === 'number' && paddedMin === paddedMax) {
-      paddedMin = paddedMin - (Math.abs(paddedMin * 0.1) || 1); // 10% padding or 1 unit
-      paddedMax = paddedMax + (Math.abs(paddedMax * 0.1) || 1);
-    }
-
-
-    return [paddedMin, paddedMax];
-  }, [formattedData, selectedMetrics, chartType]);
-
-
-  const yAxisTicks = useMemo(() => {
-    if (chartType !== 'line') return undefined; // Only for line charts for now
-    const [minDomain, maxDomain] = yAxisDomain;
-    if (typeof minDomain !== 'number' || typeof maxDomain !== 'number') {
-      return undefined;
-    }
-    return calculateYTicks(minDomain, maxDomain, 8); // Generate 8 ticks
-  }, [yAxisDomain, chartType]);
-
-
   const renderChart = () => (
     <ResponsiveContainer width="100%" height="100%">
       <ChartComponent
@@ -389,7 +376,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           domain={chartType === 'line' ? yAxisDomain : ['auto', 'auto']}
           ticks={chartType === 'line' ? yAxisTicks : undefined}
           allowDecimals={true}
-          type="number"
+          type="number" 
           scale="linear"
         />
         <Tooltip
@@ -554,4 +541,5 @@ export default WeatherChart;
     
 
     
+
 
