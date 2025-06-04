@@ -176,7 +176,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
   }
 
   const commonCartesianProps = {
-    margin: { top: 30, right: 40, left: 20, bottom: 20 },
+    margin: { top: 20, right: 40, left: 20, bottom: 20 },
   };
 
   const yAxisTickFormatter = (value: any) => {
@@ -315,7 +315,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           cursor={{ stroke: 'hsl(var(--accent))', strokeWidth: 1, strokeDasharray: '3 3' }}
         />
         <Legend
-          wrapperStyle={{ paddingTop: '10px' }}
+          wrapperStyle={{ paddingTop: '5px' }}
           iconSize={14}
           layout="horizontal"
           align="center"
@@ -352,7 +352,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
                   fill: metricConfig.color, 
                   fontSize: 10, 
                   dx: -30, 
-                  dy: 7 
+                  dy: 10 
                 }}
               />,
               <ReferenceLine
@@ -368,7 +368,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
                   fill: metricConfig.color, 
                   fontSize: 10, 
                   dx: -30, 
-                  dy: -7
+                  dy: -5
                 }}
               />
             ];
@@ -458,5 +458,6 @@ export default WeatherChart;
     
 
     
+
 
 
