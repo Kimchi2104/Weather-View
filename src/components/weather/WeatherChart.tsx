@@ -108,6 +108,17 @@ const WeatherChart: FC<WeatherChartProps> = ({
     }
   };
 
+  const getPaddedMaxYDomain = (dataMax: number): number | 'auto' => {
+    if (typeof dataMax !== 'number' || !isFinite(dataMax)) {
+      return 'auto'; 
+    }
+    if (dataMax === 0) {
+      return 5; 
+    }
+    const padding = Math.max(Math.abs(dataMax * 0.05), 1);
+    return Math.ceil(dataMax + padding);
+  };
+
   if (isLoading) {
     return (
       <Card className="shadow-lg">
@@ -176,7 +187,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
     if (onPointClick && event && event.activePayload && event.activePayload.length > 0) {
       const clickedPointData = event.activePayload[0].payload;
        if (((chartType === 'line' && !isAggregated) || chartType === 'scatter')) {
-         if ('rawTimestampString' in clickedPointData || chartType === 'scatter' || ('timestamp' in clickedPointData && !isAggregated) ) {
+         if ('rawTimestampString' in clickedPointData || chartType === 'scatter' || ('timestamp' in clickedPointData && !isAggregated && !('aggregationPeriod' in clickedPointData)) ) {
             onPointClick(clickedPointData as WeatherDataPoint);
          }
       }
@@ -201,7 +212,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
               stroke={color}
               name={name}
               dot={isAggregated ? { r: 3 } : false}
-              connectNulls={false}
+              connectNulls={false} // Set to false to break lines on null/undefined values explicitly
             />
           );
         case 'bar':
@@ -259,6 +270,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           stroke="#888888"
           tick={{ fill: "hsl(var(--foreground))", fontSize: 12 }}
           tickFormatter={yAxisTickFormatter}
+          domain={chartType === 'line' ? ['auto', getPaddedMaxYDomain] : ['auto', 'auto']}
         />
         <Tooltip
           formatter={tooltipFormatter}
@@ -311,11 +323,11 @@ const WeatherChart: FC<WeatherChartProps> = ({
                 strokeOpacity={0.7}
                 strokeWidth={1}
                 label={{ 
-                  value: `Min: ${minValue.toFixed(1)}${metricConfig.unit || ''}`, 
+                  value: `Min: ${minValue.toFixed(isAggregated ? 1 : 0)}${metricConfig.unit || ''}`, 
                   position: "right", 
                   fill: metricConfig.color, 
                   fontSize: 10, 
-                  dx: -30,
+                  dx: -30, // Adjusted for right position
                   dy: 7 
                 }}
               />,
@@ -327,11 +339,11 @@ const WeatherChart: FC<WeatherChartProps> = ({
                 strokeOpacity={0.7}
                 strokeWidth={1}
                 label={{ 
-                  value: `Max: ${maxValue.toFixed(1)}${metricConfig.unit || ''}`, 
+                  value: `Max: ${maxValue.toFixed(isAggregated ? 1 : 0)}${metricConfig.unit || ''}`, 
                   position: "right", 
                   fill: metricConfig.color, 
                   fontSize: 10, 
-                  dx: -30,
+                  dx: -30, // Adjusted for right position
                   dy: -7
                 }}
               />
