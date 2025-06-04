@@ -2,7 +2,7 @@
 "use client";
 
 import type { FC } from 'react';
-import { useRef, useState, useMemo } from 'react';
+import React, { useRef, useState, useMemo } from 'react'; // Added React import
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -13,7 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, ScatterChart, Scatter } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, ScatterChart, Scatter, ReferenceLine } from 'recharts'; // Added ReferenceLine
 import type { WeatherDataPoint, MetricKey, MetricConfig } from '@/types/weather';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Download, FileImage, FileText, Loader2 } from 'lucide-react';
@@ -21,7 +21,7 @@ import { Download, FileImage, FileText, Loader2 } from 'lucide-react';
 export const formatTimestampToDdMmHhMmUTC = (timestamp: number): string => {
   const date = new Date(timestamp);
   const day = date.getUTCDate().toString().padStart(2, '0');
-  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0'); 
+  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
   const hours = date.getUTCHours().toString().padStart(2, '0');
   const minutes = date.getUTCMinutes().toString().padStart(2, '0');
   return `${day}/${month} ${hours}:${minutes}`;
@@ -30,7 +30,7 @@ export const formatTimestampToDdMmHhMmUTC = (timestamp: number): string => {
 export const formatTimestampToFullUTC = (timestamp: number): string => {
   const date = new Date(timestamp);
   const day = date.getUTCDate().toString().padStart(2, '0');
-  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0'); 
+  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
   const year = date.getUTCFullYear();
   const hours = date.getUTCHours().toString().padStart(2, '0');
   const minutes = date.getUTCMinutes().toString().padStart(2, '0');
@@ -39,13 +39,15 @@ export const formatTimestampToFullUTC = (timestamp: number): string => {
 };
 
 interface WeatherChartProps {
-  data: WeatherDataPoint[] | any[]; 
+  data: WeatherDataPoint[] | any[];
   selectedMetrics: MetricKey[];
   metricConfigs: Record<MetricKey, MetricConfig>;
   isLoading: boolean;
   onPointClick?: (point: WeatherDataPoint) => void;
   chartType: 'line' | 'bar' | 'scatter';
-  isAggregated?: boolean; 
+  isAggregated?: boolean;
+  showMinMaxLines?: boolean; // New prop
+  minMaxReferenceData?: Record<string, { minValue: number; maxValue: number }>; // New prop, string key for Object.entries
 }
 
 const WeatherChart: FC<WeatherChartProps> = ({
@@ -55,7 +57,9 @@ const WeatherChart: FC<WeatherChartProps> = ({
   isLoading,
   onPointClick,
   chartType,
-  isAggregated = false, 
+  isAggregated = false,
+  showMinMaxLines = false, // Default to false
+  minMaxReferenceData,
 }) => {
   const chartRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -64,10 +68,10 @@ const WeatherChart: FC<WeatherChartProps> = ({
     if (!data) {
       return [];
     }
-    if (isAggregated) { 
+    if (isAggregated) {
       return data.map(point => ({
         ...point,
-        tooltipTimestampFull: point.timestampDisplay, 
+        tooltipTimestampFull: point.timestampDisplay,
       }));
     }
     return data.map((point) => ({
@@ -86,7 +90,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
       const canvas = await html2canvas(chartElementToCapture as HTMLElement, {
         scale: 2,
         useCORS: true,
-        backgroundColor: null, 
+        backgroundColor: null,
       });
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
       if (format === 'pdf') {
@@ -130,7 +134,8 @@ const WeatherChart: FC<WeatherChartProps> = ({
         <CardHeader className="pb-3">
           <CardTitle className="font-headline">Historical Data Trends</CardTitle>
           <CardDescription>
-            Displaying {chartType.charAt(0).toUpperCase() + chartType.slice(1)} Chart for selected metrics. 
+            Displaying {chartType.charAt(0).toUpperCase() + chartType.slice(1)} Chart
+            {isAggregated ? ` (Aggregated Data)` : ''} for selected metrics.
             {!isAggregated && " Click data points to use for AI forecast."}
           </CardDescription>
         </CardHeader>
@@ -144,7 +149,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
   const commonCartesianProps = {
     margin: { top: 5, right: 40, left: 20, bottom: 20 },
   };
-  
+
   const yAxisTickFormatter = (value: any) => {
     if (typeof value === 'number' && isFinite(value)) {
       return isAggregated ? value.toFixed(1) : value.toFixed(0);
@@ -154,7 +159,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
     }
     return String(value);
   };
-  
+
   const tooltipFormatter = (value: any, name: any, entry: any) => {
     const dataKey = entry.dataKey as MetricKey;
     const config = metricConfigs[dataKey];
@@ -172,11 +177,11 @@ const WeatherChart: FC<WeatherChartProps> = ({
     const unitString = (typeof value === 'number' && isFinite(value) && config?.unit) ? ` ${config.unit}` : '';
     return [`${displayValue}${unitString}`, config?.name || name];
   };
-  
+
   const handleChartClick = (event: any) => {
     if (onPointClick && !isAggregated && event && event.activePayload && event.activePayload.length > 0) {
       const clickedPointData = event.activePayload[0].payload;
-      if ('rawTimestampString' in clickedPointData || chartType === 'scatter') { // Allow for scatter, or if it has rawTimestampString
+      if ('rawTimestampString' in clickedPointData || chartType === 'scatter') {
          onPointClick(clickedPointData as WeatherDataPoint);
       }
     }
@@ -189,7 +194,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
       const color = metricConfig.color || '#8884d8';
       const name = metricConfig.name || key;
-      
+
       switch (chartType) {
         case 'line':
           return (
@@ -199,8 +204,8 @@ const WeatherChart: FC<WeatherChartProps> = ({
               dataKey={key}
               stroke={color}
               name={name}
-              dot={isAggregated ? { r: 3 } : false} // Show dots for aggregated line chart for clarity
-              connectNulls={true} // Re-enabled as per prior state
+              dot={isAggregated ? { r: 3 } : false}
+              connectNulls={false} // Keep false based on earlier debugging
             />
           );
         case 'bar':
@@ -227,18 +232,18 @@ const WeatherChart: FC<WeatherChartProps> = ({
       }
     });
   };
-  
+
   let ChartComponent: React.ComponentType<any> = LineChart;
   if (chartType === 'bar') ChartComponent = BarChart;
   else if (chartType === 'scatter') ChartComponent = ScatterChart;
-  
-  const chartDynamicKey = `${chartType}-${selectedMetrics.join('-')}-${formattedData.length}-${isAggregated}`;
+
+  const chartDynamicKey = `${chartType}-${selectedMetrics.join('-')}-${formattedData.length}-${isAggregated}-${showMinMaxLines}`;
 
   const renderChart = () => (
     <ResponsiveContainer width="100%" height="100%">
-      <ChartComponent 
-        key={chartDynamicKey} 
-        data={formattedData} 
+      <ChartComponent
+        key={chartDynamicKey}
+        data={formattedData}
         onClick={handleChartClick}
         {...commonCartesianProps}
       >
@@ -247,12 +252,12 @@ const WeatherChart: FC<WeatherChartProps> = ({
           dataKey="timestampDisplay"
           stroke="#888888"
           tick={{ fill: "hsl(var(--foreground))", fontSize: 11 }}
-          height={isAggregated ? 30 : 60} 
+          height={isAggregated ? 30 : 60}
           interval="preserveStartEnd"
           angle={isAggregated ? 0 : -45}
           textAnchor={isAggregated ? "middle" : "end"}
           dy={isAggregated ? 0 : 10}
-          minTickGap={isAggregated ? 5 : 15}
+          minTickGap={isAggregated ? 5 : 20} // Increased minTickGap
         />
         <YAxis
           stroke="#888888"
@@ -265,7 +270,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
             if (payload && payload.length > 0 && payload[0].payload.tooltipTimestampFull) {
               return payload[0].payload.tooltipTimestampFull;
             }
-            return label; 
+            return label;
           }}
           contentStyle={{
             backgroundColor: 'hsl(var(--popover))',
@@ -285,6 +290,49 @@ const WeatherChart: FC<WeatherChartProps> = ({
           verticalAlign="top"
         />
         {renderChartSpecificElements()}
+        {showMinMaxLines && chartType === 'line' && minMaxReferenceData &&
+          selectedMetrics.map(metricKey => {
+            const data = minMaxReferenceData[metricKey];
+            const metricConfig = metricConfigs[metricKey];
+            if (!data || !metricConfig || metricConfig.isString) return null;
+
+            const { minValue, maxValue } = data;
+            // const labelPrecision = isAggregated ? 1 : (metricConfig.unit === 'ppm' ? 0 : (metricConfig.isString ? 0 : 2));
+
+            return (
+              <React.Fragment key={`ref-lines-${metricKey}`}>
+                <ReferenceLine
+                  y={minValue}
+                  stroke={metricConfig.color}
+                  strokeDasharray="4 4"
+                  strokeOpacity={0.6}
+                  label={{
+                    value: `Min`,
+                    position: 'left',
+                    fill: metricConfig.color,
+                    fontSize: 10,
+                    dx: 10,
+                    dy: 5 // Below the line
+                  }}
+                />
+                <ReferenceLine
+                  y={maxValue}
+                  stroke={metricConfig.color}
+                  strokeDasharray="4 4"
+                  strokeOpacity={0.6}
+                  label={{
+                    value: `Max`,
+                    position: 'left',
+                    fill: metricConfig.color,
+                    fontSize: 10,
+                    dx: 10,
+                    dy: -5 // Above the line
+                  }}
+                />
+              </React.Fragment>
+            );
+          })
+        }
       </ChartComponent>
     </ResponsiveContainer>
   );
@@ -339,5 +387,3 @@ const WeatherChart: FC<WeatherChartProps> = ({
 };
 
 export default WeatherChart;
-    
-

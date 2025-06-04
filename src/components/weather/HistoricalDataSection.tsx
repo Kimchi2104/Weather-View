@@ -11,9 +11,10 @@ import { subDays, format, getISOWeek, getYear } from 'date-fns';
 import type { WeatherDataPoint, MetricKey, MetricConfig, RawFirebaseDataPoint } from '@/types/weather';
 import { database } from '@/lib/firebase';
 import { ref, get, type DataSnapshot } from "firebase/database";
-import { Label } from '@/components/ui/label';
+import { Label as ShadcnLabel } from '@/components/ui/label'; // Aliased to avoid conflict
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox'; // Added Checkbox
 import { transformRawDataToWeatherDataPoint } from '@/lib/utils';
 import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge, ShieldCheck } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -47,8 +48,8 @@ type ChartType = 'line' | 'bar' | 'scatter';
 type AggregationType = 'daily' | 'weekly' | 'monthly';
 
 interface AggregatedDataPoint {
-  timestamp: number; 
-  timestampDisplay: string; 
+  timestamp: number;
+  timestampDisplay: string;
   aggregationPeriod?: AggregationType;
   [metricKey: string]: number | string | undefined | AggregationType;
 }
@@ -64,9 +65,11 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
   const [selectedMetrics, setSelectedMetrics] = useState<MetricKey[]>(['temperature', 'humidity']);
   const [allFetchedData, setAllFetchedData] = useState<WeatherDataPoint[]>([]);
   const [displayedData, setDisplayedData] = useState<WeatherDataPoint[]>([]);
-  const [isLoading, setIsLoading] = useState(true); 
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedChartType, setSelectedChartType] = useState<ChartType>('line');
   const [aggregationType, setAggregationType] = useState<AggregationType>('daily');
+  const [showMinMaxLines, setShowMinMaxLines] = useState<boolean>(false);
+
 
   const firebaseDataPath = 'devices/TGkMhLL4k4ZFBwgOyRVNKe5mTQq1/records/';
 
@@ -102,7 +105,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
       console.error("[HistoricalDataSection] Firebase historical data fetching error:", error);
       setAllFetchedData([]);
     } finally {
-      setIsLoading(false); 
+      setIsLoading(false);
     }
   }, [firebaseDataPath]);
 
@@ -111,7 +114,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
       setDisplayedData([]);
       return;
     }
-    if (allFetchedData.length === 0 && !isLoading) { 
+    if (allFetchedData.length === 0 && !isLoading) {
       setDisplayedData([]);
       return;
     }
@@ -123,7 +126,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
     const endDate = dateRange.to;
     const [endH, endM] = endTime.split(':').map(Number);
     const toTimestamp = Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), endH, endM, 59, 999);
-    
+
     const filtered = allFetchedData.filter(point => {
       const pointTime = point.timestamp;
       return pointTime >= fromTimestamp && pointTime <= toTimestamp;
@@ -134,25 +137,26 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
   }, [allFetchedData, dateRange, startTime, endTime, isLoading]);
 
   useEffect(() => {
-    fetchAllHistoricalData(); 
+    fetchAllHistoricalData();
   }, [fetchAllHistoricalData]);
 
   useEffect(() => {
-    if (dateRange && allFetchedData.length > 0) { 
+    if (dateRange && allFetchedData.length > 0) {
       filterDataByDateRange();
-    } else if (dateRange && !isLoading) { 
+    } else if (dateRange && !isLoading) {
       setDisplayedData([]);
     }
   }, [dateRange, allFetchedData, filterDataByDateRange, startTime, endTime, isLoading]);
 
+  const isAggregationEnabled = selectedChartType === 'line' || selectedChartType === 'bar';
+
   const chartData = useMemo(() => {
-    if (selectedChartType === 'line' || selectedChartType === 'bar') {
-      if (!displayedData || displayedData.length === 0) {
-        return [];
-      }
+    if (!displayedData || displayedData.length === 0) {
+      return [];
+    }
 
+    if (isAggregationEnabled) {
       const groupedData: Record<string, WeatherDataPoint[]> = {};
-
       displayedData.forEach(point => {
         let key = '';
         const pointDate = new Date(point.timestamp);
@@ -174,7 +178,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
 
       return Object.entries(groupedData).map(([key, pointsInGroup]) => {
         const aggregatedPoint: AggregatedDataPoint = {
-          timestamp: pointsInGroup[0].timestamp, 
+          timestamp: pointsInGroup[0].timestamp,
           timestampDisplay: '',
           aggregationPeriod: aggregationType,
         };
@@ -182,12 +186,12 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
         if (aggregationType === 'daily') {
           aggregatedPoint.timestampDisplay = format(new Date(pointsInGroup[0].timestamp), 'MMM dd');
         } else if (aggregationType === 'weekly') {
-           const dateFromKey = new Date(pointsInGroup[0].timestamp); 
+           const dateFromKey = new Date(pointsInGroup[0].timestamp);
            aggregatedPoint.timestampDisplay = `W${getISOWeek(dateFromKey)}, ${getYear(dateFromKey)}`;
         } else if (aggregationType === 'monthly') {
           aggregatedPoint.timestampDisplay = format(new Date(pointsInGroup[0].timestamp), 'MMM yyyy');
         }
-        
+
         selectedMetrics.forEach(metricKey => {
           const config = METRIC_CONFIGS[metricKey];
           if (config && !config.isString) {
@@ -195,18 +199,40 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
             if (values.length > 0) {
               aggregatedPoint[metricKey] = values.reduce((sum, val) => sum + val, 0) / values.length;
             } else {
-              aggregatedPoint[metricKey] = undefined; 
+              aggregatedPoint[metricKey] = undefined;
             }
+          } else if (config && config.isString) {
+            // For string metrics, we might pick the most common, or just the first one.
+            // For simplicity, let's pick the first one for now if needed, though bar charts usually use numeric.
+            aggregatedPoint[metricKey] = pointsInGroup[0]?.[metricKey];
           }
         });
         return aggregatedPoint;
       }).sort((a, b) => a.timestamp - b.timestamp);
     }
-    // For scatter chart, return raw (but filtered) data
-    return displayedData;
-  }, [displayedData, selectedChartType, aggregationType, selectedMetrics]);
-  
-  const isAggregatedChart = selectedChartType === 'line' || selectedChartType === 'bar';
+    return displayedData; // For scatter chart, return raw (but filtered) data
+  }, [displayedData, selectedChartType, aggregationType, selectedMetrics, isAggregationEnabled]);
+
+  const minMaxReferenceData = useMemo(() => {
+    if (!showMinMaxLines || selectedChartType !== 'line' || chartData.length === 0) {
+      return undefined;
+    }
+    const result: Record<string, { minValue: number; maxValue: number }> = {}; // Use string for key to match Object.entries later
+    selectedMetrics.forEach(metricKey => {
+      const config = METRIC_CONFIGS[metricKey];
+      if (config && !config.isString) { // Only for numeric metrics
+        const values = chartData.map(p => p[metricKey] as number).filter(v => typeof v === 'number' && isFinite(v));
+        if (values.length > 0) {
+          result[metricKey] = {
+            minValue: Math.min(...values),
+            maxValue: Math.max(...values),
+          };
+        }
+      }
+    });
+    return result;
+  }, [showMinMaxLines, selectedChartType, chartData, selectedMetrics]);
+
 
   return (
     <section className="mb-8">
@@ -215,26 +241,26 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
           <div className="md:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
             <div>
-              <Label htmlFor="date-range-picker" className="text-sm font-medium text-muted-foreground mb-1 block">Date Range:</Label>
+              <ShadcnLabel htmlFor="date-range-picker" className="text-sm font-medium text-muted-foreground mb-1 block">Date Range:</ShadcnLabel>
               <DateRangePicker onDateChange={setDateRange} initialRange={dateRange} id="date-range-picker"/>
             </div>
             <div className="grid grid-cols-2 gap-2 items-end">
                 <div>
-                    <Label htmlFor="start-time-hist" className="text-sm font-medium text-muted-foreground mb-1 block">Start Time:</Label>
-                    <Input 
-                        type="time" 
-                        id="start-time-hist" 
-                        value={startTime} 
+                    <ShadcnLabel htmlFor="start-time-hist" className="text-sm font-medium text-muted-foreground mb-1 block">Start Time:</ShadcnLabel>
+                    <Input
+                        type="time"
+                        id="start-time-hist"
+                        value={startTime}
                         onChange={(e) => setStartTime(e.target.value)}
                         className="w-full"
                     />
                 </div>
                 <div>
-                    <Label htmlFor="end-time-hist" className="text-sm font-medium text-muted-foreground mb-1 block">End Time:</Label>
-                    <Input 
-                        type="time" 
-                        id="end-time-hist" 
-                        value={endTime} 
+                    <ShadcnLabel htmlFor="end-time-hist" className="text-sm font-medium text-muted-foreground mb-1 block">End Time:</ShadcnLabel>
+                    <Input
+                        type="time"
+                        id="end-time-hist"
+                        value={endTime}
                         onChange={(e) => setEndTime(e.target.value)}
                         className="w-full"
                     />
@@ -255,23 +281,23 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
         />
         <div className="mt-4 flex flex-col sm:flex-row items-end gap-4">
           <div>
-            <Label htmlFor="chart-type-select" className="text-sm font-medium text-muted-foreground mb-1 block">Chart Type:</Label>
+            <ShadcnLabel htmlFor="chart-type-select" className="text-sm font-medium text-muted-foreground mb-1 block">Chart Type:</ShadcnLabel>
             <Select value={selectedChartType} onValueChange={(value) => setSelectedChartType(value as ChartType)}>
-              <SelectTrigger id="chart-type-select" className="w-full sm:w-auto sm:min-w-[200px]">
+              <SelectTrigger id="chart-type-select" className="w-full sm:w-auto sm:min-w-[150px]">
                 <SelectValue placeholder="Select chart type" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="line">Line Chart</SelectItem>
-                <SelectItem value="bar">Bar Chart (Aggregated)</SelectItem>
+                <SelectItem value="bar">Bar Chart</SelectItem>
                 <SelectItem value="scatter">Scatter Chart</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          {isAggregatedChart && (
+          {isAggregationEnabled && (
             <div>
-              <Label htmlFor="aggregation-type-select" className="text-sm font-medium text-muted-foreground mb-1 block">Aggregation:</Label>
+              <ShadcnLabel htmlFor="aggregation-type-select" className="text-sm font-medium text-muted-foreground mb-1 block">Aggregation:</ShadcnLabel>
               <Select value={aggregationType} onValueChange={(value) => setAggregationType(value as AggregationType)}>
-                <SelectTrigger id="aggregation-type-select" className="w-full sm:w-auto sm:min-w-[200px]">
+                <SelectTrigger id="aggregation-type-select" className="w-full sm:w-auto sm:min-w-[150px]">
                   <SelectValue placeholder="Select aggregation" />
                 </SelectTrigger>
                 <SelectContent>
@@ -282,6 +308,22 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
               </Select>
             </div>
           )}
+          {selectedChartType === 'line' && (
+            <div className="flex items-center space-x-2 mt-2 sm:mt-0 sm:self-end pb-1"> {/* Adjusted for alignment */}
+              <Checkbox
+                id="show-min-max-lines"
+                checked={showMinMaxLines}
+                onCheckedChange={(checked) => setShowMinMaxLines(Boolean(checked))}
+                aria-label="Show Min/Max Lines"
+              />
+              <ShadcnLabel
+                htmlFor="show-min-max-lines"
+                className="text-sm font-medium text-muted-foreground cursor-pointer"
+              >
+                Show Min/Max Lines
+              </ShadcnLabel>
+            </div>
+          )}
         </div>
       </div>
       <div className="mt-6">
@@ -289,10 +331,12 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           data={chartData}
           selectedMetrics={selectedMetrics}
           metricConfigs={METRIC_CONFIGS}
-          isLoading={isLoading && allFetchedData.length === 0 && chartData.length === 0} 
-          onPointClick={onChartPointClick} 
+          isLoading={isLoading && allFetchedData.length === 0 && chartData.length === 0}
+          onPointClick={isAggregationEnabled || selectedChartType === 'bar' ? undefined : onChartPointClick} // Disable click for aggregated line/bar
           chartType={selectedChartType}
-          isAggregated={isAggregatedChart}
+          isAggregated={isAggregationEnabled}
+          showMinMaxLines={showMinMaxLines && selectedChartType === 'line'}
+          minMaxReferenceData={minMaxReferenceData}
         />
       </div>
     </section>
@@ -300,5 +344,3 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
 };
 
 export default HistoricalDataSection;
-    
-    
