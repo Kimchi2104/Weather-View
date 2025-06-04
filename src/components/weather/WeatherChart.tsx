@@ -43,39 +43,49 @@ export const formatTimestampToFullUTC = (timestamp: number): string => {
 };
 
 const getPaddedMinYDomain = (dataMin: number): number | 'auto' => {
-    if (typeof dataMin !== 'number' || !isFinite(dataMin)) {
-        return 'auto';
-    }
+  if (typeof dataMin !== 'number' || !isFinite(dataMin)) {
+    return 'auto';
+  }
 
-    let result;
-    if (dataMin >= 0 && dataMin <= 10) { // Catches 0 up to 10 inclusive
-        result = -10; // Force significant negative start for small positive/zero minimums
-    } else if (dataMin > 10) {
-        const padding = Math.max(3, dataMin * 0.10);
-        result = Math.floor(dataMin - padding);
-    } else { // dataMin < 0 (already negative)
-        const padding = Math.max(2, Math.abs(dataMin * 0.10));
-        result = Math.floor(dataMin - padding);
-    }
-    return result;
+  let result;
+  // If dataMin is between 0 and 30 (inclusive), aggressively set the axis start to -10
+  // This ensures metrics like Lux or AQI (ppm) that can be low positive values
+  // have plenty of space below them.
+  if (dataMin >= 0 && dataMin <= 30) {
+    result = -10;
+  } else if (dataMin > 30) {
+    // For larger positive minimums, use a percentage-based padding
+    const padding = Math.max(5, dataMin * 0.15); // e.g. 15% or at least 5 units
+    result = Math.floor(dataMin - padding);
+  } else { // dataMin < 0 (already negative)
+    // For negative minimums, also use a percentage-based padding
+    const padding = Math.max(3, Math.abs(dataMin * 0.15)); // e.g. 15% or at least 3 units
+    result = Math.floor(dataMin - padding);
+  }
+  return result;
 };
 
 const getPaddedMaxYDomain = (dataMax: number): number | 'auto' => {
-    if (typeof dataMax !== 'number' || !isFinite(dataMax)) {
-        return 'auto';
-    }
-    let result;
-    if (dataMax >= 0 && dataMax < 10) { 
-         result = Math.ceil(dataMax + Math.max(3, (5 - dataMax > 0 ? 5 - dataMax : 3)));
-    } else if (dataMax >= 10) {
-        const padding = Math.max(3, dataMax * 0.10);
-        result = Math.ceil(dataMax + padding);
-    } else { // dataMax < 0 (is negative)
-        const padding = Math.max(2, Math.abs(dataMax * 0.10)); 
-        result = Math.ceil(dataMax + padding);
-        if (result > 0) result = 0; 
-    }
-    return result;
+  if (typeof dataMax !== 'number' || !isFinite(dataMax)) {
+    return 'auto';
+  }
+
+  let result;
+  if (dataMax >= 0 && dataMax < 10) { // If max is small positive (0-9.99...)
+     // Ensure it goes up to at least 10, or more if dataMax is already close to 10
+     result = Math.ceil(dataMax + Math.max(5, (10 - dataMax > 0 ? 10 - dataMax : 5)));
+  } else if (dataMax >= 10 && dataMax <= 50) { // For moderately small positive maximums
+    const padding = Math.max(5, dataMax * 0.15); // 15% or at least 5 units
+    result = Math.ceil(dataMax + padding);
+  } else if (dataMax > 50) { // For larger positive maximums
+    const padding = Math.max(5, dataMax * 0.15); // 15% or at least 5 units
+    result = Math.ceil(dataMax + padding);
+  } else { // dataMax < 0 (is negative)
+    const padding = Math.max(3, Math.abs(dataMax * 0.15)); // 15% or at least 3 units
+    result = Math.ceil(dataMax + padding);
+    if (result > 0) result = 0; // Don't let padding for negative max cross into positive unless it was very close to 0
+  }
+  return result;
 };
 
 
@@ -138,10 +148,6 @@ const WeatherChart: FC<WeatherChartProps> = ({
         });
     }
     
-    if (!isFinite(effectiveMin) || !isFinite(effectiveMax)) {
-       return ['auto', 'auto'] as [number | 'auto', number | 'auto'];
-    }
-
     const paddedMin = getPaddedMinYDomain(effectiveMin);
     const paddedMax = getPaddedMaxYDomain(effectiveMax);
     
