@@ -58,9 +58,16 @@ type ExportThemeOption = 'current' | 'light' | 'dark';
 
 const getPaddedMaxYDomain = (dataMax: number): number | 'auto' => {
     if (typeof dataMax !== 'number' || !isFinite(dataMax)) return 'auto';
-    if (dataMax === 0) return 5;
+    if (dataMax === 0) return 5; // Ensure some space if max is 0
     const padding = Math.max(Math.abs(dataMax * 0.05), 1); 
     return Math.ceil(dataMax + padding);
+};
+
+const getPaddedMinYDomain = (dataMin: number): number | 'auto' => {
+  if (typeof dataMin !== 'number' || !isFinite(dataMin)) return 'auto';
+  if (dataMin === 0) return -1; // Provide a little space below 0 if data reaches 0
+  const padding = Math.max(Math.abs(dataMin * 0.05), 1);
+  return Math.floor(dataMin - padding);
 };
 
 
@@ -295,7 +302,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           stroke="#888888"
           tick={{ fill: "hsl(var(--foreground))", fontSize: 12 }}
           tickFormatter={yAxisTickFormatter}
-          domain={chartType === 'line' ? ['auto', getPaddedMaxYDomain] : ['auto', 'auto']}
+          domain={chartType === 'line' ? [getPaddedMinYDomain, getPaddedMaxYDomain] : ['auto', 'auto']}
         />
         <Tooltip
           formatter={tooltipFormatter}
@@ -335,8 +342,8 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
             const { minValue, maxValue } = metricMinMax;
             
-             if (typeof minValue !== 'number' || !isFinite(minValue) || typeof maxValue !== 'number' || !isFinite(maxValue)) {
-                return [];
+            if (typeof minValue !== 'number' || !isFinite(minValue) || typeof maxValue !== 'number' || !isFinite(maxValue)) {
+              return [];
             }
 
             return [
@@ -459,6 +466,7 @@ export default WeatherChart;
     
 
     
+
 
 
 
