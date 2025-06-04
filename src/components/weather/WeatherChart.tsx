@@ -43,7 +43,9 @@ export const formatTimestampToFullUTC = (timestamp: number): string => {
 };
 
 const getPaddedMinYDomain = (dataMin: number): number | 'auto' => {
+  // console.log('[WeatherChart] getPaddedMinYDomain received dataMin:', dataMin);
   if (typeof dataMin !== 'number' || !isFinite(dataMin)) {
+    // console.log('[WeatherChart] getPaddedMinYDomain returning "auto" (invalid input).');
     return 'auto';
   }
 
@@ -59,11 +61,14 @@ const getPaddedMinYDomain = (dataMin: number): number | 'auto' => {
     const padding = Math.max(3, dataMin * 0.10); // 10% or 3 units
     result = Math.floor(dataMin - padding);
   }
+  // console.log(`[WeatherChart] getPaddedMinYDomain: input=${dataMin}, output=${result}`);
   return result;
 };
 
 const getPaddedMaxYDomain = (dataMax: number): number | 'auto' => {
+  // console.log('[WeatherChart] getPaddedMaxYDomain received dataMax:', dataMax);
   if (typeof dataMax !== 'number' || !isFinite(dataMax)) {
+    // console.log('[WeatherChart] getPaddedMaxYDomain returning "auto" (invalid input).');
     return 'auto';
   }
   let result;
@@ -82,14 +87,18 @@ const getPaddedMaxYDomain = (dataMax: number): number | 'auto' => {
   }
   else { // Larger numbers (positive or negative)
     const padding = Math.max(3, Math.abs(dataMax) * 0.10); // 10% or 3 units
-    result = dataMax > 0 ? Math.ceil(dataMax + padding) : Math.floor(dataMax - padding);
+    result = dataMax > 0 ? Math.ceil(dataMax + padding) : Math.floor(dataMax - padding); // Typo: Math.floor for negative large numbers if subtracting
   }
+  // console.log(`[WeatherChart] getPaddedMaxYDomain: input=${dataMax}, output=${result}`);
   return result;
 };
 
 const calculateYTicks = (min: number, max: number, count: number): number[] => {
   if (min === max || count <= 1 || !isFinite(min) || !isFinite(max)) {
-    return [min, max].filter(isFinite);
+    const finiteValues = [min, max].filter(isFinite);
+    if (finiteValues.length === 0) return [0]; // Default if both are non-finite
+    if (finiteValues.length === 1) return [finiteValues[0]]; // If one is finite, return it
+    return finiteValues; // Should be [min, max] if both finite and min===max
   }
   const ticks: number[] = [];
   const step = (max - min) / (count - 1);
@@ -114,9 +123,6 @@ interface WeatherChartProps {
 
 type ExportThemeOption = 'current' | 'light' | 'dark';
 
-// NOTE: If "Rules of Hooks" errors persist, it might be due to the `useTheme` hook (from next-themes)
-// internally varying its own hook call count based on system/forced themes. This component's
-// local hooks (useRef, useState, useMemo) are called unconditionally at the top level.
 const WeatherChart: FC<WeatherChartProps> = ({
   data: chartInputData,
   selectedMetrics,
@@ -156,17 +162,24 @@ const WeatherChart: FC<WeatherChartProps> = ({
     const actualDataMin = Math.min(...dataValues);
     const actualDataMax = Math.max(...dataValues);
 
-    return [getPaddedMinYDomain(actualDataMin), getPaddedMaxYDomain(actualDataMax)] as [number | 'auto', number | 'auto'];
-  }, [formattedData, selectedMetrics, chartType]);
-
+    const paddedMin = getPaddedMinYDomain(actualDataMin);
+    const paddedMax = getPaddedMaxYDomain(actualDataMax);
+    
+    // console.log(`[WeatherChart] yAxisDomain useMemo: actualMin=${actualDataMin}, actualMax=${actualDataMax}, paddedMin=${paddedMin}, paddedMax=${paddedMax}`);
+    
+    return [paddedMin, paddedMax] as [number | 'auto', number | 'auto'];
+  }, [formattedData, selectedMetrics]);
 
   const yAxisTicks = useMemo(() => {
-    if (chartType !== 'line') return undefined;
+    if (chartType !== 'line') return undefined; // Only for line charts
     const [minDomain, maxDomain] = yAxisDomain;
-    if (typeof minDomain !== 'number' || typeof maxDomain !== 'number') {
+    if (typeof minDomain !== 'number' || typeof maxDomain !== 'number' || !isFinite(minDomain) || !isFinite(maxDomain)) {
+      // console.log("[WeatherChart] yAxisTicks: minDomain or maxDomain is not a finite number. Returning undefined.", minDomain, maxDomain);
       return undefined;
     }
-    return calculateYTicks(minDomain, maxDomain, 8);
+    const ticks = calculateYTicks(minDomain, maxDomain, 8); // Using 8 ticks
+    // console.log("[WeatherChart] yAxisTicks calculated:", ticks);
+    return ticks;
   }, [yAxisDomain, chartType]);
 
 
@@ -229,7 +242,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
       const canvas = await html2canvas(chartElementToCapture as HTMLElement, {
         scale: 2,
         useCORS: true,
-        backgroundColor: targetExportTheme === 'dark' ? 'hsl(210 20% 5%)' : 'hsl(210 20% 98%)', // Explicit background
+        backgroundColor: targetExportTheme === 'dark' ? 'hsl(210 20% 5%)' : 'hsl(210 20% 98%)', 
       });
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
       if (format === 'pdf') {
@@ -249,7 +262,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
     } catch (error) {
       console.error('Error exporting chart:', error);
     } finally {
-      htmlElement.className = originalHtmlClasses; // Restore original classes
+      htmlElement.className = originalHtmlClasses; 
       setIsExporting(false);
     }
   };
@@ -260,7 +273,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
   const yAxisTickFormatter = (value: any) => {
     if (typeof value === 'number' && isFinite(value)) {
-      return value.toFixed(2); // Show up to 2 decimal places for ticks
+      return value.toFixed(2); 
     }
     if (value === undefined || value === null || (typeof value === 'number' && !isFinite(value))) {
       return 'N/A';
@@ -348,6 +361,21 @@ const WeatherChart: FC<WeatherChartProps> = ({
   else if (chartType === 'scatter') ChartComponent = ScatterChart;
 
   const chartDynamicKey = `${chartType}-${selectedMetrics.join('-')}-${formattedData.length}-${isAggregated}-${showMinMaxLines}`;
+  
+  // Console logging for debugging YAxis in line charts
+  if (chartType === 'line') {
+    // console.log("[WeatherChart] Line Chart - YAxis props determination logic:");
+    // console.log("  yAxisDomain (computed):", JSON.stringify(yAxisDomain));
+    // console.log("  yAxisTicks (computed):", JSON.stringify(yAxisTicks));
+    if (showMinMaxLines && minMaxReferenceData) {
+      selectedMetrics.forEach(metricKey => {
+        if (minMaxReferenceData[metricKey]) {
+          // console.log(`  ReferenceLine for ${metricKey} Min: y=${minMaxReferenceData[metricKey].minValue}`);
+          // console.log(`  ReferenceLine for ${metricKey} Max: y=${minMaxReferenceData[metricKey].maxValue}`);
+        }
+      });
+    }
+  }
 
   const renderChart = () => (
     <ResponsiveContainer width="100%" height="100%">
@@ -376,7 +404,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           domain={chartType === 'line' ? yAxisDomain : ['auto', 'auto']}
           ticks={chartType === 'line' ? yAxisTicks : undefined}
           allowDecimals={true}
-          type="number" 
+          type="number"
           scale="linear"
         />
         <Tooltip
@@ -536,10 +564,3 @@ const WeatherChart: FC<WeatherChartProps> = ({
 };
 
 export default WeatherChart;
-    
-
-    
-
-    
-
-
