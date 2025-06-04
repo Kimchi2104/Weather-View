@@ -50,21 +50,20 @@ const getPaddedMinYDomain = (dataMin: number, dataMax: number): number | 'auto' 
   let paddedMin;
 
   if (dataMin >= 0 && dataMin <= 30) { // Case: dataMin is small and positive
-    if (dataMax <= 200) { // Sub-case: Overall data range is also small
-      paddedMin = -10; // Fixed offset for small scales, e.g., for Lux when max is also low
+    if (dataMax <= 200) { // Sub-case: Overall data range is also relatively small
+      paddedMin = -10; // Fixed offset for small scales
     } else { // Sub-case: Overall data range is large (e.g., AQI 0 to 5000)
       const padding = Math.max(10, 0.05 * dataMax); // Pad by 5% of dataMax, or at least 10 units
       paddedMin = Math.floor(dataMin - padding);
-      if (paddedMin > -10) paddedMin = -10; // Ensure it's at least -10 for visual clarity if calc is less negative
+      if (paddedMin > -10) paddedMin = -10; 
     }
   } else if (dataMin > 30) { // Case: dataMin is a larger positive number
-    const padding = Math.max(5, 0.15 * dataMin); // 15% of dataMin or 5 units
+    const padding = Math.max(5, 0.15 * dataMin); 
     paddedMin = Math.floor(dataMin - padding);
   } else { // Case: dataMin is negative
-    const padding = Math.max(3, 0.15 * Math.abs(dataMin)); // 15% of abs(dataMin) or 3 units
+    const padding = Math.max(3, 0.15 * Math.abs(dataMin)); 
     paddedMin = Math.floor(dataMin - padding);
   }
-  // console.log(`[WeatherChart] getPaddedMinYDomain: dataMin=${dataMin.toFixed(2)}, dataMax=${dataMax.toFixed(2)}, output=${paddedMin}`);
   return paddedMin;
 };
 
@@ -75,9 +74,15 @@ const getPaddedMaxYDomain = (dataMax: number, dataMin: number): number | 'auto' 
   let paddedMax;
 
   if (dataMax >= 0 && dataMax <= 30) {
-     const basePadding = Math.max(5, 0.15 * (dataMax - Math.max(0, dataMin) + 1)); // Min 5 units or 15% of positive span
-     paddedMax = Math.ceil(dataMax + basePadding);
-     if (dataMax === 0 && paddedMax < 10) paddedMax = 10;
+    if (dataMin < -100) { // Large negative range means small positive max needs proportional padding
+       const range = dataMax - dataMin;
+       const padding = Math.max(5, 0.05 * range);
+       paddedMax = Math.ceil(dataMax + padding);
+    } else {
+       const basePadding = Math.max(5, 0.15 * (dataMax - Math.max(0, dataMin) + 1)); 
+       paddedMax = Math.ceil(dataMax + basePadding);
+       if (dataMax === 0 && paddedMax < 10) paddedMax = 10;
+    }
   } else if (dataMax < 0) {
     const padding = Math.max(3, 0.15 * Math.abs(dataMax));
     paddedMax = Math.ceil(dataMax + padding);
@@ -86,7 +91,6 @@ const getPaddedMaxYDomain = (dataMax: number, dataMin: number): number | 'auto' 
     const padding = Math.max(5, 0.15 * dataMax);
     paddedMax = Math.ceil(dataMax + padding);
   }
-  // console.log(`[WeatherChart] getPaddedMaxYDomain: dataMax=${dataMax.toFixed(2)}, dataMin=${dataMin.toFixed(2)}, output=${paddedMax}`);
   return paddedMax;
 };
 
@@ -151,14 +155,15 @@ const WeatherChart: FC<WeatherChartProps> = ({
     }
     
     if (!isFinite(effectiveMin) || !isFinite(effectiveMax)) {
+        // Default domain if no valid data points or reference lines are found
         effectiveMin = 0;
-        effectiveMax = 10;
+        effectiveMax = 10; 
     }
 
     const paddedMin = getPaddedMinYDomain(effectiveMin, effectiveMax);
     const paddedMax = getPaddedMaxYDomain(effectiveMax, effectiveMin);
     
-    // console.log(`[WeatherChart] yAxisDomain useMemo: effectiveMin=${effectiveMin.toFixed(2)}, effectiveMax=${effectiveMax.toFixed(2)}, paddedMin=${paddedMin}, paddedMax=${paddedMax}`);
+    // console.log(`[WeatherChart] yAxisDomain useMemo: effectiveMin=${effectiveMin}, effectiveMax=${effectiveMax}, paddedMin=${paddedMin}, paddedMax=${paddedMax}`);
     
     return [paddedMin, paddedMax] as [number | 'auto', number | 'auto'];
   }, [formattedData, selectedMetrics, showMinMaxLines, minMaxReferenceData, chartType]);
@@ -247,7 +252,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
   };
 
   const commonCartesianProps = {
-    margin: { top: 10, right: 60, left: 20, bottom: 20 }, // Increased right margin
+    margin: { top: 10, right: 60, left: 30, bottom: 20 },
   };
 
   const yAxisTickFormatter = (value: any) => {
@@ -427,7 +432,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
                   value: `Min: ${Number(minValue).toFixed(isAggregated ? 1 : (metricConfig.unit === 'ppm' ? 0 : 2))}${metricConfig.unit || ''}`, 
                   position: "right",
                   textAnchor: "end",
-                  dx: -5,
+                  dx: -5, 
                   fill: metricConfig.color, 
                   fontSize: 10,
                   dy: 5 
@@ -534,4 +539,3 @@ const WeatherChart: FC<WeatherChartProps> = ({
 };
 
 export default WeatherChart;
-
