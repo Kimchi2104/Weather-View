@@ -2,7 +2,7 @@
 "use client";
 
 import type { FC } from 'react';
-import React, { useRef, useState, useMemo } from 'react'; // Added React import
+import React, { useRef, useState, useMemo } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -13,7 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, ScatterChart, Scatter, ReferenceLine } from 'recharts'; // Added ReferenceLine
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, ScatterChart, Scatter, ReferenceLine } from 'recharts';
 import type { WeatherDataPoint, MetricKey, MetricConfig } from '@/types/weather';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Download, FileImage, FileText, Loader2 } from 'lucide-react';
@@ -46,8 +46,8 @@ interface WeatherChartProps {
   onPointClick?: (point: WeatherDataPoint) => void;
   chartType: 'line' | 'bar' | 'scatter';
   isAggregated?: boolean;
-  showMinMaxLines?: boolean; // New prop
-  minMaxReferenceData?: Record<string, { minValue: number; maxValue: number }>; // New prop, string key for Object.entries
+  showMinMaxLines?: boolean;
+  minMaxReferenceData?: Record<string, { minValue: number; maxValue: number }>;
 }
 
 const WeatherChart: FC<WeatherChartProps> = ({
@@ -58,7 +58,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
   onPointClick,
   chartType,
   isAggregated = false,
-  showMinMaxLines = false, // Default to false
+  showMinMaxLines = false,
   minMaxReferenceData,
 }) => {
   const chartRef = useRef<HTMLDivElement>(null);
@@ -68,16 +68,20 @@ const WeatherChart: FC<WeatherChartProps> = ({
     if (!data) {
       return [];
     }
-    if (isAggregated) {
-      return data.map(point => ({
+    // If data is aggregated, 'timestampDisplay' is already set by HistoricalDataSection
+    // If data is raw (not aggregated), format the timestamp
+    if (!isAggregated) {
+      return data.map((point) => ({
         ...point,
-        tooltipTimestampFull: point.timestampDisplay,
+        timestampDisplay: formatTimestampToDdMmHhMmUTC(point.timestamp),
+        tooltipTimestampFull: formatTimestampToFullUTC(point.timestamp),
       }));
     }
-    return data.map((point) => ({
-      ...point,
-      timestampDisplay: formatTimestampToDdMmHhMmUTC(point.timestamp),
-      tooltipTimestampFull: formatTimestampToFullUTC(point.timestamp),
+    // For aggregated data, ensure tooltipTimestampFull is also available if needed
+    return data.map(point => ({
+        ...point,
+        // timestampDisplay is already set (e.g., "MMM dd", "W29, 2024", "MMM yyyy")
+        tooltipTimestampFull: point.timestampDisplay, // For aggregated, label is the full "timestamp"
     }));
   }, [data, isAggregated]);
 
@@ -90,7 +94,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
       const canvas = await html2canvas(chartElementToCapture as HTMLElement, {
         scale: 2,
         useCORS: true,
-        backgroundColor: null,
+        backgroundColor: null, // Use element's actual background
       });
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
       if (format === 'pdf') {
@@ -135,7 +139,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           <CardTitle className="font-headline">Historical Data Trends</CardTitle>
           <CardDescription>
             Displaying {chartType.charAt(0).toUpperCase() + chartType.slice(1)} Chart
-            {isAggregated ? ` (Aggregated Data)` : ''} for selected metrics.
+            {isAggregated ? ` (Aggregated Data)` : ` (Raw Data)`}.
             {!isAggregated && " Click data points to use for AI forecast."}
           </CardDescription>
         </CardHeader>
@@ -181,6 +185,8 @@ const WeatherChart: FC<WeatherChartProps> = ({
   const handleChartClick = (event: any) => {
     if (onPointClick && !isAggregated && event && event.activePayload && event.activePayload.length > 0) {
       const clickedPointData = event.activePayload[0].payload;
+      // Ensure original raw data properties are present for AI forecast,
+      // or if it's a scatter plot (which always uses raw data).
       if ('rawTimestampString' in clickedPointData || chartType === 'scatter') {
          onPointClick(clickedPointData as WeatherDataPoint);
       }
@@ -205,7 +211,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
               stroke={color}
               name={name}
               dot={isAggregated ? { r: 3 } : false}
-              connectNulls={false} // Keep false based on earlier debugging
+              connectNulls={false}
             />
           );
         case 'bar':
@@ -257,7 +263,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           angle={isAggregated ? 0 : -45}
           textAnchor={isAggregated ? "middle" : "end"}
           dy={isAggregated ? 0 : 10}
-          minTickGap={isAggregated ? 5 : 20} // Increased minTickGap
+          minTickGap={isAggregated ? 5 : 20}
         />
         <YAxis
           stroke="#888888"
@@ -267,10 +273,13 @@ const WeatherChart: FC<WeatherChartProps> = ({
         <Tooltip
           formatter={tooltipFormatter}
           labelFormatter={(label, payload) => {
+            // For raw data, payload[0].payload.tooltipTimestampFull contains the full UTC date
+            // For aggregated data, timestampDisplay is already formatted (e.g., "Jul 15", "W29, 2024")
+            // and tooltipTimestampFull is set to this display string in formattedData.
             if (payload && payload.length > 0 && payload[0].payload.tooltipTimestampFull) {
               return payload[0].payload.tooltipTimestampFull;
             }
-            return label;
+            return label; // Fallback, should ideally not be hit if formattedData is correct
           }}
           contentStyle={{
             backgroundColor: 'hsl(var(--popover))',
@@ -297,7 +306,6 @@ const WeatherChart: FC<WeatherChartProps> = ({
             if (!data || !metricConfig || metricConfig.isString) return null;
 
             const { minValue, maxValue } = data;
-            // const labelPrecision = isAggregated ? 1 : (metricConfig.unit === 'ppm' ? 0 : (metricConfig.isString ? 0 : 2));
 
             return (
               <React.Fragment key={`ref-lines-${metricKey}`}>
@@ -312,7 +320,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
                     fill: metricConfig.color,
                     fontSize: 10,
                     dx: 10,
-                    dy: 5 // Below the line
+                    dy: 5
                   }}
                 />
                 <ReferenceLine
@@ -326,7 +334,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
                     fill: metricConfig.color,
                     fontSize: 10,
                     dx: 10,
-                    dy: -5 // Above the line
+                    dy: -5
                   }}
                 />
               </React.Fragment>
@@ -344,7 +352,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           <CardTitle className="font-headline">Historical Data Trends</CardTitle>
           <CardDescription>
             Displaying {chartType.charAt(0).toUpperCase() + chartType.slice(1)} Chart
-            {isAggregated ? ` (Aggregated Data)` : ''} for selected metrics.
+            {isAggregated ? ` (Aggregated Data)` : ` (Raw Data)`}.
             {!isAggregated && " Click data points to use for AI forecast."}
           </CardDescription>
         </div>
@@ -387,3 +395,4 @@ const WeatherChart: FC<WeatherChartProps> = ({
 };
 
 export default WeatherChart;
+
