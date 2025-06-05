@@ -90,7 +90,7 @@ type ExportThemeOption = 'current' | 'light' | 'dark';
 const WeatherChart: FC<WeatherChartProps> = ({
   data: chartInputData,
   selectedMetrics,
-  metricConfigs,
+  metricConfigs: METRIC_CONFIGS, // Renamed for clarity within this component
   isLoading,
   onPointClick,
   chartType,
@@ -119,18 +119,18 @@ const WeatherChart: FC<WeatherChartProps> = ({
   const numericMetricsForScatter = useMemo(() => {
     if (chartType === 'scatter') {
       return selectedMetrics.filter(key => {
-        const config = metricConfigs[key];
+        const config = METRIC_CONFIGS[key];
         return config && !config.isString;
       });
     }
     return [];
-  }, [selectedMetrics, metricConfigs, chartType]);
+  }, [selectedMetrics, METRIC_CONFIGS, chartType]);
 
 
   const yAxisDomain = useMemo(() => {
     const metricsToConsiderForDomain = chartType === 'scatter'
         ? numericMetricsForScatter
-        : selectedMetrics.filter(key => !metricConfigs[key]?.isString);
+        : selectedMetrics.filter(key => !METRIC_CONFIGS[key]?.isString);
 
     const dataValues = metricsToConsiderForDomain.flatMap(metricKey =>
       formattedData.map(p => {
@@ -168,27 +168,28 @@ const WeatherChart: FC<WeatherChartProps> = ({
     const paddedMax = getPaddedMaxYDomain(effectiveMax, effectiveMin);
 
     return [paddedMin, paddedMax] as [number | 'auto', number | 'auto'];
-  }, [formattedData, selectedMetrics, numericMetricsForScatter, showMinMaxLines, minMaxReferenceData, chartType, isAggregated, metricConfigs]);
+  }, [formattedData, selectedMetrics, numericMetricsForScatter, showMinMaxLines, minMaxReferenceData, chartType, isAggregated, METRIC_CONFIGS]);
 
   const metricsWithMinMaxLines = useMemo(() => {
     if (!showMinMaxLines || !minMaxReferenceData || chartType !== 'line') return [];
     return selectedMetrics.filter(metricKey => {
         const metricMinMax = minMaxReferenceData[metricKey];
-        const metricConfig = metricConfigs[metricKey];
+        const metricConfig = METRIC_CONFIGS[metricKey];
         if (!metricMinMax || !metricConfig || metricConfig.isString) return false;
         const { minValue, maxValue } = metricMinMax;
         return typeof minValue === 'number' && isFinite(minValue) && typeof maxValue === 'number' && isFinite(maxValue);
     }).sort();
-  }, [showMinMaxLines, minMaxReferenceData, selectedMetrics, metricConfigs, chartType]);
+  }, [showMinMaxLines, minMaxReferenceData, selectedMetrics, METRIC_CONFIGS, chartType]);
 
  useEffect(() => {
-    if (chartType === 'scatter') {
-        // console.log(`[WeatherChart] Chart Type: ${chartType}, Is Aggregated: ${isAggregated}`);
-        // console.log(`[WeatherChart] Original Selected Metrics:`, selectedMetrics);
-        // console.log(`[WeatherChart] Numeric Metrics for Scatter:`, numericMetricsForScatter);
-        // console.log(`[WeatherChart] Formatted Data (first 3):`, JSON.parse(JSON.stringify(formattedData.slice(0,3))));
-        // console.log(`[WeatherChart] Y-Axis Domain:`, yAxisDomain);
-    }
+    // Uncomment these logs if scatter chart is still not working as expected
+    // if (chartType === 'scatter') {
+    //   console.log(`[WeatherChart] Chart Type: ${chartType}, Is Aggregated: ${isAggregated}`);
+    //   console.log(`[WeatherChart] Original Selected Metrics:`, selectedMetrics);
+    //   console.log(`[WeatherChart] Numeric Metrics for Scatter:`, numericMetricsForScatter);
+    //   console.log(`[WeatherChart] Formatted Data (first 3):`, JSON.parse(JSON.stringify(formattedData.slice(0,3))));
+    //   console.log(`[WeatherChart] Y-Axis Domain:`, yAxisDomain);
+    // }
   }, [chartType, isAggregated, selectedMetrics, numericMetricsForScatter, formattedData, yAxisDomain]);
 
 
@@ -206,7 +207,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
     );
   }
 
-  const metricsAvailableForCurrentChartType = chartType === 'scatter' ? numericMetricsForScatter : selectedMetrics.filter(key => !metricConfigs[key]?.isString);
+  const metricsAvailableForCurrentChartType = chartType === 'scatter' ? numericMetricsForScatter : selectedMetrics.filter(key => !METRIC_CONFIGS[key]?.isString);
 
   if (!formattedData || formattedData.length === 0 || metricsAvailableForCurrentChartType.length === 0) {
     return (
@@ -297,52 +298,63 @@ const WeatherChart: FC<WeatherChartProps> = ({
   };
 
   const tooltipFormatter = (value: any, name: any, entry: any) => {
-    const dataKey = entry.dataKey as MetricKey | string;
-    
-    const originalMetricKey = chartType === 'scatter' && dataKey.endsWith('_avg') 
-      ? dataKey.substring(0, dataKey.length - 4) as MetricKey
-      : dataKey as MetricKey;
-      
-    const config = metricConfigs[originalMetricKey];
+    // `name` is `metricConfig.name` (e.g., "Temperature", "Humidity")
+    // `entry.dataKey` is the actual data key from the data object (e.g., "temperature_avg", "humidity")
+    // `entry.payload` is the full data object for that point in the chart
+  
+    const dataKey = entry.dataKey as string;
+  
+    let originalMetricKey = dataKey as MetricKey;
+    if (isAggregated && dataKey.endsWith('_avg')) {
+      originalMetricKey = dataKey.substring(0, dataKey.length - 4) as MetricKey;
+    } else if (isAggregated && dataKey.endsWith('_stdDev')) { // Should not be a primary formatted item
+      return null; 
+    }
+  
+    // Explicitly skip any "timestamp" related keys from being formatted as individual tooltip items
+    const lowerCaseOriginalMetricKey = originalMetricKey.toLowerCase();
+    if (lowerCaseOriginalMetricKey.includes('timestamp') || lowerCaseOriginalMetricKey.includes('aggregationperiod')) {
+        return null;
+    }
 
+    const config = METRIC_CONFIGS[originalMetricKey];
+    const displayName = config?.name || name || originalMetricKey;
+  
     let displayValue;
-
     if (typeof value === 'number' && isFinite(value)) {
-        const precision = (config?.unit === 'ppm' ? 0 : 
-                          (config?.isString ? 0 : (isAggregated ? 1 : 2) )); 
-        displayValue = value.toFixed(precision);
+      const precision = (config?.unit === 'ppm' ? 0 : (config?.isString ? 0 : (isAggregated ? 1 : 2)));
+      displayValue = value.toFixed(precision);
     } else if (value === undefined || value === null || (typeof value === 'number' && !isFinite(value))) {
-        displayValue = 'N/A';
+      displayValue = 'N/A';
     } else {
-        displayValue = String(value);
+      displayValue = String(value);
     }
-    
+  
     const unitString = (typeof value === 'number' && isFinite(value) && config?.unit) ? ` ${config.unit}` : '';
-    let baseLabel = config?.name || name; 
-
+  
     if (chartType === 'scatter' && isAggregated && entry.payload) {
-        
-        const stdDevValue = entry.payload[`${originalMetricKey}_stdDev`];
-        const countValue = entry.payload[`${originalMetricKey}_count`];
-        
-        let tooltipItems = [`Avg. ${baseLabel}: ${displayValue}${unitString}`];
-        if (typeof stdDevValue === 'number' && isFinite(stdDevValue)) {
-            tooltipItems.push(`Std. Dev: ${stdDevValue.toFixed(2)}${config?.unit || ''}`);
-        }
-        if (typeof countValue === 'number' && isFinite(countValue)) {
-            tooltipItems.push(`Data Points: ${countValue}`);
-        }
-        return [tooltipItems.join('\n'), null]; 
+      const stdDevValue = entry.payload[`${originalMetricKey}_stdDev`];
+      const countValue = entry.payload[`${originalMetricKey}_count`];
+      
+      let tooltipContent = `${displayName}: ${displayValue}${unitString}`;
+      
+      if (typeof stdDevValue === 'number' && isFinite(stdDevValue)) {
+        tooltipContent += `\nStd. Dev: ${stdDevValue.toFixed(2)}${config?.unit || ''}`;
+      }
+      if (typeof countValue === 'number' && isFinite(countValue)) {
+        tooltipContent += `\nData Points: ${countValue}`;
+      }
+      // For scatter tooltips with multiple items, return an array [value, name]
+      // where value can be a multi-line string. Recharts will handle styling.
+      // We return `displayName` as the second element, which Recharts uses as the label for this item.
+      // However, to avoid repeating the metric name if it's already in `tooltipContent`,
+      // we can return null for the label part if displayName is already clear.
+      // Let's try returning the built string as the "value" and the metric name as "name" for clarity.
+      return [tooltipContent.trim(), null]; // Pass null for the label part if the metric name is already in the content.
     }
     
-    if(chartType === 'scatter' && !isAggregated && entry.payload) {
-      // For raw scatter, just show the metric name and its direct value.
-      // The 'name' prop of <Scatter> is already the metric name.
-      return [`${displayValue}${unitString}`, baseLabel];
-    }
-
-
-    return [`${displayValue}${unitString}`, baseLabel];
+    // For raw scatter, line, or bar charts
+    return [`${displayValue}${unitString}`, displayName];
   };
 
 
@@ -363,18 +375,18 @@ const WeatherChart: FC<WeatherChartProps> = ({
         return null;
       }
       return numericMetricsForScatter.flatMap((key) => {
-        const metricConfig = metricConfigs[key];
-        if (!metricConfig || metricConfig.isString) {
+        const metricConfig = METRIC_CONFIGS[key];
+        if (!metricConfig || metricConfig.isString) { // Should be redundant due to numericMetricsForScatter filter
           return [];
         }
-
+  
         const yDataKey = isAggregated ? `${key}_avg` : key;
         const stdDevDataKey = isAggregated ? `${key}_stdDev` : undefined;
         const zAxisUniqueId = `z-${key}`;
-
+  
         const elements = [];
-
-        if (isAggregated && stdDevDataKey) {
+  
+        if (isAggregated && stdDevDataKey && !metricConfig.isString) {
           elements.push(
             <ZAxis
               key={`zaxis-${key}`}
@@ -385,7 +397,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
             />
           );
         }
-
+  
         elements.push(
           <Scatter
             key={`scatter-${key}`}
@@ -394,16 +406,16 @@ const WeatherChart: FC<WeatherChartProps> = ({
             fill={metricConfig.color || '#8884d8'}
             shape="circle"
             animationDuration={300}
-            {...(isAggregated && stdDevDataKey ? { zAxisId: zAxisUniqueId } : {})}
+            {...(isAggregated && stdDevDataKey && !metricConfig.isString ? { zAxisId: zAxisUniqueId } : {})}
           />
         );
         return elements;
       });
     }
 
-    const metricsToRenderForLineBar = selectedMetrics.filter(key => !metricConfigs[key]?.isString);
+    const metricsToRenderForLineBar = selectedMetrics.filter(key => !METRIC_CONFIGS[key]?.isString);
     return metricsToRenderForLineBar.map((key) => {
-      const metricConfig = metricConfigs[key];
+      const metricConfig = METRIC_CONFIGS[key];
       if (!metricConfig) return null;
 
       const color = metricConfig.color || '#8884d8';
@@ -511,11 +523,8 @@ const WeatherChart: FC<WeatherChartProps> = ({
           formatter={tooltipFormatter}
           labelFormatter={(label, payload) => {
             if (chartType === 'scatter') {
-              // For scatter charts, don't show the main timestamp label at the top.
-              // The individual items formatted by `tooltipFormatter` will show metric details.
-              return null;
+              return null; 
             }
-            // For other chart types (line, bar), keep the existing behavior
             if (payload && payload.length > 0 && payload[0].payload.tooltipTimestampFull) {
               return payload[0].payload.tooltipTimestampFull;
             }
@@ -546,7 +555,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
         {showMinMaxLines && chartType === 'line' && minMaxReferenceData &&
           selectedMetrics.flatMap(metricKey => {
             const metricMinMax = minMaxReferenceData[metricKey];
-            const metricConfig = metricConfigs[metricKey];
+            const metricConfig = METRIC_CONFIGS[metricKey];
 
             if (!metricMinMax || !metricConfig || metricConfig.isString) {
               return [];
@@ -687,5 +696,3 @@ const WeatherChart: FC<WeatherChartProps> = ({
 };
 
 export default WeatherChart;
-
-    
