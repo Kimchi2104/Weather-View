@@ -61,10 +61,14 @@ interface HistoricalDataSectionProps {
 }
 
 const calculateStandardDeviation = (values: number[]): number => {
-  if (values.length <= 1) return 0;
-  const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
-  const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
-  return Math.sqrt(variance);
+  if (!values || values.length === 0) return 0;
+  const validValues = values.filter(v => typeof v === 'number' && isFinite(v));
+  if (validValues.length <= 1) return 0;
+  const mean = validValues.reduce((sum, val) => sum + val, 0) / validValues.length;
+  const variance = validValues.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / validValues.length;
+  if (isNaN(variance) || !isFinite(variance)) return 0;
+  const stdDev = Math.sqrt(variance);
+  return isNaN(stdDev) || !isFinite(stdDev) ? 0 : stdDev;
 };
 
 const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointClick }) => {
@@ -162,6 +166,15 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
     if (newChartType === 'bar' && aggregationType === 'raw') {
       setAggregationType('daily');
     }
+     if (newChartType !== 'scatter' && aggregationType === 'raw') {
+      // No specific aggregation change needed for line/bar if already raw
+    } else if (newChartType === 'scatter' && aggregationType === 'raw') {
+      // Scatter can work with raw, no change needed automatically
+    } else if (newChartType === 'scatter' && aggregationType !== 'raw') {
+      // If switching to scatter and already aggregated, keep aggregation
+    } else if (aggregationType === 'raw') { // For Line/Bar and if current is raw, switch to daily
+        setAggregationType('daily');
+    }
   };
 
   const isAggregationApplicable = selectedChartType === 'line' || selectedChartType === 'bar' || selectedChartType === 'scatter';
@@ -216,26 +229,25 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
             const values = pointsInGroup.map(p => p[metricKey] as number).filter(v => typeof v === 'number' && isFinite(v));
             if (values.length > 0) {
               const average = values.reduce((sum, val) => sum + val, 0) / values.length;
-              if (selectedChartType === 'scatter') {
                 (aggregatedPoint as any)[`${metricKey}_avg`] = average;
                 (aggregatedPoint as any)[`${metricKey}_stdDev`] = calculateStandardDeviation(values);
                 (aggregatedPoint as any)[`${metricKey}_count`] = values.length;
-              } else {
-                aggregatedPoint[metricKey] = average;
-              }
+                 // For line/bar charts, also provide the direct metricKey for simplicity if needed by chart.
+                if (selectedChartType === 'line' || selectedChartType === 'bar') {
+                    aggregatedPoint[metricKey] = average;
+                }
             } else { 
-              if (selectedChartType === 'scatter') {
                 (aggregatedPoint as any)[`${metricKey}_avg`] = null; 
                 (aggregatedPoint as any)[`${metricKey}_stdDev`] = 0;    
                 (aggregatedPoint as any)[`${metricKey}_count`] = 0;
-              } else {
-                aggregatedPoint[metricKey] = null; 
-              }
+                if (selectedChartType === 'line' || selectedChartType === 'bar') {
+                     aggregatedPoint[metricKey] = null;
+                }
             }
           } else if (config && config.isString) { // String metrics
              const firstValue = pointsInGroup[0]?.[metricKey];
-             aggregatedPoint[metricKey] = firstValue; 
-             if (selectedChartType === 'scatter') { 
+             aggregatedPoint[metricKey] = firstValue; // For line/bar: use first string value
+             if (selectedChartType === 'scatter') { // For scatter: provide structure but avg/stdDev are not meaningful
                 (aggregatedPoint as any)[`${metricKey}_avg`] = null; 
                 (aggregatedPoint as any)[`${metricKey}_stdDev`] = 0; 
                 (aggregatedPoint as any)[`${metricKey}_count`] = pointsInGroup.length;
@@ -247,17 +259,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
       return aggregatedResult;
     }
     
-    if (selectedChartType === 'scatter' && !isActuallyAggregated) { 
-        return displayedData.map(point => {
-            const rawScatterPoint: any = {
-                ...point, 
-                timestampDisplay: formatTimestampToDdMmHhMmUTC(point.timestamp),
-                tooltipTimestampFull: formatTimestampToFullUTC(point.timestamp),
-            };
-            return rawScatterPoint;
-        });
-    }
-
+    // Raw data handling (for all chart types, including scatter)
     return displayedData.map(point => ({
         ...point,
         timestampDisplay: formatTimestampToDdMmHhMmUTC(point.timestamp),
@@ -271,7 +273,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
     }
     const result: Record<string, { minValue: number; maxValue: number }> = {};
     selectedMetrics.forEach(metricKey => {
-      const config = METRIC_CONFIGS[metricKey]; // Using METRIC_CONFIGS from module scope
+      const config = METRIC_CONFIGS[metricKey];
       if (config && !config.isString) {
         const values = chartData.map(p => {
           if (selectedChartType === 'scatter' && isActuallyAggregated) {
@@ -357,7 +359,9 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
               <Select 
                 value={aggregationType} 
                 onValueChange={(value) => setAggregationType(value as ChartAggregationMode)}
-                disabled={selectedChartType === 'bar' && aggregationType === 'raw'} 
+                // Bar chart should not be "raw" if it was forced to daily, but user can switch back to other aggregations.
+                // Scatter can be raw. Line can be raw.
+                disabled={(selectedChartType === 'bar' && aggregationType === 'raw')}
               >
                 <SelectTrigger id="aggregation-type-select" className="w-full sm:w-auto sm:min-w-[150px]">
                   <SelectValue placeholder="Select aggregation" />
@@ -407,4 +411,3 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
 };
 
 export default HistoricalDataSection;
-
