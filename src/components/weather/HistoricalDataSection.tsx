@@ -20,6 +20,8 @@ import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge, ShieldCheck } fr
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from '@/components/ui/skeleton';
 import DetailedDistributionModal from './DetailedDistributionModal';
+import { useTheme } from 'next-themes';
+import { applyAuraGradient } from '@/components/AuraGradientCustomizer';
 
 
 const WeatherChart = dynamic(() => import('./WeatherChart'), {
@@ -83,6 +85,8 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [detailModalData, setDetailModalData] = useState<DetailModalDataTypeFromType | null>(null);
 
+  const { theme } = useTheme();
+  const isAuraGlassTheme = theme === 'aura-glass';
 
   const firebaseDataPath = 'devices/TGkMhLL4k4ZFBwgOyRVNKe5mTQq1/records/';
 
@@ -385,9 +389,13 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
   return (
     <>
       <section className="mb-8">
-        <h2 className="text-2xl font-headline font-semibold mb-4 text-primary">Historical Data Analysis</h2>
+        <h2
+          className={`text-2xl font-headline font-semibold mb-4 ${isAuraGlassTheme ? '' : 'text-primary'}`}
+          style={isAuraGlassTheme ? applyAuraGradient({}) : {}}
+        >Historical Data Analysis</h2>
+
         <div className="bg-card p-4 sm:p-6 rounded-lg shadow-md space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
             <div className="md:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
               <div>
                 <ShadcnLabel htmlFor="date-range-picker" className="text-sm font-medium text-muted-foreground mb-1 block">Date Range:</ShadcnLabel>
@@ -416,9 +424,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
                   </div>
               </div>
             </div>
-            <Button onClick={fetchAllHistoricalData} disabled={isLoading} className="w-full md:w-auto">
-              {isLoading ? 'Loading...' : 'Refresh All Data'}
-            </Button>
+            {/* The "Refresh All Data" button was here */}
           </div>
           <p className="text-xs text-muted-foreground">
               Data is fetched from Firebase path: `{firebaseDataPath}`. Time selection applies to the chosen date range.
@@ -494,6 +500,11 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
             minMaxReferenceData={minMaxReferenceData}
           />
         </div>
+         <div className="mt-4">
+            <Button className={`w-full ${isAuraGlassTheme ? 'text-white' : ''}`} style={isAuraGlassTheme ? applyAuraGradient({}) : {}}>
+               Export Chart
+            </Button>
+         </div>
       </section>
       {isDetailModalOpen && detailModalData && (
           <DetailedDistributionModal
@@ -511,6 +522,3 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
 };
 
 export default HistoricalDataSection;
-
-
-    

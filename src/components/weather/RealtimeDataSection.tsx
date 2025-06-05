@@ -10,6 +10,8 @@ import { ref, onValue, type Unsubscribe } from "firebase/database";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge, ShieldCheck, Sun, HelpCircle, CloudSun, CloudFog } from 'lucide-react'; // Added CloudSun, CloudFog
+import { Button } from '@/components/ui/button';
+import { useTheme } from 'next-themes';
 import { transformRawDataToWeatherDataPoint } from '@/lib/utils';
 import { startOfDay, endOfDay, isWithinInterval } from 'date-fns';
 
@@ -96,6 +98,7 @@ const getAirQualityStyle = (status: string | null) => {
 const RealtimeDataSection: FC = () => {
   const [processedData, setProcessedData] = useState<RealtimeSectionState>({});
   const [isLoading, setIsLoading] = useState(true);
+  const { theme } = useTheme();
 
   const firebaseDataPath = 'devices/TGkMhLL4k4ZFBwgOyRVNKe5mTQq1/records';
 
@@ -189,7 +192,13 @@ const RealtimeDataSection: FC = () => {
 
   return (
     <section className="mb-8">
-      <h2 className="text-2xl font-headline font-semibold mb-4 text-primary">Real-time Conditions</h2>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className={`text-2xl font-headline font-semibold ${theme === 'aura-glass' ? 'apply-aura-text' : 'text-primary'}`}>
+          Real-time Conditions
+        </h2>
+        {/* Refresh button - apply gradient if theme is Aura Glass */}
+        <Button onClick={() => { /* Implement refresh logic if needed */ }} className={theme === 'aura-glass' ? 'apply-aura-gradient' : ''}>Refresh All Data</Button>
+      </div>
       <p className="text-xs text-muted-foreground mb-1">
             Data is fetched from Firebase path: `{firebaseDataPath}`.
       </p>
