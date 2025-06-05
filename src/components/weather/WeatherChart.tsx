@@ -24,25 +24,25 @@ import { Download, FileImage, FileText, Loader2, Sun, Moon, Laptop } from 'lucid
 import { formatTimestampToDdMmHhMmUTC, formatTimestampToFullUTC } from '@/lib/utils';
 
 
-const MIN_BUBBLE_AREA = 60; 
+const MIN_BUBBLE_AREA = 60;
 const MAX_BUBBLE_AREA = 1000;
 
 const getPaddedMinYDomain = (dataMin: number, dataMax: number): number => {
   let paddedMin;
   const range = dataMax - dataMin;
 
-  if (dataMin >= 0 && dataMin <= 30) { 
-    if (range <= 200 && dataMax <= 200) { 
-      paddedMin = -10; 
-    } else { 
-      const proportionalPadding = Math.max(10, 0.05 * dataMax); 
+  if (dataMin >= 0 && dataMin <= 30) {
+    if (range <= 200 && dataMax <= 200) {
+      paddedMin = -10;
+    } else {
+      const proportionalPadding = Math.max(10, 0.05 * dataMax);
       paddedMin = Math.floor(dataMin - proportionalPadding);
-      if (dataMin >= 0 && paddedMin > -2) paddedMin = -2; 
+      if (dataMin >= 0 && paddedMin > -2) paddedMin = -2;
     }
-  } else if (dataMin > 30) { 
-    const padding = Math.max(5, 0.15 * dataMin); 
+  } else if (dataMin > 30) {
+    const padding = Math.max(5, 0.15 * dataMin);
     paddedMin = Math.floor(dataMin - padding);
-  } else { 
+  } else {
     const padding = Math.max(3, 0.15 * Math.abs(dataMin));
     paddedMin = Math.floor(dataMin - padding);
   }
@@ -53,28 +53,28 @@ const getPaddedMaxYDomain = (dataMax: number, dataMin: number): number => {
   let paddedMax;
   const range = dataMax - dataMin;
 
-  if (dataMax >= 0 && dataMax < 10) { 
-     if (range <= 200 && dataMin >= -100) { 
-      paddedMax = Math.ceil(dataMax + Math.max(3, 0.5 * (dataMax - Math.max(0, dataMin) + 3))); 
-      if (dataMax === 0 && paddedMax < 10) paddedMax = 10; 
-    } else { 
-      const proportionalPadding = Math.max(10, 0.05 * Math.abs(dataMin)); 
+  if (dataMax >= 0 && dataMax < 10) {
+     if (range <= 200 && dataMin >= -100) {
+      paddedMax = Math.ceil(dataMax + Math.max(3, 0.5 * (dataMax - Math.max(0, dataMin) + 3)));
+      if (dataMax === 0 && paddedMax < 10) paddedMax = 10;
+    } else {
+      const proportionalPadding = Math.max(10, 0.05 * Math.abs(dataMin));
       paddedMax = Math.ceil(dataMax + proportionalPadding);
     }
-  } else if (dataMax >= 10) { 
+  } else if (dataMax >= 10) {
     const padding = Math.max(5, 0.15 * dataMax);
     paddedMax = Math.ceil(dataMax + padding);
-  } else { 
-    const padding = Math.max(3, 0.15 * Math.abs(dataMax)); 
+  } else {
+    const padding = Math.max(3, 0.15 * Math.abs(dataMax));
     paddedMax = Math.ceil(dataMax + padding);
-    if (paddedMax > 0 && dataMax < 0) paddedMax = 0; 
+    if (paddedMax > 0 && dataMax < 0) paddedMax = 0;
   }
   return paddedMax;
 };
 
 
 interface WeatherChartProps {
-  data: WeatherDataPoint[] | any[]; 
+  data: WeatherDataPoint[] | any[];
   selectedMetrics: MetricKey[];
   metricConfigs: Record<MetricKey, MetricConfig>;
   isLoading: boolean;
@@ -110,6 +110,8 @@ const WeatherChart: FC<WeatherChartProps> = ({
     }
     return chartInputData.map(point => ({
         ...point,
+        // Ensure timestamp is numeric for scatter X-axis if needed
+        timestamp: typeof point.timestamp === 'number' ? point.timestamp : new Date(point.timestampDisplay || 0).getTime(),
         timestampDisplay: point.timestampDisplay || formatTimestampToDdMmHhMmUTC(point.timestamp),
         tooltipTimestampFull: point.tooltipTimestampFull || (isAggregated && point.aggregationPeriod ? point.timestampDisplay : formatTimestampToFullUTC(point.timestamp)),
     }));
@@ -122,11 +124,12 @@ const WeatherChart: FC<WeatherChartProps> = ({
         return config && !config.isString;
       });
     }
-    return selectedMetrics; 
+    return selectedMetrics; // For line/bar, use all selected (string ones will be skipped in render)
   }, [selectedMetrics, metricConfigs, chartType]);
 
+
   const yAxisDomain = useMemo(() => {
-    const metricsToConsiderForDomain = chartType === 'scatter' 
+    const metricsToConsiderForDomain = chartType === 'scatter'
         ? numericMetricsForScatter
         : selectedMetrics;
 
@@ -141,17 +144,17 @@ const WeatherChart: FC<WeatherChartProps> = ({
         return value;
       }).filter(v => typeof v === 'number' && isFinite(v))
     );
-    
-    let effectiveMin = dataValues.length > 0 ? Math.min(...dataValues) : 0; 
-    let effectiveMax = dataValues.length > 0 ? Math.max(...dataValues) : 10; 
-    
+
+    let effectiveMin = dataValues.length > 0 ? Math.min(...dataValues) : 0;
+    let effectiveMax = dataValues.length > 0 ? Math.max(...dataValues) : 10;
+
     if (dataValues.length === 0 && (!minMaxReferenceData || Object.keys(minMaxReferenceData).length === 0)) {
       effectiveMin = 0;
       effectiveMax = 10;
     }
 
     if (showMinMaxLines && minMaxReferenceData && chartType === 'line') {
-        selectedMetrics.forEach(metricKey => { 
+        selectedMetrics.forEach(metricKey => {
             const metricMinMax = minMaxReferenceData[metricKey];
             if (metricMinMax && typeof metricMinMax.minValue === 'number' && isFinite(metricMinMax.minValue)) {
                 effectiveMin = Math.min(effectiveMin, metricMinMax.minValue);
@@ -161,10 +164,10 @@ const WeatherChart: FC<WeatherChartProps> = ({
             }
         });
     }
-    
+
     const paddedMin = getPaddedMinYDomain(effectiveMin, effectiveMax);
     const paddedMax = getPaddedMaxYDomain(effectiveMax, effectiveMin);
-        
+
     return [paddedMin, paddedMax] as [number | 'auto', number | 'auto'];
   }, [formattedData, selectedMetrics, numericMetricsForScatter, showMinMaxLines, minMaxReferenceData, chartType, isAggregated]);
 
@@ -176,14 +179,16 @@ const WeatherChart: FC<WeatherChartProps> = ({
         if (!metricMinMax || !metricConfig || metricConfig.isString) return false;
         const { minValue, maxValue } = metricMinMax;
         return typeof minValue === 'number' && isFinite(minValue) && typeof maxValue === 'number' && isFinite(maxValue);
-    }).sort(); 
+    }).sort();
   }, [showMinMaxLines, minMaxReferenceData, selectedMetrics, metricConfigs, chartType]);
 
+
+  // Uncomment these logs if scatter chart is still empty
   if (chartType === 'scatter') {
     console.log(`[WeatherChart] Chart Type: ${chartType}, Is Aggregated: ${isAggregated}`);
     console.log(`[WeatherChart] Original Selected Metrics:`, selectedMetrics);
     console.log(`[WeatherChart] Numeric Metrics for Scatter:`, numericMetricsForScatter);
-    console.log(`[WeatherChart] Formatted Data (first 3):`, JSON.parse(JSON.stringify(formattedData.slice(0, 3))));
+    console.log(`[WeatherChart] Formatted Data (first 3):`, JSON.parse(JSON.stringify(formattedData.slice(0,3))));
     console.log(`[WeatherChart] Y-Axis Domain:`, yAxisDomain);
   }
 
@@ -201,7 +206,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
       </Card>
     );
   }
-  
+
   const metricsAvailableForCurrentChartType = chartType === 'scatter' ? numericMetricsForScatter : selectedMetrics;
 
   if (!formattedData || formattedData.length === 0 || metricsAvailableForCurrentChartType.length === 0) {
@@ -218,7 +223,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
         </CardHeader>
         <CardContent className="p-4 pt-0 h-[450px] flex items-center justify-center">
           <p className="text-muted-foreground">
-            {chartType === 'scatter' && metricsAvailableForCurrentChartType.length === 0 && selectedMetrics.length > 0 
+            {chartType === 'scatter' && numericMetricsForScatter.length === 0 && selectedMetrics.length > 0
               ? "Please select numeric metrics (e.g., Temperature, Humidity) for the scatter chart."
               : "No data available for the selected criteria or metrics."
             }
@@ -245,7 +250,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
     } else if (targetExportTheme === 'dark') {
       htmlElement.classList.add('dark');
     }
-    
+
     await new Promise(resolve => setTimeout(resolve, 100));
 
 
@@ -253,7 +258,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
       const canvas = await html2canvas(chartElementToCapture as HTMLElement, {
         scale: 2,
         useCORS: true,
-        backgroundColor: targetExportTheme === 'dark' ? 'hsl(210 20% 5%)' : 'hsl(210 20% 98%)', 
+        backgroundColor: targetExportTheme === 'dark' ? 'hsl(210 20% 5%)' : 'hsl(210 20% 98%)',
       });
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
       if (format === 'pdf') {
@@ -273,7 +278,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
     } catch (error) {
       console.error('Error exporting chart:', error);
     } finally {
-      htmlElement.className = originalHtmlClasses; 
+      htmlElement.className = originalHtmlClasses;
       setIsExporting(false);
     }
   };
@@ -284,7 +289,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
   const yAxisTickFormatter = (value: any) => {
     if (typeof value === 'number' && isFinite(value)) {
-      return value.toFixed( Math.abs(value) < 10 && value !== 0 ? 1 : 0 ); 
+      return value.toFixed( Math.abs(value) < 10 && value !== 0 ? 1 : 0 );
     }
     if (value === undefined || value === null || (typeof value === 'number' && !isFinite(value))) {
       return 'N/A';
@@ -293,10 +298,10 @@ const WeatherChart: FC<WeatherChartProps> = ({
   };
 
   const tooltipFormatter = (value: any, name: any, entry: any) => {
-    const dataKey = entry.dataKey as MetricKey | string; 
+    const dataKey = entry.dataKey as MetricKey | string;
     const originalMetricKey = dataKey.replace(/_avg$/, '') as MetricKey;
     const config = metricConfigs[originalMetricKey];
-    
+
     let displayValue;
 
     if (typeof value === 'number' && isFinite(value)) {
@@ -315,15 +320,15 @@ const WeatherChart: FC<WeatherChartProps> = ({
         const stdDev = entry.payload[`${originalMetricKey}_stdDev`];
         const count = entry.payload[`${originalMetricKey}_count`];
         let tooltipContent = [`Avg. ${baseLabel}: ${displayValue}${unitString}`];
-        if (typeof stdDev === 'number' && isFinite(stdDev)) { 
+        if (typeof stdDev === 'number' && isFinite(stdDev)) {
             tooltipContent.push(`Std. Dev: ${stdDev.toFixed(2)}${unitString}`);
         }
-        if (typeof count === 'number' && isFinite(count)) { 
+        if (typeof count === 'number' && isFinite(count)) {
             tooltipContent.push(`Data Points: ${count}`);
         }
-        return [tooltipContent.join('\n'), null]; 
+        return [tooltipContent.join('\n'), null];
     }
-    
+
     if (chartType === 'scatter' && !isAggregated && entry.payload) {
         return [`${baseLabel}: ${displayValue}${unitString}`, null];
     }
@@ -346,17 +351,32 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
   const renderChartSpecificElements = () => {
     const metricsToRender = chartType === 'scatter' ? numericMetricsForScatter : selectedMetrics;
+    // if (chartType === 'scatter') {
+    //   console.log(`[WeatherChart] Rendering Scatter. Metrics to render:`, metricsToRender);
+    // }
 
     return metricsToRender.map((key) => {
       const metricConfig = metricConfigs[key];
-      if (!metricConfig) return null; 
-      
+      if (!metricConfig) return null;
+
+      // For line/bar, skip string metrics. For scatter, this is handled by numericMetricsForScatter.
       if (metricConfig.isString && (chartType === 'line' || chartType === 'bar')) {
          return null;
       }
 
       const color = metricConfig.color || '#8884d8';
       const name = metricConfig.name || key;
+
+      // const dataForMetric = formattedData.map(p => ({
+      //   timestamp: p.timestamp,
+      //   value: isAggregated && chartType === 'scatter' ? p[`${key}_avg`] : p[key],
+      //   stdDev: isAggregated && chartType === 'scatter' ? p[`${key}_stdDev`] : undefined,
+      //   display: p.timestampDisplay
+      // }));
+      // if (chartType === 'scatter') {
+      //   console.log(`[WeatherChart] Data for ${key} (first 3):`, dataForMetric.slice(0,3));
+      // }
+
 
       switch (chartType) {
         case 'line':
@@ -368,7 +388,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
               stroke={color}
               name={name}
               dot={isAggregated ? { r: 3 } : false}
-              connectNulls={false} 
+              connectNulls={false}
               animationDuration={300}
             />
           );
@@ -384,25 +404,23 @@ const WeatherChart: FC<WeatherChartProps> = ({
             />
           );
         case 'scatter':
-          // numericMetricsForScatter ensures key is for a numeric metric here.
-          // metricConfig.isString is also implicitly false due to numericMetricsForScatter filter.
-          const avgDataKey = isAggregated ? `${key}_avg` : key; 
-          const stdDevDataKey = isAggregated ? `${key}_stdDev` : undefined;
-          const zAxisId = isAggregated && stdDevDataKey ? `${key}_z` : undefined;
-          
-          // Uncomment for scatter debugging
-          // console.log(`[WeatherChart] Rendering Scatter for key: ${key}, AvgDataKey: ${avgDataKey}, StdDevDataKey: ${stdDevDataKey}, IsAggregated: ${isAggregated}`);
+          const avgDataKey = isAggregated ? `${key}_avg` : key;
+          const stdDevDataKey = isAggregated ? `${key}_stdDev` : undefined; // Only for aggregated
+          const zAxisId = isAggregated && stdDevDataKey && !metricConfig.isString ? `${key}_z` : undefined;
+
+          // console.log(`[WeatherChart] Rendering Scatter for key: ${key}, AvgDataKey: ${avgDataKey}, StdDevDataKey: ${stdDevDataKey}, IsAggregated: ${isAggregated}, IsString: ${metricConfig.isString}`);
           // const samplePoints = formattedData.slice(0, 3).map(p => ({
           //   ts: p.timestampDisplay,
           //   avg: p[avgDataKey],
           //   stdDev: stdDevDataKey ? p[stdDevDataKey] : undefined,
           //   zAxisIdUsed: zAxisId
           // }));
-          // console.log(`[WeatherChart] Sample data for ${key}:`, samplePoints);
+          // console.log(`[WeatherChart] Sample data for ${key} for <Scatter/>:`, samplePoints);
+
 
           return (
             <React.Fragment key={`scatter-frag-${key}`}>
-              {isAggregated && stdDevDataKey && ( 
+              {isAggregated && stdDevDataKey && !metricConfig.isString && (
                 <ZAxis
                   key={`zaxis-${key}`}
                   zAxisId={zAxisId}
@@ -415,10 +433,10 @@ const WeatherChart: FC<WeatherChartProps> = ({
               <Scatter
                 key={`scatter-${key}`}
                 name={name}
-                dataKey={avgDataKey} 
+                dataKey={avgDataKey}
                 fill={color}
-                shape={"circle"} 
-                zAxisId={zAxisId} 
+                shape={"circle"}
+                zAxisId={zAxisId} // Will be undefined if not aggregated or string, Recharts should handle
                 animationDuration={300}
               />
             </React.Fragment>
@@ -432,9 +450,21 @@ const WeatherChart: FC<WeatherChartProps> = ({
   let ChartComponent: React.ComponentType<any> = LineChart;
   if (chartType === 'bar') ChartComponent = BarChart;
   else if (chartType === 'scatter') ChartComponent = ScatterChart;
-  
+
   const chartDynamicKey = `${chartType}-${selectedMetrics.join('-')}-${formattedData.length}-${isAggregated}-${showMinMaxLines}-${JSON.stringify(yAxisDomain)}`;
-  
+
+  const xAxisDataKey = chartType === 'scatter' ? "timestamp" : "timestampDisplay";
+  const xAxisType = chartType === 'scatter' ? "number" : "category";
+  const xAxisTickFormatter = chartType === 'scatter' ? (value: number) => formatTimestampToDdMmHhMmUTC(value) : undefined;
+  const xAxisDomain = chartType === 'scatter' ? (['dataMin', 'dataMax'] as [number | 'auto', number | 'auto']) : undefined;
+  const xAxisScale = chartType === 'scatter' ? "time" : "auto";
+  const xAxisAngle = chartType === 'scatter' ? -30 : (((chartType === 'line' || chartType === 'scatter') && !isAggregated) ? -45 : 0);
+  const xAxisTextAnchor = chartType === 'scatter' ? "end" : (((chartType === 'line' || chartType === 'scatter') && !isAggregated) ? "end" : "middle");
+  const xAxisDy = chartType === 'scatter' ? 10 : (((chartType === 'line' || chartType === 'scatter') && !isAggregated) ? 10 : 0);
+  const xAxisHeight = chartType === 'scatter' ? 50 : (((chartType === 'line' || chartType === 'scatter') && !isAggregated) ? 60 : 30);
+  const xAxisMinTickGap = chartType === 'scatter' ? 40 : (((chartType === 'line' || chartType === 'scatter') && !isAggregated) ? 20 : 5);
+
+
   const renderChart = () => (
     <ResponsiveContainer width="100%" height="100%">
       <ChartComponent
@@ -445,15 +475,19 @@ const WeatherChart: FC<WeatherChartProps> = ({
       >
         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
         <XAxis
-          dataKey="timestampDisplay"
+          dataKey={xAxisDataKey}
+          type={xAxisType}
+          domain={xAxisDomain}
+          scale={xAxisScale}
+          tickFormatter={xAxisTickFormatter}
           stroke="#888888"
           tick={{ fill: "hsl(var(--foreground))", fontSize: 11 }}
-          height={((chartType === 'line' || chartType === 'scatter') && !isAggregated) ? 60 : 30}
-          interval="preserveStartEnd" 
-          angle={((chartType === 'line' || chartType === 'scatter') && !isAggregated) ? -45 : 0}
-          textAnchor={((chartType === 'line' || chartType === 'scatter') && !isAggregated) ? "end" : "middle"}
-          dy={((chartType === 'line' || chartType === 'scatter') && !isAggregated) ? 10 : 0}
-          minTickGap={((chartType === 'line' || chartType === 'scatter') && !isAggregated) ? 20 : 5}
+          height={xAxisHeight}
+          interval="preserveStartEnd"
+          angle={xAxisAngle}
+          textAnchor={xAxisTextAnchor}
+          dy={xAxisDy}
+          minTickGap={xAxisMinTickGap}
         />
         <YAxis
           stroke="#888888"
@@ -471,6 +505,9 @@ const WeatherChart: FC<WeatherChartProps> = ({
             if (payload && payload.length > 0 && payload[0].payload.tooltipTimestampFull) {
               return payload[0].payload.tooltipTimestampFull;
             }
+            if (chartType === 'scatter' && typeof label === 'number') { // For numeric X-axis
+                 return formatTimestampToFullUTC(label);
+            }
             return label;
           }}
           contentStyle={{
@@ -479,7 +516,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
             borderRadius: 'var(--radius)',
             boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)',
             color: 'hsl(var(--popover-foreground))',
-            whiteSpace: 'pre-line', 
+            whiteSpace: 'pre-line',
           }}
           itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
           cursor={{ stroke: 'hsl(var(--accent))', strokeWidth: 1, strokeDasharray: '3 3' }}
@@ -496,23 +533,23 @@ const WeatherChart: FC<WeatherChartProps> = ({
         {renderChartSpecificElements()}
 
         {showMinMaxLines && chartType === 'line' && minMaxReferenceData &&
-          selectedMetrics.flatMap(metricKey => { 
+          selectedMetrics.flatMap(metricKey => {
             const metricMinMax = minMaxReferenceData[metricKey];
             const metricConfig = metricConfigs[metricKey];
-            
+
             if (!metricMinMax || !metricConfig || metricConfig.isString) {
               return [];
             }
 
             const { minValue, maxValue } = metricMinMax;
-            
+
             if (typeof minValue !== 'number' || !isFinite(minValue) || typeof maxValue !== 'number' || !isFinite(maxValue)) {
                 return [];
             }
-            
+
             const orderIndex = metricsWithMinMaxLines.indexOf(metricKey);
             const activeOrderIndex = orderIndex !== -1 ? orderIndex : 0;
-            
+
             const dyMinLabel = 5 + activeOrderIndex * 12;
             const dyMaxLabel = -5 - activeOrderIndex * 12;
 
@@ -524,14 +561,14 @@ const WeatherChart: FC<WeatherChartProps> = ({
                 strokeDasharray="2 2"
                 strokeOpacity={0.7}
                 strokeWidth={1}
-                label={{ 
-                  value: `Min: ${Number(minValue).toFixed(isAggregated ? 1 : (metricConfig.unit === 'ppm' ? 0 : 2))}${metricConfig.unit || ''}`, 
+                label={{
+                  value: `Min: ${Number(minValue).toFixed(isAggregated ? 1 : (metricConfig.unit === 'ppm' ? 0 : 2))}${metricConfig.unit || ''}`,
                   position: "right",
                   textAnchor: "end",
-                  dx: -5, 
-                  fill: metricConfig.color, 
+                  dx: -5,
+                  fill: metricConfig.color,
                   fontSize: 10,
-                  dy: dyMinLabel 
+                  dy: dyMinLabel
                 }}
               />,
               <ReferenceLine
@@ -541,12 +578,12 @@ const WeatherChart: FC<WeatherChartProps> = ({
                 strokeDasharray="2 2"
                 strokeOpacity={0.7}
                 strokeWidth={1}
-                label={{ 
-                  value: `Max: ${Number(maxValue).toFixed(isAggregated ? 1 : (metricConfig.unit === 'ppm' ? 0 : 2))}${metricConfig.unit || ''}`, 
+                label={{
+                  value: `Max: ${Number(maxValue).toFixed(isAggregated ? 1 : (metricConfig.unit === 'ppm' ? 0 : 2))}${metricConfig.unit || ''}`,
                   position: "right",
                   textAnchor: "end",
-                  dx: -5, 
-                  fill: metricConfig.color, 
+                  dx: -5,
+                  fill: metricConfig.color,
                   fontSize: 10,
                   dy: dyMaxLabel
                 }}
@@ -640,3 +677,4 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
 export default WeatherChart;
 
+    
