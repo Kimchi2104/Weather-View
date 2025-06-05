@@ -22,7 +22,7 @@ import type { WeatherDataPoint, MetricKey, MetricConfig } from '@/types/weather'
 import { Skeleton } from '@/components/ui/skeleton';
 import { Download, FileImage, FileText, Loader2, Sun, Moon, Laptop } from 'lucide-react';
 import { formatTimestampToDdMmHhMmUTC, formatTimestampToFullUTC } from '@/lib/utils';
-import { ChartTooltipContent } from '@/components/ui/chart'; // Import the original
+import { ChartTooltipContent, ChartContainer, type ChartConfig } from '@/components/ui/chart';
 
 
 const MIN_BUBBLE_AREA = 60;
@@ -182,16 +182,30 @@ const WeatherChart: FC<WeatherChartProps> = ({
     }).sort();
   }, [showMinMaxLines, minMaxReferenceData, selectedMetrics, METRIC_CONFIGS, chartType]);
 
-  useEffect(() => {
-    // Uncomment these logs for deep scatter chart debugging if issues persist.
-    // if (chartType === 'scatter') {
-    //   console.log(`[WeatherChart] Chart Type: ${chartType}, Is Aggregated: ${isAggregated}`);
-    //   console.log(`[WeatherChart] Original Selected Metrics:`, selectedMetrics);
-    //   console.log(`[WeatherChart] Numeric Metrics for Scatter:`, numericMetricsForScatter);
-    //   console.log(`[WeatherChart] Formatted Data (first 3):`, JSON.parse(JSON.stringify(formattedData.slice(0,3))));
-    //   console.log(`[WeatherChart] Y-Axis Domain:`, yAxisDomain);
-    // }
-  }, [chartType, isAggregated, selectedMetrics, numericMetricsForScatter, formattedData, yAxisDomain]);
+   const chartConfigForShadcn = useMemo(() => {
+    const config: ChartConfig = {};
+    (Object.keys(METRIC_CONFIGS) as MetricKey[]).forEach(key => {
+      const metricConf = METRIC_CONFIGS[key];
+      config[key] = {
+        label: metricConf.name,
+        icon: metricConf.Icon,
+        color: metricConf.color,
+      };
+      if (isAggregated && !metricConf.isString) {
+        config[`${key}_avg`] = { // For tooltip reference if needed, though formatter handles it
+          label: `${metricConf.name} (Avg)`,
+          icon: metricConf.Icon,
+          color: metricConf.color,
+        };
+         config[`${key}_stdDev`] = { // For tooltip reference if needed for ZAxis name in legend
+          label: `${metricConf.name} (Std. Dev)`,
+          icon: undefined, // No icon for std dev typically
+          color: metricConf.color, // Can use same color or a variation
+        };
+      }
+    });
+    return config;
+  }, [METRIC_CONFIGS, isAggregated]);
 
 
   if (isLoading) {
@@ -298,58 +312,44 @@ const WeatherChart: FC<WeatherChartProps> = ({
     return String(value);
   };
 
-  const tooltipFormatter = (value: any, name: string, entry: any): React.ReactNode | null => {
+  const tooltipFormatter = (value: any, nameFromRecharts: string, entry: any): React.ReactNode | [string, string] | null => {
     const dataKey = entry.dataKey as string;
 
-    // Uncomment for deep tooltip debugging
-    // console.log(`[WeatherChart TT Formatter] Raw Inputs - value: ${value}, name: "${name}", dataKey: "${dataKey}", entry:`, entry);
-
-    // Aggressive filter for any item whose Recharts-provided 'name' is timestamp-like
-    if (typeof name === 'string' && name.toLowerCase().includes('timestamp')) {
-      // console.log(`[WeatherChart TT Formatter] SKIPPING item because NAME ("${name}") is timestamp-like.`);
+    if (typeof nameFromRecharts === 'string' && nameFromRecharts.toLowerCase().includes('timestamp')) {
       return null;
+    }
+    if (typeof dataKey === 'string') {
+        const lowerDataKey = dataKey.toLowerCase();
+        if (lowerDataKey === 'timestamp' || lowerDataKey === 'timestampdisplay' || lowerDataKey === 'tooltiptimestampfull') {
+            return null;
+        }
     }
     
-    // Aggressive filter for any item whose 'dataKey' is one of our specific timestamp keys
-    const lowerDataKey = typeof dataKey === 'string' ? dataKey.toLowerCase() : '';
-    if (lowerDataKey === 'timestamp' || lowerDataKey === 'timestampdisplay' || lowerDataKey === 'tooltiptimestampfull') {
-      // console.log(`[WeatherChart TT Formatter] SKIPPING item because dataKey ("${dataKey}") is a direct timestamp key.`);
-      return null;
-    }
-
     let originalMetricKeyForConfig = dataKey;
+    let isAvgKey = false;
     if (isAggregated) {
-      if (dataKey.endsWith('_avg')) originalMetricKeyForConfig = dataKey.substring(0, dataKey.length - 4);
-      else if (dataKey.endsWith('_stdDev')) originalMetricKeyForConfig = dataKey.substring(0, dataKey.length - 7); // Should not be a primary series
-      else if (dataKey.endsWith('_count')) originalMetricKeyForConfig = dataKey.substring(0, dataKey.length - 6); // Should not be a primary series
+      if (dataKey.endsWith('_avg')) {
+        originalMetricKeyForConfig = dataKey.substring(0, dataKey.length - 4);
+        isAvgKey = true;
+      } else if (dataKey.endsWith('_stdDev')) { // Should not be a primary series, but filter
+        return null;
+      } else if (dataKey.endsWith('_count')) { // Should not be a primary series, but filter
+         return null;
+      }
     }
     originalMetricKeyForConfig = originalMetricKeyForConfig as MetricKey;
 
     const lowerCaseDerivedMetricKey = originalMetricKeyForConfig.toLowerCase();
     if (lowerCaseDerivedMetricKey.includes('timestamp') || lowerCaseDerivedMetricKey.includes('aggregationperiod')) {
-      // console.log(`[WeatherChart TT Formatter] SKIPPING item because derivedMetricKey ("${originalMetricKeyForConfig}") is timestamp/aggregationperiod.`);
       return null;
-    }
-    // Prevent _stdDev or _count from becoming their own tooltip items if they somehow get here as primary series
-    if (isAggregated && (dataKey.endsWith('_stdDev') || dataKey.endsWith('_count'))) {
-        // console.log(`[WeatherChart TT Formatter] SKIPPING item because dataKey ("${dataKey}") is a stdDev/count direct key.`);
-        return null;
     }
 
     const config = METRIC_CONFIGS[originalMetricKeyForConfig];
-    // If no config, or if config is for a string metric and we expect numbers (e.g. for scatter avg), treat carefully.
-    // However, numericMetricsForScatter should pre-filter string metrics for scatter's main Y dataKey.
+    const displayName = config?.name || (isAvgKey ? `${originalMetricKeyForConfig} (Avg)`: originalMetricKeyForConfig) ;
 
-    // Determine the display name. Prioritize config.name.
-    const displayName = config?.name || name || originalMetricKeyForConfig;
-    
-    // Final check on displayName itself for safety
     if (typeof displayName === 'string' && displayName.toLowerCase().includes('timestamp')) {
-      // console.log(`[WeatherChart TT Formatter] SKIPPING item because final displayName ("${displayName}") is timestamp-like.`);
       return null;
     }
-    // console.log(`[WeatherChart TT Formatter] Processing - displayName: "${displayName}", dataKey: "${dataKey}", originalKey: "${originalMetricKeyForConfig}", config found: ${!!config}`);
-
 
     let displayValue: string;
     if (typeof value === 'number' && isFinite(value)) {
@@ -360,7 +360,6 @@ const WeatherChart: FC<WeatherChartProps> = ({
     } else {
       displayValue = String(value);
     }
-
     const unitString = (typeof value === 'number' && isFinite(value) && config?.unit) ? ` ${config.unit}` : '';
 
     if (chartType === 'scatter' && isAggregated && config && !config.isString && entry.payload) {
@@ -374,11 +373,9 @@ const WeatherChart: FC<WeatherChartProps> = ({
       if (typeof countValue === 'number' && isFinite(countValue)) {
         tooltipContent += `\nData Points: ${countValue}`;
       }
-      // Return a ReactNode to fully control rendering for this item
-      return <div style={{ whiteSpace: 'pre-line', color: config.color }}>{tooltipContent.trim()}</div>;
+      return <div style={{ whiteSpace: 'pre-line', color: config.color || 'inherit' }}>{tooltipContent.trim()}</div>;
     }
     
-    // For line, bar, or raw scatter, return [value, name] array for default formatting
     return [`${displayValue}${unitString}`, displayName];
   };
 
@@ -402,7 +399,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
       return numericMetricsForScatter.flatMap((key) => {
         const metricConfig = METRIC_CONFIGS[key];
         if (!metricConfig || metricConfig.isString) { 
-          return []; // Should not happen due to numericMetricsForScatter pre-filter
+          return [];
         }
   
         const yDataKey = isAggregated ? `${key}_avg` : key;
@@ -418,7 +415,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
               zAxisId={zAxisUniqueId}
               dataKey={stdDevDataKey}
               range={[MIN_BUBBLE_AREA, MAX_BUBBLE_AREA]}
-              name={`${metricConfig.name} Std Dev`} // This name is for internal reference, not directly in tooltip unless not formatted
+              name={chartConfigForShadcn[`${key}_stdDev`]?.label || `${metricConfig.name} Std Dev`}
             />
           );
         }
@@ -426,7 +423,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
         elements.push(
           <Scatter
             key={`scatter-${key}`}
-            name={metricConfig.name} // This name is passed to tooltipFormatter as `name`
+            name={chartConfigForShadcn[yDataKey]?.label || chartConfigForShadcn[key]?.label || metricConfig.name}
             dataKey={yDataKey}
             fill={metricConfig.color || '#8884d8'}
             shape="circle"
@@ -444,7 +441,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
       if (!metricConfig) return null;
 
       const color = metricConfig.color || '#8884d8';
-      const name = metricConfig.name || key; // This name is passed to tooltipFormatter as `name`
+      const name = chartConfigForShadcn[key]?.label || metricConfig.name || key;
 
       switch (chartType) {
         case 'line':
@@ -466,7 +463,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
               key={`bar-${key}`}
               dataKey={key}
               fill={color}
-              name={name} // This name is passed to tooltipFormatter as `name`
+              name={name}
               radius={[4, 4, 0, 0]}
               animationDuration={300}
             />
@@ -507,10 +504,10 @@ const WeatherChart: FC<WeatherChartProps> = ({
     ChartComponent = ScatterChart;
   }
 
-
   const chartDynamicKey = `${chartType}-${selectedMetrics.join('-')}-${JSON.stringify(yAxisDomain)}-${isAggregated}-${formattedData.length}-${showMinMaxLines}`;
   
-  const standardLabelFormatter = (label: string | number, payload: any[] | undefined) => {
+  const scatterLabelFormatter = (label: string | number, payload: any[] | undefined) => {
+    if (chartType === 'scatter') return null; // Hide main label for scatter
     if (payload && payload.length > 0 && payload[0].payload.tooltipTimestampFull) {
       return payload[0].payload.tooltipTimestampFull;
     }
@@ -523,159 +520,159 @@ const WeatherChart: FC<WeatherChartProps> = ({
     }
 
     const filteredPayload = props.payload.filter((pldItem: any) => {
-      const name = typeof pldItem.name === 'string' ? pldItem.name.toLowerCase() : '';
-      const dataKey = typeof pldItem.dataKey === 'string' ? pldItem.dataKey.toLowerCase() : '';
-      
-      if (name.includes('timestamp') || 
-          dataKey === 'timestamp' || 
-          dataKey === 'timestampdisplay' || 
-          dataKey === 'tooltiptimestampfull') {
-        // console.log(`[CustomTooltipContentWrapper] Filtering out item: Name='${pldItem.name}', DataKey='${pldItem.dataKey}'`);
-        return false;
-      }
-      // Also filter out ZAxis specific items if they appear in payload names by chance
-      if (name.includes('std dev')) return false; 
-
-      return true;
-    });
-
+        const name = typeof pldItem.name === 'string' ? pldItem.name.toLowerCase() : '';
+        const dataKey = typeof pldItem.dataKey === 'string' ? pldItem.dataKey.toLowerCase() : '';
+        
+        if (name.includes('timestamp') || 
+            dataKey === 'timestamp' || 
+            dataKey === 'timestampdisplay' || 
+            dataKey === 'tooltiptimestampfull' ||
+            name.includes('std dev') // Filter out ZAxis items if they appear by name
+            ) {
+          return false;
+        }
+        return true;
+      });
+  
     if (filteredPayload.length === 0) {
-      // console.log(`[CustomTooltipContentWrapper] All items filtered out or empty payload after filtering.`);
       return null; 
     }
     
-    // console.log(`[CustomTooltipContentWrapper] Original Payload:`, props.payload, `Filtered Payload:`, filteredPayload);
-
     return (
       <ChartTooltipContent
         {...props}
         payload={filteredPayload}
         formatter={tooltipFormatter}
-        labelFormatter={chartType === 'scatter' ? () => null : standardLabelFormatter}
-        hideIndicator={chartType === 'scatter' && isAggregated} // Hide default dot for aggregated scatter if custom node is returned
+        labelFormatter={scatterLabelFormatter}
+        hideIndicator={chartType === 'scatter' && isAggregated}
       />
     );
   };
 
   const renderChart = () => (
-    <ResponsiveContainer width="100%" height="100%">
-      <ChartComponent
-        key={chartDynamicKey}
-        data={formattedData}
-        onClick={handleChartClick}
-        {...commonCartesianProps}
-      >
-        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-        <XAxis
-          dataKey={xAxisDataKey}
-          type={xAxisType}
-          domain={xAxisDomain}
-          scale={xAxisScale}
-          tickFormatter={xAxisTickFormatter}
-          stroke="#888888"
-          tick={{ fill: "hsl(var(--foreground))", fontSize: 11 }}
-          height={xAxisHeight}
-          interval={xAxisInterval}
-          angle={xAxisAngle}
-          textAnchor={xAxisTextAnchor}
-          dy={xAxisDy}
-          minTickGap={xAxisMinTickGap}
-        />
-        <YAxis
-          stroke="#888888"
-          tick={{ fill: "hsl(var(--foreground))", fontSize: 12 }}
-          tickFormatter={yAxisTickFormatter}
-          domain={yAxisDomain}
-          allowDecimals={true}
-          type="number" 
-          scale="linear"
-          allowDataOverflow={chartType === 'line' || chartType === 'scatter'}
-        />
-        <Tooltip
-          content={renderCustomTooltipContent}
-          wrapperStyle={{ outline: "none" }} // Prevents potential focus outline on the entire tooltip box
-          cursor={{ stroke: 'hsl(var(--accent))', strokeWidth: 1, strokeDasharray: '3 3' }}
-          animationDuration={150}
-          animationEasing="ease-out"
-        />
-        <Legend
-          wrapperStyle={{ paddingTop: '0px', paddingBottom: '20px' }}
-          iconSize={14}
-          layout="horizontal"
-          align="center"
-          verticalAlign="top"
-          formatter={(value, entry, index) => {
-            // The 'value' here is the 'name' prop of Line/Bar/Scatter
-            const config = METRIC_CONFIGS[entry.dataKey as MetricKey]; // Attempt to get original key if simple
-            if (config && !config.isString) return config.name;
-            // Fallback for complex keys or scatter where dataKey might be temperature_avg
-            // The 'value' passed to formatter is usually the 'name' prop of the series component
-            return value; 
-          }}
-        />
-        {renderChartSpecificElements()}
+    <ChartComponent
+      key={chartDynamicKey}
+      data={formattedData}
+      onClick={handleChartClick}
+      {...commonCartesianProps}
+    >
+      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+      <XAxis
+        dataKey={xAxisDataKey}
+        type={xAxisType}
+        domain={xAxisDomain}
+        scale={xAxisScale}
+        tickFormatter={xAxisTickFormatter}
+        stroke="#888888"
+        tick={{ fill: "hsl(var(--foreground))", fontSize: 11 }}
+        height={xAxisHeight}
+        interval={xAxisInterval}
+        angle={xAxisAngle}
+        textAnchor={xAxisTextAnchor}
+        dy={xAxisDy}
+        minTickGap={xAxisMinTickGap}
+      />
+      <YAxis
+        stroke="#888888"
+        tick={{ fill: "hsl(var(--foreground))", fontSize: 12 }}
+        tickFormatter={yAxisTickFormatter}
+        domain={yAxisDomain}
+        allowDecimals={true}
+        type="number" 
+        scale="linear"
+        allowDataOverflow={chartType === 'line' || chartType === 'scatter'}
+      />
+      <Tooltip
+        content={renderCustomTooltipContent}
+        wrapperStyle={{ outline: "none" }}
+        cursor={{ stroke: 'hsl(var(--accent))', strokeWidth: 1, strokeDasharray: '3 3' }}
+        animationDuration={150}
+        animationEasing="ease-out"
+      />
+      <Legend
+        wrapperStyle={{ paddingTop: '0px', paddingBottom: '20px' }}
+        iconSize={14}
+        layout="horizontal"
+        align="center"
+        verticalAlign="top"
+        formatter={(value, entry, index) => {
+          // 'value' is the 'name' prop from Line/Bar/Scatter
+          // 'entry.dataKey' can be 'temperature' or 'temperature_avg'
+          const dataKey = entry.dataKey as string;
+          let originalKey = dataKey;
+          if (isAggregated && dataKey.endsWith('_avg')) {
+            originalKey = dataKey.substring(0, dataKey.length - 4);
+          }
+          
+          const config = chartConfigForShadcn[originalKey as MetricKey];
+          if (config?.label) {
+            return isAggregated && dataKey.endsWith('_avg') ? `${config.label}` : config.label;
+          }
+          return value; // Fallback to the 'name' prop value
+        }}
+      />
+      {renderChartSpecificElements()}
 
-        {showMinMaxLines && chartType === 'line' && minMaxReferenceData &&
-          selectedMetrics.flatMap(metricKey => {
-            const metricMinMax = minMaxReferenceData[metricKey];
-            const metricConfig = METRIC_CONFIGS[metricKey];
+      {showMinMaxLines && chartType === 'line' && minMaxReferenceData &&
+        selectedMetrics.flatMap(metricKey => {
+          const metricMinMax = minMaxReferenceData[metricKey];
+          const metricConfig = METRIC_CONFIGS[metricKey];
 
-            if (!metricMinMax || !metricConfig || metricConfig.isString) {
+          if (!metricMinMax || !metricConfig || metricConfig.isString) {
+            return [];
+          }
+
+          const { minValue, maxValue } = metricMinMax;
+
+          if (typeof minValue !== 'number' || !isFinite(minValue) || typeof maxValue !== 'number' || !isFinite(maxValue)) {
               return [];
-            }
+          }
 
-            const { minValue, maxValue } = metricMinMax;
+          const orderIndex = metricsWithMinMaxLines.indexOf(metricKey);
+          const activeOrderIndex = orderIndex !== -1 ? orderIndex : 0;
 
-            if (typeof minValue !== 'number' || !isFinite(minValue) || typeof maxValue !== 'number' || !isFinite(maxValue)) {
-                return [];
-            }
+          const dyMinLabel = 5 + activeOrderIndex * 12;
+          const dyMaxLabel = -5 - activeOrderIndex * 12;
 
-            const orderIndex = metricsWithMinMaxLines.indexOf(metricKey);
-            const activeOrderIndex = orderIndex !== -1 ? orderIndex : 0;
-
-            const dyMinLabel = 5 + activeOrderIndex * 12;
-            const dyMaxLabel = -5 - activeOrderIndex * 12;
-
-            return [
-              <ReferenceLine
-                key={`min-line-${metricKey}`}
-                y={Number(minValue)}
-                stroke={metricConfig.color}
-                strokeDasharray="2 2"
-                strokeOpacity={0.7}
-                strokeWidth={1}
-                label={{
-                  value: `Min: ${Number(minValue).toFixed(isAggregated ? 1 : (metricConfig.unit === 'ppm' ? 0 : 2))}${metricConfig.unit || ''}`,
-                  position: "right",
-                  textAnchor: "end",
-                  dx: -5,
-                  fill: metricConfig.color,
-                  fontSize: 10,
-                  dy: dyMinLabel
-                }}
-              />,
-              <ReferenceLine
-                key={`max-line-${metricKey}`}
-                y={Number(maxValue)}
-                stroke={metricConfig.color}
-                strokeDasharray="2 2"
-                strokeOpacity={0.7}
-                strokeWidth={1}
-                label={{
-                  value: `Max: ${Number(maxValue).toFixed(isAggregated ? 1 : (metricConfig.unit === 'ppm' ? 0 : 2))}${metricConfig.unit || ''}`,
-                  position: "right",
-                  textAnchor: "end",
-                  dx: -5,
-                  fill: metricConfig.color,
-                  fontSize: 10,
-                  dy: dyMaxLabel
-                }}
-              />
-            ];
-          })
-        }
-      </ChartComponent>
-    </ResponsiveContainer>
+          return [
+            <ReferenceLine
+              key={`min-line-${metricKey}`}
+              y={Number(minValue)}
+              stroke={metricConfig.color}
+              strokeDasharray="2 2"
+              strokeOpacity={0.7}
+              strokeWidth={1}
+              label={{
+                value: `Min: ${Number(minValue).toFixed(isAggregated ? 1 : (metricConfig.unit === 'ppm' ? 0 : 2))}${metricConfig.unit || ''}`,
+                position: "right",
+                textAnchor: "end",
+                dx: -5,
+                fill: metricConfig.color,
+                fontSize: 10,
+                dy: dyMinLabel
+              }}
+            />,
+            <ReferenceLine
+              key={`max-line-${metricKey}`}
+              y={Number(maxValue)}
+              stroke={metricConfig.color}
+              strokeDasharray="2 2"
+              strokeOpacity={0.7}
+              strokeWidth={1}
+              label={{
+                value: `Max: ${Number(maxValue).toFixed(isAggregated ? 1 : (metricConfig.unit === 'ppm' ? 0 : 2))}${metricConfig.unit || ''}`,
+                position: "right",
+                textAnchor: "end",
+                dx: -5,
+                fill: metricConfig.color,
+                fontSize: 10,
+                dy: dyMaxLabel
+              }}
+            />
+          ];
+        })
+      }
+    </ChartComponent>
   );
 
   return (
@@ -692,9 +689,13 @@ const WeatherChart: FC<WeatherChartProps> = ({
         </div>
       </CardHeader>
       <CardContent className="p-4 pt-0">
-        <div ref={chartRef} className="w-full h-[550px] bg-card mx-auto overflow-hidden">
-          {renderChart()}
-        </div>
+        <ChartContainer
+            ref={chartRef}
+            config={chartConfigForShadcn}
+            className="w-full h-[550px] bg-card mx-auto overflow-hidden"
+          >
+            {renderChart()}
+        </ChartContainer>
         <div className="flex justify-center items-center pt-2 space-x-4">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -759,3 +760,4 @@ const WeatherChart: FC<WeatherChartProps> = ({
 };
 
 export default WeatherChart;
+
