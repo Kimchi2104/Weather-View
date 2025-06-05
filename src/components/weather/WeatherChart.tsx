@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, ScatterChart, Scatter, ReferenceLine, ZAxis } from 'recharts';
-import type { WeatherDataPoint, MetricKey, MetricConfig } from '@/types/weather';
+import type { WeatherDataPoint, MetricKey, MetricConfig, AggregatedDataPoint } from '@/types/weather';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Download, FileImage, FileText, Loader2, Sun, Moon, Laptop } from 'lucide-react';
 import { formatTimestampToDdMmHhMmUTC, formatTimestampToFullUTC } from '@/lib/utils';
@@ -79,7 +79,7 @@ interface WeatherChartProps {
   selectedMetrics: MetricKey[];
   metricConfigs: Record<MetricKey, MetricConfig>;
   isLoading: boolean;
-  onPointClick?: (point: WeatherDataPoint) => void;
+  onPointClick?: (pointPayload: WeatherDataPoint | AggregatedDataPoint | null, rawEvent: any | null) => void;
   chartType: 'line' | 'bar' | 'scatter';
   isAggregated?: boolean;
   showMinMaxLines?: boolean;
@@ -192,61 +192,21 @@ const WeatherChart: FC<WeatherChartProps> = ({
         color: metricConf.color,
       };
       if (isAggregated && !metricConf.isString) {
-        config[`${key}_avg`] = { // For tooltip reference if needed, though formatter handles it
+        config[`${key}_avg`] = { 
           label: `${metricConf.name} (Avg)`,
           icon: metricConf.Icon,
           color: metricConf.color,
         };
-         config[`${key}_stdDev`] = { // For tooltip reference if needed for ZAxis name in legend
+         config[`${key}_stdDev`] = { 
           label: `${metricConf.name} (Std. Dev)`,
-          icon: undefined, // No icon for std dev typically
-          color: metricConf.color, // Can use same color or a variation
+          icon: undefined, 
+          color: metricConf.color, 
         };
       }
     });
     return config;
   }, [METRIC_CONFIGS, isAggregated]);
 
-
-  if (isLoading) {
-    return (
-      <Card className="shadow-lg">
-        <CardHeader className="pb-3">
-          <Skeleton className="h-6 w-1/2 mb-2" />
-          <Skeleton className="h-4 w-1/3" />
-        </CardHeader>
-        <CardContent className="p-4 pt-0">
-          <Skeleton className="h-[450px] w-full" />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const metricsAvailableForCurrentChartType = chartType === 'scatter' ? numericMetricsForScatter : selectedMetrics.filter(key => !METRIC_CONFIGS[key]?.isString);
-
-  if (!formattedData || formattedData.length === 0 || metricsAvailableForCurrentChartType.length === 0) {
-    return (
-      <Card className="shadow-lg">
-        <CardHeader className="pb-3">
-          <CardTitle className="font-headline">Historical Data Trends</CardTitle>
-          <CardDescription>
-            Displaying {chartType.charAt(0).toUpperCase() + chartType.slice(1)} Chart
-            {(chartType !== 'scatter' || (chartType === 'scatter' && isAggregated)) && (isAggregated ? ` (Aggregated Data - ${formattedData[0]?.aggregationPeriod || ''})` : ` (Raw Data)`)}.
-            {(((chartType === 'line' && !isAggregated)) || (chartType === 'scatter' && !isAggregated)) && " Point clicks can populate AI forecast."}
-            {chartType === 'scatter' && isAggregated && numericMetricsForScatter.length > 0 && " Bubble size indicates data spread (standard deviation)."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-4 pt-0 h-[450px] flex items-center justify-center">
-          <p className="text-muted-foreground">
-            {chartType === 'scatter' && numericMetricsForScatter.length === 0 && selectedMetrics.length > 0
-              ? "Please select numeric metrics (e.g., Temperature, Humidity) for the scatter chart."
-              : "No data available for the selected criteria or metrics."
-            }
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
 
   const exportChart = async (format: 'png' | 'jpeg' | 'pdf') => {
     if (!chartRef.current || isExporting) return;
@@ -315,12 +275,12 @@ const WeatherChart: FC<WeatherChartProps> = ({
   const tooltipFormatter = (value: any, nameFromRecharts: string, entry: any): React.ReactNode | [string, string] | null => {
     const dataKey = entry.dataKey as string;
 
-    if (typeof nameFromRecharts === 'string' && nameFromRecharts.toLowerCase().includes('timestamp')) {
-      return null;
+    if (typeof nameFromRecharts === 'string' && nameFromRecharts.toLowerCase().includes("timestamp")) {
+      return null; 
     }
     if (typeof dataKey === 'string') {
         const lowerDataKey = dataKey.toLowerCase();
-        if (lowerDataKey === 'timestamp' || lowerDataKey === 'timestampdisplay' || lowerDataKey === 'tooltiptimestampfull') {
+        if (lowerDataKey === 'timestamp' || lowerDataKey === 'timestampdisplay' || lowerDataKey === 'tooltiptimestampfull' || lowerDataKey.includes("stddev") || lowerDataKey.includes("count")) {
             return null;
         }
     }
@@ -331,24 +291,18 @@ const WeatherChart: FC<WeatherChartProps> = ({
       if (dataKey.endsWith('_avg')) {
         originalMetricKeyForConfig = dataKey.substring(0, dataKey.length - 4);
         isAvgKey = true;
-      } else if (dataKey.endsWith('_stdDev')) { // Should not be a primary series, but filter
-        return null;
-      } else if (dataKey.endsWith('_count')) { // Should not be a primary series, but filter
-         return null;
       }
     }
     originalMetricKeyForConfig = originalMetricKeyForConfig as MetricKey;
 
-    const lowerCaseDerivedMetricKey = originalMetricKeyForConfig.toLowerCase();
-    if (lowerCaseDerivedMetricKey.includes('timestamp') || lowerCaseDerivedMetricKey.includes('aggregationperiod')) {
-      return null;
-    }
-
     const config = METRIC_CONFIGS[originalMetricKeyForConfig];
     const displayName = config?.name || (isAvgKey ? `${originalMetricKeyForConfig} (Avg)`: originalMetricKeyForConfig) ;
 
-    if (typeof displayName === 'string' && displayName.toLowerCase().includes('timestamp')) {
+    if (typeof displayName === 'string' && displayName.toLowerCase().includes("timestamp")) {
       return null;
+    }
+     if (displayName.toLowerCase().includes('std dev') || displayName.toLowerCase().includes('data points')) {
+        return null;
     }
 
     let displayValue: string;
@@ -363,30 +317,47 @@ const WeatherChart: FC<WeatherChartProps> = ({
     const unitString = (typeof value === 'number' && isFinite(value) && config?.unit) ? ` ${config.unit}` : '';
 
     if (chartType === 'scatter' && isAggregated && config && !config.isString && entry.payload) {
-      let tooltipContent = `${displayName}: ${displayValue}${unitString}`;
+      let tooltipContent = `<div style="color: ${config.color || 'inherit'};"><strong>${displayName}:</strong> ${displayValue}${unitString}`;
       const stdDevValue = entry.payload[`${originalMetricKeyForConfig}_stdDev`];
       const countValue = entry.payload[`${originalMetricKeyForConfig}_count`];
 
       if (typeof stdDevValue === 'number' && isFinite(stdDevValue)) {
-        tooltipContent += `\nStd. Dev: ${stdDevValue.toFixed(2)}${config?.unit || ''}`;
+        tooltipContent += `<br/>Std. Dev: ${stdDevValue.toFixed(2)}${config?.unit || ''}`;
       }
       if (typeof countValue === 'number' && isFinite(countValue)) {
-        tooltipContent += `\nData Points: ${countValue}`;
+        tooltipContent += `<br/>Data Points: ${countValue}`;
       }
-      return <div style={{ whiteSpace: 'pre-line', color: config.color || 'inherit' }}>{tooltipContent.trim()}</div>;
+      tooltipContent += `</div>`;
+      return <div dangerouslySetInnerHTML={{ __html: tooltipContent }} />;
     }
     
     return [`${displayValue}${unitString}`, displayName];
   };
 
 
-  const handleChartClick = (event: any) => {
-    if (onPointClick && event && event.activePayload && event.activePayload.length > 0) {
-      const clickedPointData = event.activePayload[0].payload;
-       if ((chartType === 'line' && !isAggregated) || (chartType === 'scatter' && !isAggregated)) {
-         if ('rawTimestampString' in clickedPointData || ('timestamp' in clickedPointData && !isAggregated && !('aggregationPeriod' in clickedPointData)) ) {
-            onPointClick(clickedPointData as WeatherDataPoint);
-         }
+  const handleChartClick = (rechartsEvent: any) => { // rechartsEvent is the Recharts click event object
+    if (onPointClick) {
+      if (rechartsEvent && rechartsEvent.activePayload && rechartsEvent.activePayload.length > 0) {
+        const clickedPointPayload = rechartsEvent.activePayload[0].payload; // This is the actual data point object
+  
+        // Check if it's a click for AI forecast (raw line or raw scatter)
+        if (((chartType === 'line' && !isAggregated) || (chartType === 'scatter' && !isAggregated))) {
+          // Ensure the point has the structure of a raw data point
+          if (clickedPointPayload && 
+              ('rawTimestampString' in clickedPointPayload || 
+               ('timestamp' in clickedPointPayload && !isAggregated && !('aggregationPeriod' in clickedPointPayload)))) {
+            onPointClick(clickedPointPayload as WeatherDataPoint, null); // Pass data, rawEvent is null for AI specific handling
+            return; // Handled by AI
+          }
+        }
+        
+        // If not an AI forecast click, it might be for the detail modal (e.g., aggregated scatter)
+        // Pass both the specific point's data (payload) and the full Recharts event object
+        onPointClick(clickedPointPayload, rechartsEvent); 
+  
+      } else if (rechartsEvent && rechartsEvent.chartX && rechartsEvent.chartY && !rechartsEvent.activePayload) {
+        // Click on empty chart space - for AI forecast to clear selection
+        onPointClick(null, null); 
       }
     }
   };
@@ -507,7 +478,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
   const chartDynamicKey = `${chartType}-${selectedMetrics.join('-')}-${JSON.stringify(yAxisDomain)}-${isAggregated}-${formattedData.length}-${showMinMaxLines}`;
   
   const scatterLabelFormatter = (label: string | number, payload: any[] | undefined) => {
-    if (chartType === 'scatter') return null; // Hide main label for scatter
+    if (chartType === 'scatter') return null; 
     if (payload && payload.length > 0 && payload[0].payload.tooltipTimestampFull) {
       return payload[0].payload.tooltipTimestampFull;
     }
@@ -518,21 +489,23 @@ const WeatherChart: FC<WeatherChartProps> = ({
     if (!props.active || !props.payload || props.payload.length === 0) {
       return null;
     }
-
+  
     const filteredPayload = props.payload.filter((pldItem: any) => {
-        const name = typeof pldItem.name === 'string' ? pldItem.name.toLowerCase() : '';
-        const dataKey = typeof pldItem.dataKey === 'string' ? pldItem.dataKey.toLowerCase() : '';
-        
-        if (name.includes('timestamp') || 
-            dataKey === 'timestamp' || 
-            dataKey === 'timestampdisplay' || 
-            dataKey === 'tooltiptimestampfull' ||
-            name.includes('std dev') // Filter out ZAxis items if they appear by name
-            ) {
-          return false;
-        }
-        return true;
-      });
+      const name = typeof pldItem.name === 'string' ? pldItem.name.toLowerCase() : '';
+      const dataKey = typeof pldItem.dataKey === 'string' ? pldItem.dataKey.toLowerCase() : '';
+      
+      if (name.includes("timestamp") || 
+          dataKey === 'timestamp' || 
+          dataKey === 'timestampdisplay' || 
+          dataKey === 'tooltiptimestampfull' ||
+          name.includes("std dev") || // Filter out ZAxis items if they appear by name
+          dataKey.includes("stddev") ||
+          dataKey.includes("count")
+         ) {
+        return false;
+      }
+      return true;
+    });
   
     if (filteredPayload.length === 0) {
       return null; 
@@ -596,19 +569,22 @@ const WeatherChart: FC<WeatherChartProps> = ({
         align="center"
         verticalAlign="top"
         formatter={(value, entry, index) => {
-          // 'value' is the 'name' prop from Line/Bar/Scatter
-          // 'entry.dataKey' can be 'temperature' or 'temperature_avg'
           const dataKey = entry.dataKey as string;
           let originalKey = dataKey;
           if (isAggregated && dataKey.endsWith('_avg')) {
             originalKey = dataKey.substring(0, dataKey.length - 4);
+          } else if (isAggregated && dataKey.endsWith('_stdDev')) {
+            // Don't show stdDev data series in legend if it's used for ZAxis
+             if (chartType === 'scatter' && numericMetricsForScatter.includes(originalKey.replace('_stdDev','') as MetricKey) ) {
+                 return null;
+             }
           }
           
           const config = chartConfigForShadcn[originalKey as MetricKey];
           if (config?.label) {
             return isAggregated && dataKey.endsWith('_avg') ? `${config.label}` : config.label;
           }
-          return value; // Fallback to the 'name' prop value
+          return value;
         }}
       />
       {renderChartSpecificElements()}
@@ -675,6 +651,47 @@ const WeatherChart: FC<WeatherChartProps> = ({
     </ChartComponent>
   );
 
+
+  if (isLoading) {
+    return (
+      <Card className="shadow-lg">
+        <CardHeader className="pb-3">
+          <Skeleton className="h-6 w-1/2 mb-2" />
+          <Skeleton className="h-4 w-1/3" />
+        </CardHeader>
+        <CardContent className="p-4 pt-0">
+          <Skeleton className="h-[450px] w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const metricsAvailableForCurrentChartType = chartType === 'scatter' ? numericMetricsForScatter : selectedMetrics.filter(key => !METRIC_CONFIGS[key]?.isString);
+
+  if (!formattedData || formattedData.length === 0 || metricsAvailableForCurrentChartType.length === 0) {
+    return (
+      <Card className="shadow-lg">
+        <CardHeader className="pb-3">
+          <CardTitle className="font-headline">Historical Data Trends</CardTitle>
+          <CardDescription>
+            Displaying {chartType.charAt(0).toUpperCase() + chartType.slice(1)} Chart
+            {(chartType !== 'scatter' || (chartType === 'scatter' && isAggregated)) && (isAggregated ? ` (Aggregated Data - ${formattedData[0]?.aggregationPeriod || ''})` : ` (Raw Data)`)}.
+            {(((chartType === 'line' && !isAggregated)) || (chartType === 'scatter' && !isAggregated)) && " Point clicks can populate AI forecast."}
+            {chartType === 'scatter' && isAggregated && numericMetricsForScatter.length > 0 && " Bubble size indicates data spread (standard deviation)."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-4 pt-0 h-[450px] flex items-center justify-center">
+          <p className="text-muted-foreground">
+            {chartType === 'scatter' && numericMetricsForScatter.length === 0 && selectedMetrics.length > 0
+              ? "Please select numeric metrics (e.g., Temperature, Humidity) for the scatter chart."
+              : "No data available for the selected criteria or metrics."
+            }
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+  
   return (
     <Card className="shadow-lg">
       <CardHeader className="pb-3">
@@ -694,7 +711,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
             config={chartConfigForShadcn}
             className="w-full h-[550px] bg-card mx-auto overflow-hidden"
           >
-            {renderChart()}
+          {renderChart()}
         </ChartContainer>
         <div className="flex justify-center items-center pt-2 space-x-4">
           <DropdownMenu>
@@ -760,4 +777,4 @@ const WeatherChart: FC<WeatherChartProps> = ({
 };
 
 export default WeatherChart;
-
+    
