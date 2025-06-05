@@ -43,7 +43,6 @@ interface WeatherStatusStyle {
   Icon: React.ElementType;
   statusTextColorClass: string;
   label: string;
-  // backgroundClass removed
 }
 
 const getPrecipitationStyle = (status: string | null): WeatherStatusStyle => {
@@ -196,8 +195,6 @@ const RealtimeDataSection: FC = () => {
         <h2 className={`text-2xl font-headline font-semibold ${theme === 'aura-glass' ? 'apply-aura-text' : 'text-primary'}`}>
           Real-time Conditions
         </h2>
-        {/* Refresh button - apply gradient if theme is Aura Glass */}
-        <Button onClick={() => { /* Implement refresh logic if needed */ }} className={theme === 'aura-glass' ? 'apply-aura-gradient' : ''}>Refresh All Data</Button>
       </div>
       <p className="text-xs text-muted-foreground mb-1">
             Data is fetched from Firebase path: `{firebaseDataPath}`.
