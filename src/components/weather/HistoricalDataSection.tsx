@@ -297,7 +297,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
   }, [showMinMaxLines, chartData, selectedMetrics, selectedChartType]);
 
 
-  const handleDetailedChartClick = (clickedData: any, event: any) => {
+  const handleDetailedChartClick = (clickedData: WeatherDataPoint | AggregatedDataPoint | null, event: any | null) => {
     console.log('[HistoricalDataSection] handleDetailedChartClick received:', { clickedData, event });
     console.log(`[HistoricalDataSection] Current state: selectedChartType: ${selectedChartType}, isActuallyAggregated: ${isActuallyAggregated}`);
     
@@ -305,36 +305,67 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
         console.log('[HistoricalDataSection] Event activePayload:', event.activePayload);
     }
 
+    // Logic for AI forecast population (for raw line/scatter points)
     if (((selectedChartType === 'line' && !isActuallyAggregated) || (selectedChartType === 'scatter' && !isActuallyAggregated))) {
         if (clickedData && ('rawTimestampString' in clickedData || ('timestamp' in clickedData && !isActuallyAggregated && !('aggregationPeriod' in clickedData)))) {
             if (onChartPointClickForAI) {
                 console.log('[HistoricalDataSection] Handling AI forecast click with point:', clickedData);
-                onChartPointClickForAI(clickedData as WeatherDataPoint);
+                onChartPointClickForAI(clickedData as WeatherDataPoint); // Cast for AI
             }
-             return; // Important: return after handling AI click if applicable
+             return; 
         }
     }
     
+    // Logic for opening the Detail Modal (for aggregated scatter points)
+    const conditionForModal = selectedChartType === 'scatter' && isActuallyAggregated && clickedData;
     console.log('[HistoricalDataSection] Checking condition for modal:', 
         `selectedChartType === 'scatter': ${selectedChartType === 'scatter'}`,
         `isActuallyAggregated: ${isActuallyAggregated}`,
-        `!!event: ${!!event}`,
-        `event?.activePayload: ${!!event?.activePayload}`,
-        `event?.activePayload?.length > 0: ${event?.activePayload?.length > 0}`
+        `!!clickedData: ${!!clickedData}`
     );
 
-    if (selectedChartType === 'scatter' && isActuallyAggregated && event && event.activePayload && event.activePayload.length > 0) {
-      console.log('[HistoricalDataSection] Aggregated scatter click DETECTED for modal.');
-      const activeItem = event.activePayload[0];
-      const payloadPoint = activeItem.payload as AggregatedDataPoint;
+    if (conditionForModal) {
+      console.log('[HistoricalDataSection] Aggregated scatter click DETECTED for modal, using clickedData.');
+      const payloadPoint = clickedData as AggregatedDataPoint; // It's an aggregated point
 
-      // Determine the metric key more reliably
-      let metricKeyFromPayload = activeItem.dataKey as MetricKey; // e.g., 'temperature_avg'
-      const baseMetricKey = metricKeyFromPayload.replace(/_avg|_min|_max|_stdDev|_count$/, '') as MetricKey;
+      // Determine the metric key: For scatter, multiple metrics can be plotted.
+      // We need to know *which* scatter point (representing which metric's average) was clicked.
+      // The `event` from Scatter's onClick usually includes `dataKey` in its direct properties or in a nested object.
+      // Let's assume the `event` object passed from WeatherChart's scatter point click HAS the dataKey.
+      // If the click comes from a ZAxis element (bubble itself), the `dataKey` might be on `event.zAxisPayload`.
+      // Let's try to find dataKey from the event if possible, otherwise we might need to pass it down.
+      
+      let metricKeyFromPayload: MetricKey | undefined = undefined;
+      if (event && typeof event.dataKey === 'string') {
+          metricKeyFromPayload = event.dataKey.replace(/_avg$/, '') as MetricKey;
+      } else if (event && event.name && typeof event.name === 'string') { // Tooltip activeLabel might be the metric name
+          const foundMetric = Object.entries(METRIC_CONFIGS).find(([key, conf]) => conf.name === event.name || `${conf.name} (Avg)` === event.name);
+          if (foundMetric) metricKeyFromPayload = foundMetric[0] as MetricKey;
+      }
+
+      if (!metricKeyFromPayload && selectedMetrics.length === 1 && !METRIC_CONFIGS[selectedMetrics[0]].isString) {
+          // Fallback if only one numeric metric is selected for scatter
+          metricKeyFromPayload = selectedMetrics[0];
+          console.log(`[HistoricalDataSection] Using single selected metric as fallback for modal: ${metricKeyFromPayload}`);
+      } else if (!metricKeyFromPayload) {
+          console.error("[HistoricalDataSection] Could not determine metricKey for modal from scatter click event. Event:", event, "SelectedMetrics:", selectedMetrics);
+          // Attempt to infer from clickedData if it has a unique primary metric value
+          const numericKeysInPayload = Object.keys(payloadPoint).filter(k => k.endsWith('_avg'));
+          if (numericKeysInPayload.length === 1) {
+              metricKeyFromPayload = numericKeysInPayload[0].replace('_avg', '') as MetricKey;
+              console.log(`[HistoricalDataSection] Inferred metricKey from payload: ${metricKeyFromPayload}`);
+          } else {
+              console.error("[HistoricalDataSection] Cannot reliably infer metricKey for modal. Aborting modal open.");
+              return;
+          }
+      }
+
+
+      const baseMetricKey = metricKeyFromPayload;
       const metricConfig = METRIC_CONFIGS[baseMetricKey];
 
       if (!metricConfig) {
-        console.error(`[HistoricalDataSection] No metricConfig for baseMetricKey: ${baseMetricKey} (derived from ${metricKeyFromPayload}). Modal will not open.`);
+        console.error(`[HistoricalDataSection] No metricConfig for baseMetricKey: ${baseMetricKey}. Modal will not open.`);
         return;
       }
       if (metricConfig.isString) {
@@ -403,7 +434,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
       setIsDetailModalOpen(true);
       console.log('[HistoricalDataSection] setIsDetailModalOpen called with true.');
       return; 
-    } else if (event && event.chartX && event.chartY && (!event.activePayload || event.activePayload.length === 0) && onChartPointClickForAI) {
+    } else if (event === null && clickedData === null && onChartPointClickForAI) { // Explicit empty space click from WeatherChart
         console.log('[HistoricalDataSection] Empty chart space click. Calling onChartPointClickForAI(null).');
         onChartPointClickForAI(null);
         return;

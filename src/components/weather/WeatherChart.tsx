@@ -109,14 +109,12 @@ const WeatherChart: FC<WeatherChartProps> = ({
     if (!chartInputData) {
       return [];
     }
-    // console.log(`[WeatherChart] Input data (first 3):`, chartInputData.slice(0,3));
     const result = chartInputData.map(point => ({
         ...point,
         timestamp: typeof point.timestamp === 'number' ? point.timestamp : (point.timestampDisplay ? new Date(point.timestampDisplay).getTime() : Date.now()),
         timestampDisplay: point.timestampDisplay || formatTimestampToDdMmHhMmUTC(point.timestamp || Date.now()),
         tooltipTimestampFull: point.tooltipTimestampFull || (isAggregated && point.aggregationPeriod ? point.timestampDisplay : formatTimestampToFullUTC(point.timestamp || Date.now())),
     }));
-    // console.log(`[WeatherChart] Formatted Data (first 3):`, result.slice(0,3));
     return result;
   }, [chartInputData, isAggregated]);
 
@@ -205,7 +203,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           icon: undefined, 
           color: metricConf.color, 
         };
-         config[`${key}_count`] = { // Added for count
+         config[`${key}_count`] = { 
             label: `${metricConf.name} (Count)`,
             icon: undefined,
             color: metricConf.color,
@@ -342,36 +340,32 @@ const WeatherChart: FC<WeatherChartProps> = ({
   };
 
 
-  const handleChartClick = (rechartsEvent: any) => {
-    console.log('[WeatherChart] handleChartClick triggered. Event:', rechartsEvent);
-    if (rechartsEvent && rechartsEvent.activePayload) {
-        console.log('[WeatherChart] Active Payload:', rechartsEvent.activePayload);
-    }
-
-    if (onPointClick) {
-      if (rechartsEvent && rechartsEvent.activePayload && rechartsEvent.activePayload.length > 0) {
-        const clickedPointPayload = rechartsEvent.activePayload[0].payload;
-        
-        if (((chartType === 'line' && !isAggregated) || (chartType === 'scatter' && !isAggregated))) {
-          if (clickedPointPayload && 
-              ('rawTimestampString' in clickedPointPayload || 
-               ('timestamp' in clickedPointPayload && !isAggregated && !('aggregationPeriod' in clickedPointPayload)))) {
-            console.log('[WeatherChart] Calling onPointClick for AI (raw data point).');
-            onPointClick(clickedPointPayload as WeatherDataPoint, null); // Pass null for event as it's an AI click
-            return;
-          }
-        }
-        
-        console.log('[WeatherChart] Calling onPointClick for modal/detail (aggregated or other).');
-        onPointClick(clickedPointPayload, rechartsEvent); 
-  
-      } else if (rechartsEvent && rechartsEvent.chartX && rechartsEvent.chartY && (!rechartsEvent.activePayload || rechartsEvent.activePayload.length === 0)) {
-        // This is a click on an empty space in the chart
-        console.log('[WeatherChart] Calling onPointClick for AI (empty chart space click).');
-        onPointClick(null, null); // Pass null for both point and event
-      }
+  const handleScatterPointClick = (scatterPointProps: any, scatterEvent: React.MouseEvent<SVGElement>) => {
+    console.log('[WeatherChart] Scatter Point Clicked. Props:', scatterPointProps, 'Original Event:', scatterEvent);
+    if (scatterPointProps && scatterPointProps.payload) {
+      console.log('[WeatherChart] Calling onPointClick with scatter point payload and original event.');
+      onPointClick?.(scatterPointProps.payload, scatterEvent);
+    } else {
+      console.warn('[WeatherChart] Scatter point click did not have expected payload in props.');
+      onPointClick?.(null, scatterEvent);
     }
   };
+
+  const handleLineBarChartClick = (rechartsEvent: any) => {
+    // This handler is for Line and Bar charts.
+    console.log('[WeatherChart] Line/Bar Chart Click. Event:', rechartsEvent);
+    if (rechartsEvent && rechartsEvent.activePayload && rechartsEvent.activePayload.length > 0) {
+      console.log('[WeatherChart] Line/Bar - Active Payload FOUND:', rechartsEvent.activePayload[0].payload);
+      onPointClick?.(rechartsEvent.activePayload[0].payload, rechartsEvent);
+    } else if (rechartsEvent && (rechartsEvent.chartX || rechartsEvent.xValue)) {
+      console.log('[WeatherChart] Line/Bar - Click on chart area (empty space).');
+      onPointClick?.(null, null); // Pass null for empty space
+    } else {
+      console.log('[WeatherChart] Line/Bar - Generic chart click, no specific active payload.');
+      onPointClick?.(null, null);
+    }
+  };
+
 
   const renderChartSpecificElements = () => {
     if (chartType === 'scatter') {
@@ -411,6 +405,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
             shape="circle"
             animationDuration={300}
             {...(isAggregated && stdDevDataKey ? { zAxisId: zAxisUniqueId } : {})}
+            onClick={handleScatterPointClick}
           />
         );
         return elements;
@@ -538,7 +533,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
     <ChartComponent
       key={chartDynamicKey}
       data={formattedData}
-      onClick={handleChartClick}
+      onClick={chartType === 'line' || chartType === 'bar' ? handleLineBarChartClick : undefined} // Only for Line/Bar
       {...commonCartesianProps}
     >
       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -570,7 +565,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
       <Tooltip
         content={renderCustomTooltipContent}
         wrapperStyle={{ outline: "none" }}
-        cursor={{ stroke: 'hsl(var(--accent))', strokeWidth: 1, strokeDasharray: '3 3' }}
+        cursor={chartType !== 'scatter' ? { stroke: 'hsl(var(--accent))', strokeWidth: 1, strokeDasharray: '3 3' } : false }
         animationDuration={150}
         animationEasing="ease-out"
       />
@@ -789,4 +784,3 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
 export default WeatherChart;
     
-
