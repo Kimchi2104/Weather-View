@@ -230,6 +230,30 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
 
   const { metricKey, metricConfig, aggregationLabel, stats, rawPoints } = data;
 
+  const violinPrimaryColor = metricConfig.color || 'hsl(var(--primary))';
+  const violinFillColor = `hsla(var(--primary-hsl), 0.3)`; // Assuming primary color has an HSL var
+
+  // Extract HSL values from the primary color string for dynamic opacity
+  let primaryHslValues = "210 75% 50%"; // Default fallback
+  if (violinPrimaryColor.startsWith('hsl(var(--chart-')) {
+      // This requires globals.css to have --chart-X-hsl vars or similar
+      // For now, we'll use a fallback or assume a specific chart var
+      const chartVarMatch = violinPrimaryColor.match(/--chart-(\d)/);
+      if (chartVarMatch && chartVarMatch[1]) {
+          const chartNum = chartVarMatch[1];
+          // This is tricky as we can't directly read CSS vars in JS easily.
+          // We'll use a fallback or predefined HSL values for chart colors.
+          // Example for chart-1:
+          if (chartNum === '1') primaryHslValues = "210 75% 50%"; // --chart-1 HSL
+          else if (chartNum === '2') primaryHslValues = "180 60% 50%"; // --chart-2 HSL
+          // Add more cases if other chart colors are used for violin
+      }
+  } else if (violinPrimaryColor.startsWith('hsl(var(--primary')) {
+       primaryHslValues = "210 75% 50%"; // --primary HSL
+  }
+  const dynamicViolinFillColor = `hsla(${primaryHslValues.split(' ')[0]}, ${primaryHslValues.split(' ')[1]}, ${primaryHslValues.split(' ')[2].replace('%','')*0.8}%, 0.3)`;
+
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
@@ -340,8 +364,8 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                                       <XAxis 
                                           type="number" 
                                           domain={[-1.1, 1.1]} 
-                                          tickFormatter={(val) => `${(Math.abs(val)*100).toFixed(0)}%`} 
-                                          label={{ value: 'Density', position: 'insideBottom', offset: -10, style: {fontSize: '10px', fill: 'hsl(var(--muted-foreground))'} }}
+                                          tickFormatter={(val) => val.toFixed(1)} 
+                                          label={{ value: 'Density (Normalized)', position: 'insideBottom', offset: -10, style: {fontSize: '10px', fill: 'hsl(var(--muted-foreground))'} }}
                                           tick={{ fontSize: 9 }}
                                           axisLine={false}
                                           tickLine={false}
@@ -359,7 +383,7 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                                       <Tooltip
                                           formatter={(value: number, name: string, props: any) => {
                                               if (name === 'densityLeft' || name === 'densityRight') {
-                                                  return [`${(Math.abs(value) * 100).toFixed(1)}% density`, `Value: ${props.payload.y.toFixed(2)} ${metricConfig.unit || ''}`];
+                                                  return [`${(Math.abs(value) * 100).toFixed(1)}% relative density`, `Value: ${props.payload.y.toFixed(2)} ${metricConfig.unit || ''}`];
                                               }
                                               return [value, name];
                                           }}
@@ -372,8 +396,8 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                                           itemSorter={(item) => item.name === 'densityRight' ? 1 : -1} 
                                           cursor={{ stroke: 'hsl(var(--accent))', strokeDasharray: '3 3' }}
                                       />
-                                      <Area type="monotone" dataKey="densityRight" strokeWidth={1} stroke="#FF0000" fill="rgba(255,0,0,0.3)" stackId="1" name="Density (Right)" />
-                                      <Area type="monotone" dataKey="densityLeft" strokeWidth={1} stroke="#0000FF" fill="rgba(0,0,255,0.3)" stackId="1" name="Density (Left)" />
+                                      <Area type="monotone" dataKey="densityRight" strokeWidth={1} stroke={violinPrimaryColor} fill={dynamicViolinFillColor} fillOpacity={0.7} stackId="1" name="Density (Right)" />
+                                      <Area type="monotone" dataKey="densityLeft" strokeWidth={1} stroke={violinPrimaryColor} fill={dynamicViolinFillColor} fillOpacity={0.7} stackId="1" name="Density (Left)" />
                                       
                                       {boxPlotStats && (
                                         <>
@@ -462,3 +486,4 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
 
 export default DetailedDistributionModal;
     
+
