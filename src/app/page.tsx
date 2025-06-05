@@ -10,7 +10,7 @@ export default function HomePage() {
       <main className="flex-grow container mx-auto px-4 py-8">
         <WeatherDashboard />
       </main>
-      <footer className="bg-muted text-muted-foreground py-6 text-center text-sm">
+      <footer className="text-muted-foreground py-6 text-center text-sm"> {/* Removed bg-muted */}
         <div className="container mx-auto px-4">
           <p>&copy; {new Date().getFullYear()} WeatherView. All rights reserved.</p>
           <p className="text-xs mt-1">Data visualization for your weather station.</p>

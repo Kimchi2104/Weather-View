@@ -225,6 +225,21 @@ body {
     fill-opacity: 0.85 !important;
   }
 
+  /* Footer styles for Aura Glass theme */
+  .aura-glass footer {
+    background-color: transparent !important; /* Ensure footer background is transparent */
+    color: hsl(var(--foreground) / 0.75) !important; /* Adjust main text color for readability */
+  }
+  .aura-glass footer .text-muted-foreground {
+    color: hsl(var(--foreground) / 0.6) !important; /* Adjust muted text color */
+  }
+  .aura-glass footer .border-border\/50 { /* Targeting border-border/50 specifically for footer's top border */
+    border-color: hsl(var(--border) / 0.3) !important;
+  }
+   .aura-glass footer .text-foreground\/80 { /* Targeting the 'PROJECT CONTRIBUTIONS' title */
+    color: hsl(var(--foreground) / 0.9) !important;
+  }
+
 }
 
 
@@ -240,3 +255,4 @@ body {
     fill: hsla(var(--primary), 0.2); 
   }
 }
+
