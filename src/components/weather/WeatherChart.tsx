@@ -189,7 +189,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
             formattedData.map(p => {
                 let value;
                 if (chartType === 'scatter' && isAggregated) {
-                    value = p[metricKey + '_avg'] as number;
+                    value = p[metricKey + '_avg' as keyof typeof p] as number;
                 } else {
                     value = p[metricKey as keyof typeof p] as number;
                 }
@@ -333,9 +333,16 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
   const handleScatterPointClick = (scatterPointProps: any, index: number, event: React.MouseEvent<SVGElement>, explicitMetricKey: MetricKey) => {
     console.log('[WeatherChart] Scatter Point Clicked. Index:', index, "Explicit MetricKey:", explicitMetricKey);
-    try {
-       console.log('[WeatherChart] Full scatterPointProps from Recharts (JSON):', JSON.stringify(scatterPointProps, null, 2));
-    } catch(e) {
+     try {
+        // Attempt to stringify, but be cautious of circular refs or large objects
+        const simplifiedProps = {
+            payload: scatterPointProps.payload, // Often the most important part
+            dataKey: scatterPointProps.dataKey,
+            name: scatterPointProps.name,
+            // Add other known, small, safe properties if needed
+        };
+        console.log('[WeatherChart] Scatter Point scatterPointProps (Simplified JSON):', JSON.stringify(simplifiedProps, null, 2));
+    } catch (e) {
         console.warn("[WeatherChart] Could not stringify full scatterPointProps for logging. Logging keys and payload separately.");
         if(scatterPointProps) {
             console.log('[WeatherChart] Keys available on scatterPointProps:', Object.keys(scatterPointProps));
@@ -357,6 +364,8 @@ const WeatherChart: FC<WeatherChartProps> = ({
             if (value instanceof Element) return '[DOM Element]';
             if (key === 'target' && value instanceof EventTarget) return '[EventTarget]';
             if (typeof value === 'bigint') return value.toString() + 'n';
+            if (key === 'chartContainer' || key === 'viewBox' || key === 'offset') return '{...omitted_large_object...}';
+            if (value && typeof value === 'object' && Object.keys(value).length > 20) return '{...large_object_omitted...}';
             return value;
         }, 2);
     } catch (e) {
@@ -381,7 +390,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
   };
 
 
-  const renderChartSpecificElements = () => {
+ const renderChartSpecificElements = () => {
     if (chartType === 'scatter') {
       if (numericMetricsForScatterOrViolin.length === 0) return null;
 
@@ -429,6 +438,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
             const metricConfig = METRIC_CONFIGS[metricKey];
             if (!metricConfig) return null;
             const metricSpecificFlatData = violinChartProcessedData.flatData.filter(d => d.metricKey === metricKey);
+            const baseMetricKey = metricKey; // This is 'temperature', 'humidity' etc.
             return (
                 <Scatter
                     key={`violin-scatter-${metricKey}`}
@@ -441,13 +451,13 @@ const WeatherChart: FC<WeatherChartProps> = ({
                     shape="circle" 
                     strokeWidth={0} 
                     animationDuration={300}
-                    onClick={(props, index, event) => handleScatterPointClick(props, index, event as React.MouseEvent<SVGElement>, metricKey as MetricKey)}
+                    onClick={(props, index, event) => handleScatterPointClick(props, index, event as React.MouseEvent<SVGElement>, baseMetricKey)}
                 />
             );
         });
     } else if (chartType === 'line') {
-        const metricsToRenderForLineBar = selectedMetrics.filter(key => !METRIC_CONFIGS[key]?.isString);
-        return metricsToRenderForLineBar.map((key) => {
+        const metricsToRenderForLine = selectedMetrics.filter(key => !METRIC_CONFIGS[key]?.isString);
+        return metricsToRenderForLine.map((key) => {
           const metricConfig = METRIC_CONFIGS[key];
           if (!metricConfig) return null;
 
@@ -467,8 +477,8 @@ const WeatherChart: FC<WeatherChartProps> = ({
           );
         });
     } else if (chartType === 'bar') {
-        const metricsToRenderForLineBar = selectedMetrics.filter(key => !METRIC_CONFIGS[key]?.isString);
-        return metricsToRenderForLineBar.map((key) => {
+        const metricsToRenderForBar = selectedMetrics.filter(key => !METRIC_CONFIGS[key]?.isString);
+        return metricsToRenderForBar.map((key) => {
           const metricConfig = METRIC_CONFIGS[key];
           if (!metricConfig) return null;
 
@@ -767,7 +777,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
         verticalAlign="top"
         formatter={(value, entry: any, index) => {
           const rechartsName = entry.name as string;
-          if (typeof rechartsName !== 'string') return value;
+          if (typeof rechartsName !== 'string') return value; // Guard against undefined name
           
           let originalKey = rechartsName;
 
