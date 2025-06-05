@@ -421,7 +421,10 @@ const WeatherChart: FC<WeatherChartProps> = ({
         return elements;
       });
     } else if (chartType === 'violin') {
-        if (numericMetricsForScatterOrViolin.length === 0) return null;
+        if (numericMetricsForScatterOrViolin.length === 0) {
+             console.warn("[WeatherChart] Violin plot selected, but no numeric metrics available or selected.");
+             return null;
+        }
         return numericMetricsForScatterOrViolin.map(metricKey => {
             const metricConfig = METRIC_CONFIGS[metricKey];
             if (!metricConfig) return null;
@@ -438,10 +441,11 @@ const WeatherChart: FC<WeatherChartProps> = ({
                     shape="circle" 
                     strokeWidth={0} 
                     animationDuration={300}
+                    onClick={(props, index, event) => handleScatterPointClick(props, index, event as React.MouseEvent<SVGElement>, metricKey as MetricKey)}
                 />
             );
         });
-    } else { // Handles 'line' and 'bar'
+    } else if (chartType === 'line') {
         const metricsToRenderForLineBar = selectedMetrics.filter(key => !METRIC_CONFIGS[key]?.isString);
         return metricsToRenderForLineBar.map((key) => {
           const metricConfig = METRIC_CONFIGS[key];
@@ -449,35 +453,40 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
           const color = metricConfig.color || '#8884d8';
           const name = chartConfigForShadcn[key]?.label || metricConfig.name || key;
+          return (
+            <Line
+              key={`line-${key}`}
+              type="monotone"
+              dataKey={key}
+              stroke={color}
+              name={name}
+              dot={isAggregated ? { r: 3 } : false}
+              connectNulls={false}
+              animationDuration={300}
+            />
+          );
+        });
+    } else if (chartType === 'bar') {
+        const metricsToRenderForLineBar = selectedMetrics.filter(key => !METRIC_CONFIGS[key]?.isString);
+        return metricsToRenderForLineBar.map((key) => {
+          const metricConfig = METRIC_CONFIGS[key];
+          if (!metricConfig) return null;
 
-          if (chartType === 'line') {
-            return (
-              <Line
-                key={`line-${key}`}
-                type="monotone"
-                dataKey={key}
-                stroke={color}
-                name={name}
-                dot={isAggregated ? { r: 3 } : false}
-                connectNulls={false}
-                animationDuration={300}
-              />
-            );
-          } else if (chartType === 'bar') {
-            return (
-              <Bar
-                key={`bar-${key}`}
-                dataKey={key}
-                fill={color}
-                name={name}
-                radius={[4, 4, 0, 0]}
-                animationDuration={300}
-              />
-            );
-          }
-          return null; // Should not be reached if chartType is 'line' or 'bar'
+          const color = metricConfig.color || '#8884d8';
+          const name = chartConfigForShadcn[key]?.label || metricConfig.name || key;
+          return (
+            <Bar
+              key={`bar-${key}`}
+              dataKey={key}
+              fill={color}
+              name={name}
+              radius={[4, 4, 0, 0]}
+              animationDuration={300}
+            />
+          );
         });
     }
+    return null;
   };
 
   let ChartComponent: React.ComponentType<any> = LineChart;
