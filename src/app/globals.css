@@ -76,6 +76,66 @@ body {
     --sidebar-border: 210 20% 18%;
     --sidebar-ring: 210 75% 50%;
   }
+
+  .aura-glass {
+    --aura-gradient: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%);
+
+    /* Base page colors when Aura Glass is active */
+    --background: 0 0% 100%; /* HSL of base color for components, alpha applied separately or via rgba */
+    --foreground: 220 40% 20%; /* Darker, saturated blue for primary text on gradient */
+
+    /* Glassmorphic Card Styles */
+    --card-rgb: 255, 255, 255; /* RGB values for the glass color (white) */
+    --card-alpha: 0.15; /* Opacity for the glass background */
+    --card-blur-value: 10px; /* Blur intensity */
+    --card-border-rgb: 255, 255, 255;
+    --card-border-alpha: 0.2;
+    
+    --card: 0 0% 100%; /* HSL, ShadCN uses this for the color part, alpha is often applied by Tailwind's bg-opacity */
+    --card-foreground: 220 35% 25%; /* Text on cards */
+
+    /* Glassmorphic Popover/Dropdown/Dialog Styles - slightly more opaque for readability */
+    --popover-rgb: 255, 255, 255;
+    --popover-alpha: 0.35; /* More opaque than cards */
+    --popover-blur-value: 12px;
+    --popover-border-rgb: 255, 255, 255;
+    --popover-border-alpha: 0.25;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 35% 25%;
+
+    /* General Borders (not specifically on glass elements, or if glass elements need a non-glass border) */
+    --border: 220 20% 85%; /* A light, cool gray, could be semi-transparent too */
+
+    /* Input fields for Aura Glass */
+    --input-rgb: 255, 255, 255;
+    --input-alpha: 0.2; /* Slightly more opaque than card for better usability */
+    --input-border-rgb: 255, 255, 255;
+    --input-border-alpha: 0.3;
+    --input: 0 0% 100%; /* Base color for input, opacity applied below */
+    
+    /* UI Accent Colors */
+    --primary: 230 80% 65%; /* A vibrant, slightly lighter indigo/blue */
+    --primary-foreground: 0 0% 100%; 
+    --secondary: 220 30% 90%; /* Lighter, cool gray-blue */
+    --secondary-foreground: 220 30% 30%;
+    --muted: 220 20% 94%; 
+    --muted-foreground: 220 25% 50%; 
+    --accent: 270 70% 70%; /* A soft, airy lavender */
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 70% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --ring: 230 80% 65%;
+
+    /* Chart Colors for Aura Glass */
+    --chart-1: hsl(var(--primary));
+    --chart-2: hsl(var(--accent));
+    --chart-3: 180 65% 60%; /* A slightly softer cyan */
+    --chart-4: 30 75% 60%;  /* A softer orange */
+    --chart-5: 330 70% 65%; /* A softer pink/rose */
+
+    --radius: 0.75rem; /* Slightly more rounded for a softer feel */
+  }
 }
 
 @layer base {
@@ -84,18 +144,84 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+    transition: background-color 0.3s ease, color 0.3s ease, background-image 0.3s ease;
+  }
+
+  /* Apply Aura Glass global styles */
+  html.aura-glass body, body.aura-glass { /* Target body when html has the class */
+    background-image: var(--aura-gradient) !important;
+    background-attachment: fixed !important;
+    background-size: cover !important;
+    color: hsl(var(--foreground)) !important;
+  }
+  
+  /* Apply glassmorphism to specific ShadCN component structures in Aura Glass theme */
+  .aura-glass .bg-card,
+  html.aura-glass [data-radix-popper-content-wrapper] > div[role^="dialog"], /* DialogContent */
+  html.aura-glass [data-radix-tooltip-content] /* TooltipContent */
+  {
+    background-color: rgba(var(--card-rgb), var(--card-alpha)) !important;
+    -webkit-backdrop-filter: blur(var(--card-blur-value));
+    backdrop-filter: blur(var(--card-blur-value));
+    border: 1px solid rgba(var(--card-border-rgb), var(--card-border-alpha)) !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05); /* Subtle shadow */
+  }
+
+  .aura-glass .bg-popover,
+  html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"] /* DropdownMenuContent */
+  {
+    background-color: rgba(var(--popover-rgb), var(--popover-alpha)) !important;
+    -webkit-backdrop-filter: blur(var(--popover-blur-value));
+    backdrop-filter: blur(var(--popover-blur-value));
+    border: 1px solid rgba(var(--popover-border-rgb), var(--popover-border-alpha)) !important;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.07); /* Subtle shadow */
+  }
+
+  /* Input field styling for Aura Glass */
+  .aura-glass .border-input { /* Catches most ShadCN inputs, buttons with outline variant */
+    background-color: rgba(var(--input-rgb), var(--input-alpha)) !important;
+    border-color: rgba(var(--input-border-rgb), var(--input-border-alpha)) !important;
+    color: hsl(var(--card-foreground)) !important; /* Text color for inputs */
+  }
+  .aura-glass input::placeholder,
+  .aura-glass textarea::placeholder {
+    color: hsl(var(--muted-foreground)) !important;
+    opacity: 0.6 !important;
+  }
+  .aura-glass .ring-ring { /* Focus ring */
+    --tw-ring-color: hsl(var(--ring) / 0.5) !important;
+  }
+
+  /* Chart adjustments for Aura Glass */
+  .aura-glass .recharts-cartesian-grid line {
+     stroke: hsl(var(--card-foreground) / 0.15) !important;
+  }
+  .aura-glass .recharts-text.recharts-cartesian-axis-tick-value,
+  .aura-glass .recharts-legend-item text {
+    fill: hsl(var(--card-foreground) / 0.75) !important;
+  }
+   .aura-glass .recharts-tooltip-wrapper .bg-background { /* Tooltip content in charts often uses raw bg-background */
+    background-color: rgba(var(--popover-rgb), calc(var(--popover-alpha) + 0.4)) !important; /* More opaque tooltip */
+    -webkit-backdrop-filter: blur(var(--popover-blur-value));
+    backdrop-filter: blur(var(--popover-blur-value));
+    border: 1px solid rgba(var(--popover-border-rgb), calc(var(--popover-border-alpha) + 0.1)) !important;
+    color: hsl(var(--popover-foreground)) !important;
+  }
+  .aura-glass .recharts-tooltip-cursor {
+    stroke: hsl(var(--accent) / 0.5) !important;
   }
 }
+
 
 /* Custom styles for Recharts Brush */
 @layer utilities {
   .recharts-brush .recharts-brush-traveller rect {
-    fill: hsl(var(--primary)); /* Primary color fill for the handle box */
-    stroke: white;             /* White stroke */
-    stroke-width: 1px;         /* Thickness of the white "bar" or outline */
+    fill: hsl(var(--primary)); 
+    stroke: hsl(var(--primary-foreground));        
+    stroke-width: 1px;        
   }
 
   .recharts-brush .recharts-brush-slide {
-    fill: hsla(var(--primary), 0.2); /* Light primary color semi-transparent fill for selection window */
+    fill: hsla(var(--primary), 0.2); 
   }
 }
