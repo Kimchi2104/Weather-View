@@ -199,7 +199,7 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
   const canShowDistributionPlots = numericValuesForDistribution && numericValuesForDistribution.length > 0;
   const CHART_HEIGHT = 350; 
   const FIXED_CHART_WIDTH = 450; 
-  const FIXED_CHART_HEIGHT = CHART_HEIGHT - 50; // Adjust for tab headers etc.
+  const FIXED_CHART_HEIGHT = CHART_HEIGHT - 50; 
 
 
   // LOGGING START
@@ -232,23 +232,37 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
   const { metricKey, metricConfig, aggregationLabel, stats, rawPoints } = data;
 
   const violinPrimaryColor = metricConfig.color || 'hsl(var(--primary))';
-  let primaryHslValues = "210 75% 50%"; // Default for primary
   
-  const chartVarMatch = violinPrimaryColor.match(/--chart-(\d)/);
-  if (chartVarMatch && chartVarMatch[1]) {
-      const chartNum = chartVarMatch[1];
-      if (chartNum === '1') primaryHslValues = "210 75% 50%"; 
-      else if (chartNum === '2') primaryHslValues = "180 60% 50%";
-      else if (chartNum === '3') primaryHslValues = "30 80% 55%";
-      else if (chartNum === '4') primaryHslValues = "280 65% 60%";
-      else if (chartNum === '5') primaryHslValues = "340 75% 55%";
-  } else if (violinPrimaryColor === 'hsl(var(--primary))') {
-    primaryHslValues = "210 75% 50%";
-  } else if (violinPrimaryColor === 'hsl(var(--accent))') {
-    primaryHslValues = "180 60% 50%";
+  // Enhanced color derivation logic
+  let primaryHslValuesString = "210 75% 50%"; // Default for primary
+  const colorVariable = violinPrimaryColor.match(/hsl\(var\((--[\w-]+)\)\)/);
+
+  if (colorVariable && colorVariable[1]) {
+    // Attempt to get the HSL string from CSS custom property
+    // This requires the :root or .dark definitions in globals.css to be like: --chart-1: 210 75% 50%;
+    // Or more directly: --chart-1-hsl-values: 210 75% 50%; (if we add these)
+    // For simplicity, we'll map known chart variables to their HSL strings directly here.
+    // This mapping should ideally align with your globals.css chart color definitions.
+    const knownChartHslStrings: Record<string, string> = {
+      '--chart-1': "210 75% 50%",
+      '--chart-2': "180 60% 50%",
+      '--chart-3': "30 80% 55%",
+      '--chart-4': "280 65% 60%",
+      '--chart-5': "340 75% 55%",
+      '--primary': "210 75% 50%",
+      '--accent': "180 60% 50%",
+    };
+    primaryHslValuesString = knownChartHslStrings[colorVariable[1]] || primaryHslValuesString;
   }
   
-  const dynamicViolinFillColor = `hsla(${primaryHslValues.split(' ')[0]}, ${primaryHslValues.split(' ')[1]}, ${primaryHslValues.split(' ')[2].replace('%','')*0.8}%, 0.3)`;
+  const [h, s, lBase] = primaryHslValuesString.split(' ').map(v => parseFloat(v.replace('%','')));
+  const dynamicViolinFillColor = `hsla(${h}, ${s}%, ${lBase * 0.8}%, 0.3)`; // Lighten and make transparent
+
+
+  const boxPlotStrokeColor = 'hsl(var(--foreground))'; // For median, whiskers
+  const boxPlotFillColor = 'hsla(var(--foreground-hsl), 0.1)'; // For IQR box, assumes --foreground-hsl is defined or defaults appropriately
+  const boxPlotElementsWidth = 0.3; // Relative to density axis for IQR box width
+  const whiskerCapWidth = boxPlotElementsWidth / 2;
 
 
   return (
@@ -308,7 +322,7 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                             <TabsTrigger value="histogram" className="text-xs h-8">Histogram</TabsTrigger>
                             <TabsTrigger value="violin" className="text-xs h-8">Violin Plot</TabsTrigger>
                         </TabsList>
-                        <TabsContent value="histogram" className={`h-[${CHART_HEIGHT}px] p-0 pr-4 pb-2 mt-0 flex items-center justify-center`}>
+                        <TabsContent value="histogram" className={`p-0 pr-4 pb-2 mt-0 flex items-center justify-center`}>
                             {(() => {
                               const showHistogram = canShowDistributionPlots && histogramData && histogramData.length > 0;
                               console.log('[DetailedDistributionModal] Show Histogram condition:', showHistogram);
@@ -338,24 +352,19 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                                   isString: data?.metricConfig?.isString,
                                 });
                                 return (
-                                  <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                                  <div className="flex items-center justify-center h-full text-muted-foreground text-sm" style={{height: `${FIXED_CHART_HEIGHT}px`, width: `${FIXED_CHART_WIDTH}px`}}>
                                       {metricConfig.isString ? "Histogram not applicable for textual data." : "Not enough data or variation for histogram."}
                                   </div>
                                 );
                               }
                             })()}
                         </TabsContent>
-                        <TabsContent value="violin" className={`h-[${CHART_HEIGHT}px] p-0 pr-1 pb-2 mt-0 flex items-center justify-center`}>
+                        <TabsContent value="violin" className={`p-0 pr-1 pb-2 mt-0 flex items-center justify-center`}>
                            {(() => {
                               const showViolin = canShowDistributionPlots && violinPlotDataForArea && violinPlotDataForArea.length > 0 && boxPlotStats;
-                              const violinLogCondition =  `${canShowDistributionPlots} && ${!!violinPlotDataForArea} && ${violinPlotDataForArea?.length > 0} && ${!!boxPlotStats}`;
-                              console.log('[DetailedDistributionModal] Show Violin condition (boolean):', !!showViolin, ' // From:', violinLogCondition);
+                              console.log('[DetailedDistributionModal] Show Violin condition (boolean):', !!showViolin);
                               
                               if (showViolin) {
-                                const boxPlotStrokeColor = 'hsl(var(--foreground))';
-                                const boxPlotFillColor = 'hsla(var(--foreground-hsl), 0.1)';
-                                const boxPlotElementsWidth = 0.3; // Relative to density axis (-1 to 1)
-
                                 return (
                                   <AreaChart 
                                     width={FIXED_CHART_WIDTH} 
@@ -417,6 +426,7 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                                             fill={boxPlotFillColor}
                                             fillOpacity={0.4}
                                             ifOverflow="visible"
+                                            isFront={true}
                                           />
                                           {/* Median Line */}
                                           <ReferenceLine
@@ -425,6 +435,7 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                                             strokeWidth={2}
                                             ifOverflow="visible"
                                             segment={[{ x: -boxPlotElementsWidth / 2, y: boxPlotStats.median }, { x: boxPlotElementsWidth / 2, y: boxPlotStats.median }]}
+                                            isFront={true}
                                           />
                                           {/* Whiskers - Vertical Lines */}
                                           <ReferenceLine
@@ -432,25 +443,29 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                                             strokeWidth={1}
                                             ifOverflow="visible"
                                             segment={[{ x: 0, y: boxPlotStats.q1 }, { x: 0, y: boxPlotStats.whiskerLow }]}
+                                            isFront={true}
                                           />
                                           <ReferenceLine
                                             stroke={boxPlotStrokeColor}
                                             strokeWidth={1}
                                             ifOverflow="visible"
                                             segment={[{ x: 0, y: boxPlotStats.q3 }, { x: 0, y: boxPlotStats.whiskerHigh }]}
+                                            isFront={true}
                                           />
                                           {/* Whisker Caps - Horizontal Lines */}
                                           <ReferenceLine
                                             stroke={boxPlotStrokeColor}
                                             strokeWidth={1}
                                             ifOverflow="visible"
-                                            segment={[{ x: -boxPlotElementsWidth / 4, y: boxPlotStats.whiskerHigh }, { x: boxPlotElementsWidth / 4, y: boxPlotStats.whiskerHigh }]}
+                                            segment={[{ x: -whiskerCapWidth / 2, y: boxPlotStats.whiskerHigh }, { x: whiskerCapWidth / 2, y: boxPlotStats.whiskerHigh }]}
+                                            isFront={true}
                                           />
                                           <ReferenceLine
                                             stroke={boxPlotStrokeColor}
                                             strokeWidth={1}
                                             ifOverflow="visible"
-                                            segment={[{ x: -boxPlotElementsWidth / 4, y: boxPlotStats.whiskerLow }, { x: boxPlotElementsWidth / 4, y: boxPlotStats.whiskerLow }]}
+                                            segment={[{ x: -whiskerCapWidth / 2, y: boxPlotStats.whiskerLow }, { x: whiskerCapWidth / 2, y: boxPlotStats.whiskerLow }]}
+                                            isFront={true}
                                           />
                                         </>
                                       )}
@@ -465,7 +480,7 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                                   isString: data?.metricConfig?.isString,
                                 });
                                  return (
-                                  <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                                  <div className="flex items-center justify-center h-full text-muted-foreground text-sm" style={{height: `${FIXED_CHART_HEIGHT}px`, width: `${FIXED_CHART_WIDTH}px`}}>
                                       {metricConfig.isString ? "Violin plot not applicable for textual data." : "Not enough data or variation for violin plot."}
                                   </div>
                                 );
@@ -524,3 +539,4 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
 
 export default DetailedDistributionModal;
     
+
