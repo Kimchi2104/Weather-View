@@ -79,7 +79,7 @@ interface WeatherChartProps {
   selectedMetrics: MetricKey[];
   metricConfigs: Record<MetricKey, MetricConfig>;
   isLoading: boolean;
-  onPointClick?: (pointPayload: WeatherDataPoint | AggregatedDataPoint | null, rawEvent: any | null) => void;
+  onPointClick?: (pointPayload: WeatherDataPoint | AggregatedDataPoint | null, rechartsClickProps: any | null) => void;
   chartType: 'line' | 'bar' | 'scatter';
   isAggregated?: boolean;
   showMinMaxLines?: boolean;
@@ -115,6 +115,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
         timestampDisplay: point.timestampDisplay || formatTimestampToDdMmHhMmUTC(point.timestamp || Date.now()),
         tooltipTimestampFull: point.tooltipTimestampFull || (isAggregated && point.aggregationPeriod ? point.timestampDisplay : formatTimestampToFullUTC(point.timestamp || Date.now())),
     }));
+    console.log('[WeatherChart] Formatted Data (first 3):', result.slice(0,3));
     return result;
   }, [chartInputData, isAggregated]);
 
@@ -340,28 +341,31 @@ const WeatherChart: FC<WeatherChartProps> = ({
   };
 
 
-  const handleScatterPointClick = (scatterPointProps: any, scatterEvent: React.MouseEvent<SVGElement>) => {
-    console.log('[WeatherChart] Scatter Point Clicked. Props:', scatterPointProps, 'Original Event:', scatterEvent);
+  const handleScatterPointClick = (scatterPointProps: any, _scatterDOMEvent: React.MouseEvent<SVGElement>) => {
+    // The second argument from Recharts <Scatter /> onClick is the index, not the DOM event for individual points.
+    // The DOM event is available on scatterPointProps.event if needed, but usually scatterPointProps is enough.
+    console.log('[WeatherChart] Scatter Point Clicked. Props from Recharts:', scatterPointProps);
     if (scatterPointProps && scatterPointProps.payload) {
-      console.log('[WeatherChart] Calling onPointClick with scatter point payload and original event.');
-      onPointClick?.(scatterPointProps.payload, scatterEvent);
+      console.log('[WeatherChart] Calling onPointClick with scatter point payload and Recharts props.');
+      // Pass scatterPointProps as the second argument, as it contains dataKey, name etc.
+      onPointClick?.(scatterPointProps.payload, scatterPointProps);
     } else {
       console.warn('[WeatherChart] Scatter point click did not have expected payload in props.');
-      onPointClick?.(null, scatterEvent);
+      onPointClick?.(null, scatterPointProps); // Pass scatterPointProps even if payload is missing
     }
   };
 
   const handleLineBarChartClick = (rechartsEvent: any) => {
-    // This handler is for Line and Bar charts.
-    console.log('[WeatherChart] Line/Bar Chart Click. Event:', rechartsEvent);
+    // This handler is for Line and Bar charts' chart-level onClick.
+    console.log('[WeatherChart] Line/Bar Chart Click. Event from Recharts:', rechartsEvent);
     if (rechartsEvent && rechartsEvent.activePayload && rechartsEvent.activePayload.length > 0) {
-      console.log('[WeatherChart] Line/Bar - Active Payload FOUND:', rechartsEvent.activePayload[0].payload);
+      console.log('[WeatherChart] Line/Bar - Active Payload FOUND. Calling onPointClick.');
       onPointClick?.(rechartsEvent.activePayload[0].payload, rechartsEvent);
     } else if (rechartsEvent && (rechartsEvent.chartX || rechartsEvent.xValue)) {
-      console.log('[WeatherChart] Line/Bar - Click on chart area (empty space).');
-      onPointClick?.(null, null); // Pass null for empty space
+      console.log('[WeatherChart] Line/Bar - Click on chart area (empty space). Calling onPointClick with nulls.');
+      onPointClick?.(null, null);
     } else {
-      console.log('[WeatherChart] Line/Bar - Generic chart click, no specific active payload.');
+      console.log('[WeatherChart] Line/Bar - Generic chart click, no specific active payload. Calling onPointClick with nulls.');
       onPointClick?.(null, null);
     }
   };
@@ -405,7 +409,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
             shape="circle"
             animationDuration={300}
             {...(isAggregated && stdDevDataKey ? { zAxisId: zAxisUniqueId } : {})}
-            onClick={handleScatterPointClick}
+            onClick={handleScatterPointClick} // Use the specific handler for scatter points
           />
         );
         return elements;
@@ -533,7 +537,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
     <ChartComponent
       key={chartDynamicKey}
       data={formattedData}
-      onClick={chartType === 'line' || chartType === 'bar' ? handleLineBarChartClick : undefined} // Only for Line/Bar
+      onClick={chartType === 'line' || chartType === 'bar' ? handleLineBarChartClick : undefined}
       {...commonCartesianProps}
     >
       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
