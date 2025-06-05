@@ -110,7 +110,8 @@ const WeatherChart: FC<WeatherChartProps> = ({
     }
     return chartInputData.map(point => ({
         ...point,
-        timestamp: typeof point.timestamp === 'number' ? point.timestamp : new Date(point.timestampDisplay || Date.now()).getTime(),
+        // Ensure timestamp is numeric for scatter X-axis
+        timestamp: typeof point.timestamp === 'number' ? point.timestamp : (point.timestampDisplay ? new Date(point.timestampDisplay).getTime() : Date.now()),
         timestampDisplay: point.timestampDisplay || formatTimestampToDdMmHhMmUTC(point.timestamp || Date.now()),
         tooltipTimestampFull: point.tooltipTimestampFull || (isAggregated && point.aggregationPeriod ? point.timestampDisplay : formatTimestampToFullUTC(point.timestamp || Date.now())),
     }));
@@ -131,7 +132,6 @@ const WeatherChart: FC<WeatherChartProps> = ({
     const metricsToConsiderForDomain = chartType === 'scatter'
         ? numericMetricsForScatter
         : selectedMetrics.filter(key => !metricConfigs[key]?.isString);
-
 
     const dataValues = metricsToConsiderForDomain.flatMap(metricKey =>
       formattedData.map(p => {
@@ -164,7 +164,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
             }
         });
     }
-
+    
     const paddedMin = getPaddedMinYDomain(effectiveMin, effectiveMax);
     const paddedMax = getPaddedMaxYDomain(effectiveMax, effectiveMin);
 
@@ -182,13 +182,13 @@ const WeatherChart: FC<WeatherChartProps> = ({
     }).sort();
   }, [showMinMaxLines, minMaxReferenceData, selectedMetrics, metricConfigs, chartType]);
 
-  useEffect(() => {
+ useEffect(() => {
     if (chartType === 'scatter') {
-      console.log(`[WeatherChart] Chart Type: ${chartType}, Is Aggregated: ${isAggregated}`);
-      console.log(`[WeatherChart] Original Selected Metrics:`, selectedMetrics);
-      console.log(`[WeatherChart] Numeric Metrics for Scatter:`, numericMetricsForScatter);
-      console.log(`[WeatherChart] Formatted Data (first 3):`, JSON.parse(JSON.stringify(formattedData.slice(0,3))));
-      console.log(`[WeatherChart] Y-Axis Domain:`, yAxisDomain);
+        console.log(`[WeatherChart] Chart Type: ${chartType}, Is Aggregated: ${isAggregated}`);
+        console.log(`[WeatherChart] Original Selected Metrics:`, selectedMetrics);
+        console.log(`[WeatherChart] Numeric Metrics for Scatter:`, numericMetricsForScatter);
+        console.log(`[WeatherChart] Formatted Data (first 3):`, JSON.parse(JSON.stringify(formattedData.slice(0,3))));
+        console.log(`[WeatherChart] Y-Axis Domain:`, yAxisDomain);
     }
   }, [chartType, isAggregated, selectedMetrics, numericMetricsForScatter, formattedData, yAxisDomain]);
 
@@ -319,7 +319,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
     let baseLabel = config?.name || name;
 
     if (chartType === 'scatter' && isAggregated && entry.payload) {
-        baseLabel = name;
+        baseLabel = name; // Name prop from Scatter component is already the metric name
         const stdDevValue = entry.payload[`${originalMetricKey}_stdDev`];
         const countValue = entry.payload[`${originalMetricKey}_count`];
         
@@ -330,11 +330,11 @@ const WeatherChart: FC<WeatherChartProps> = ({
         if (typeof countValue === 'number' && isFinite(countValue)) {
             tooltipContent.push(`Data Points: ${countValue}`);
         }
-        return [tooltipContent.join('\n'), null];
+        return [tooltipContent.join('\n'), null]; // Return array: [value, name]
     }
 
     if (chartType === 'scatter' && !isAggregated && entry.payload) {
-        baseLabel = name;
+        baseLabel = name; // Name prop from Scatter component
         return [`${baseLabel}: ${displayValue}${unitString}`, null];
     }
 
@@ -356,38 +356,31 @@ const WeatherChart: FC<WeatherChartProps> = ({
   const renderChartSpecificElements = () => {
     if (chartType === 'scatter') {
       if (numericMetricsForScatter.length === 0) {
+        // console.log("[WeatherChart] Scatter: No numeric metrics selected to render.");
         return null;
       }
+      // console.log(`[WeatherChart] Rendering Scatter for keys:`, numericMetricsForScatter.join(', '));
       return numericMetricsForScatter.map((key) => {
         const metricConfig = metricConfigs[key];
-        if (!metricConfig) return null;
+        if (!metricConfig) {
+          // console.warn(`[WeatherChart] Scatter: No config for metric key ${key}`);
+          return null;
+        }
 
-        const avgDataKey = isAggregated ? `${key}_avg` : key;
-        const stdDevDataKey = isAggregated ? `${key}_stdDev` : undefined;
+        const yDataKey = isAggregated ? `${key}_avg` : key;
+        // console.log(`[WeatherChart] Scatter metric: ${key}, yDataKey: ${yDataKey}, isAggregated: ${isAggregated}`);
+        // const sampleDataForKey = formattedData.slice(0, 3).map(p => ({ ts: p.timestamp, yVal: p[yDataKey] }));
+        // console.log(`[WeatherChart] Scatter data sample for ${yDataKey}:`, sampleDataForKey);
 
         return (
-          <React.Fragment key={`scatter-frag-${key}`}>
-            {isAggregated && stdDevDataKey && (
-              <ZAxis
-                key={`zaxis-${key}`}
-                type="number"
-                dataKey={stdDevDataKey}
-                range={[MIN_BUBBLE_AREA, MAX_BUBBLE_AREA]}
-                name={`${metricConfig.name} Std Dev`}
-                unit={metricConfig.unit}
-                zAxisId={`z-${key}`}
-              />
-            )}
-            <Scatter
-              key={`scatter-${key}`}
-              name={metricConfig.name}
-              dataKey={avgDataKey} 
-              fill={metricConfig.color || '#8884d8'}
-              shape="circle"
-              animationDuration={300}
-              zAxisId={isAggregated && stdDevDataKey ? `z-${key}` : undefined}
-            />
-          </React.Fragment>
+          <Scatter
+            key={`scatter-${key}`}
+            name={metricConfig.name}
+            dataKey={yDataKey} // Y-axis value
+            fill={metricConfig.color || '#8884d8'}
+            shape="circle"
+            animationDuration={300}
+          />
         );
       });
     }
@@ -436,7 +429,10 @@ const WeatherChart: FC<WeatherChartProps> = ({
   let chartSpecificProps: any = {};
 
   const xAxisDataKey = chartType === 'scatter' ? "timestamp" : "timestampDisplay";
-  const xAxisType = chartType === 'scatter' ? "number" : "category";
+  const xAxisTypeForScatter = "number"; // Scatter X-axis should be numeric
+  const xAxisTypeForOthers = "category";
+  const xAxisType = chartType === 'scatter' ? xAxisTypeForScatter : xAxisTypeForOthers;
+
   const xAxisTickFormatter = chartType === 'scatter' ? 
     (value: number) => formatTimestampToDdMmHhMmUTC(value) : 
     undefined;
@@ -449,7 +445,10 @@ const WeatherChart: FC<WeatherChartProps> = ({
   const xAxisDy = chartType === 'scatter' ? 10 : (((chartType === 'line') && !isAggregated) ? 10 : 0);
   const xAxisHeight = chartType === 'scatter' ? 60 : (((chartType === 'line') && !isAggregated) ? 70 : 30);
   const xAxisMinTickGap = chartType === 'scatter' ? 20 : (((chartType === 'line') && !isAggregated) ? 10 : 5);
-  const xAxisInterval = chartType === 'scatter' ? "preserveStartEnd" : (isAggregated ? "preserveStartEnd" : (formattedData.length > 20 ? Math.floor(formattedData.length / numTicks) : 0));
+
+  const xAxisInterval = chartType === 'scatter' ? 
+    (formattedData.length > 15 ? Math.floor(formattedData.length / 10) : 0) : 
+    (isAggregated ? "preserveStartEnd" : (formattedData.length > 20 ? Math.floor(formattedData.length / numTicks) : 0));
 
 
   if (chartType === 'bar') {
@@ -679,5 +678,6 @@ const WeatherChart: FC<WeatherChartProps> = ({
 };
 
 export default WeatherChart;
+    
 
     
