@@ -182,14 +182,13 @@ const WeatherChart: FC<WeatherChartProps> = ({
   }, [showMinMaxLines, minMaxReferenceData, selectedMetrics, METRIC_CONFIGS, chartType]);
 
   useEffect(() => {
-    // Uncomment these logs if scatter chart is still not working as expected
-    // if (chartType === 'scatter') {
-    //   console.log(`[WeatherChart] Chart Type: ${chartType}, Is Aggregated: ${isAggregated}`);
-    //   console.log(`[WeatherChart] Original Selected Metrics:`, selectedMetrics);
-    //   console.log(`[WeatherChart] Numeric Metrics for Scatter:`, numericMetricsForScatter);
-    //   console.log(`[WeatherChart] Formatted Data (first 3):`, JSON.parse(JSON.stringify(formattedData.slice(0,3))));
-    //   console.log(`[WeatherChart] Y-Axis Domain:`, yAxisDomain);
-    // }
+    if (chartType === 'scatter') {
+      console.log(`[WeatherChart] Chart Type: ${chartType}, Is Aggregated: ${isAggregated}`);
+      console.log(`[WeatherChart] Original Selected Metrics:`, selectedMetrics);
+      console.log(`[WeatherChart] Numeric Metrics for Scatter:`, numericMetricsForScatter);
+      console.log(`[WeatherChart] Formatted Data (first 3):`, JSON.parse(JSON.stringify(formattedData.slice(0,3))));
+      console.log(`[WeatherChart] Y-Axis Domain:`, yAxisDomain);
+    }
   }, [chartType, isAggregated, selectedMetrics, numericMetricsForScatter, formattedData, yAxisDomain]);
 
 
@@ -299,32 +298,44 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
 const tooltipFormatter = (value: any, name: any, entry: any) => {
     const dataKey = entry.dataKey as string;
-    let processingName = name; 
-    let derivedMetricKey = dataKey; 
 
+    // Filter 1: If the name provided by Recharts for the item label is "timestamp" (or contains it), skip.
+    const lowerCaseName = typeof name === 'string' ? name.toLowerCase() : '';
+    if (lowerCaseName.includes('timestamp')) {
+        return null;
+    }
+
+    // Filter 2: If the actual dataKey for this series item is one of our X-axis timestamp keys, skip.
+    if (dataKey === 'timestamp' || dataKey === 'timestampDisplay' || dataKey === 'tooltipTimestampFull') {
+        return null;
+    }
+    
+    let derivedMetricKey = dataKey;
     if (isAggregated) {
         if (dataKey.endsWith('_avg')) derivedMetricKey = dataKey.substring(0, dataKey.length - 4);
         else if (dataKey.endsWith('_stdDev')) derivedMetricKey = dataKey.substring(0, dataKey.length - 7);
         else if (dataKey.endsWith('_count')) derivedMetricKey = dataKey.substring(0, dataKey.length - 6);
     }
-    
-    if (typeof processingName === 'string' && processingName.toLowerCase().includes('timestamp')) {
-        return null;
-    }
 
+    const originalMetricKeyForConfig = derivedMetricKey as MetricKey;
+    const config = METRIC_CONFIGS[originalMetricKeyForConfig];
+
+    // Filter 3: If the derived key is still timestamp-like or an internal aggregation suffix, skip.
     const lowerCaseDerivedMetricKey = derivedMetricKey.toLowerCase();
     if (
         lowerCaseDerivedMetricKey.includes('timestamp') ||
         lowerCaseDerivedMetricKey.includes('aggregationperiod') ||
-        (isAggregated && (dataKey.endsWith('_stdDev') || dataKey.endsWith('_count')))
+        (isAggregated && (derivedMetricKey.endsWith('_stdDev') || derivedMetricKey.endsWith('_count'))) 
     ) {
-        return null; 
+        return null;
     }
 
-    const originalMetricKeyForConfig = derivedMetricKey as MetricKey;
-    const config = METRIC_CONFIGS[originalMetricKeyForConfig];
-    const displayName = config?.name || processingName || originalMetricKeyForConfig; 
+    const displayName = config?.name || name || originalMetricKeyForConfig;
 
+    // Filter 4: If the final display name somehow becomes timestamp-like, skip.
+     if (typeof displayName === 'string' && displayName.toLowerCase().includes('timestamp')) {
+        return null;
+    }
 
     let displayValue;
     if (typeof value === 'number' && isFinite(value)) {
@@ -338,7 +349,7 @@ const tooltipFormatter = (value: any, name: any, entry: any) => {
 
     const unitString = (typeof value === 'number' && isFinite(value) && config?.unit) ? ` ${config.unit}` : '';
 
-    if (chartType === 'scatter' && isAggregated && entry.payload) {
+    if (chartType === 'scatter' && isAggregated && entry.payload && !config?.isString) {
         const stdDevValue = entry.payload[`${originalMetricKeyForConfig}_stdDev`];
         const countValue = entry.payload[`${originalMetricKeyForConfig}_count`];
         
@@ -381,11 +392,11 @@ const tooltipFormatter = (value: any, name: any, entry: any) => {
   
         const yDataKey = isAggregated ? `${key}_avg` : key;
         const stdDevDataKey = isAggregated ? `${key}_stdDev` : undefined;
-        const zAxisUniqueId = `z-${key}`;
+        const zAxisUniqueId = `z-${key}`; 
   
         const elements = [];
   
-        if (isAggregated && stdDevDataKey && !metricConfig.isString) {
+        if (isAggregated && stdDevDataKey) { 
           elements.push(
             <ZAxis
               key={`zaxis-${key}`}
@@ -405,7 +416,7 @@ const tooltipFormatter = (value: any, name: any, entry: any) => {
             fill={metricConfig.color || '#8884d8'}
             shape="circle"
             animationDuration={300}
-            {...(isAggregated && stdDevDataKey && !metricConfig.isString ? { zAxisId: zAxisUniqueId } : {})}
+            {...(isAggregated && stdDevDataKey ? { zAxisId: zAxisUniqueId } : {})}
           />
         );
         return elements;
