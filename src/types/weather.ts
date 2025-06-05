@@ -9,20 +9,21 @@ export interface WeatherDataPoint {
   airQuality: string; // e.g., "Safe Air", from rawData.airQuality
   aqiPpm: number; // Air Quality Index from MQ135, in PPM, from rawData.mq135PPM
   pressure?: number; // hPa
+  // Allow dynamic metric keys for aggregated data if needed
+  [key: string]: any; 
 }
 
 // Represents the raw data structure from Firebase before transformation
 export interface RawFirebaseDataPoint {
-  airQuality?: string; // This is the string representation like "Safe Air"
+  airQuality?: string; 
   humidity?: number;
   lux?: number;
-  mq135PPM?: number; // Source for numerical AQI in PPM
-  pressure?: number; // e.g., 1007.10968
+  mq135PPM?: number; 
+  pressure?: number; 
   rainAnalog?: number;
-  rainStatus?: string; // e.g., "No Rain"
+  rainStatus?: string; 
   temperature?: number;
-  timestamp?: string; // e.g., "03/06/2025 16:08:39"
-  // Allow any other fields that might be present
+  timestamp?: string; 
   [key: string]: any;
 }
 
@@ -44,6 +45,12 @@ export interface MetricConfig {
   color: string;
   healthyMin?: number;
   healthyMax?: number;
-  isString?: boolean; // Flag to indicate if the metric value is a string
+  isString?: boolean; 
 }
 
+export interface AggregatedDataPoint extends WeatherDataPoint {
+  timestampDisplay: string;
+  aggregationPeriod: 'hourly' | 'daily' | 'weekly' | 'monthly';
+  // Dynamic keys for aggregated values, e.g., temperature_avg, humidity_min, etc.
+  // These will be added dynamically during aggregation.
+}

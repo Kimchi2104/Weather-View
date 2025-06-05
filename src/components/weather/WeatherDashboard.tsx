@@ -6,30 +6,25 @@ import { useState } from 'react';
 import RealtimeDataSection from './RealtimeDataSection';
 import HistoricalDataSection from './HistoricalDataSection';
 import AIForecastSection from './AIForecastSection';
-import RawDataViewer from './RawDataViewer'; // Import the new component
+import RawDataViewer from './RawDataViewer';
 import type { WeatherDataPoint } from '@/types/weather';
-import { useToast } from "@/hooks/use-toast";
 
 const WeatherDashboard: FC = () => {
   const [dataForAiForecast, setDataForAiForecast] = useState<WeatherDataPoint[] | null>(null);
-  const { toast } = useToast();
 
-  const handleChartPointClick = (point: WeatherDataPoint) => {
+  // This function is specifically for populating the AI forecast section
+  const handlePointClickForAIForecast = (point: WeatherDataPoint) => {
     setDataForAiForecast([point]);
-    // Toast notification is now handled by AIForecastSection on prop update
   };
-
-  // handleChartRangeSelect function removed as it's no longer needed
 
   return (
     <div className="space-y-8">
       <RealtimeDataSection />
       <HistoricalDataSection 
-        onChartPointClick={handleChartPointClick}
-        // onChartRangeSelect prop removed
+        onChartPointClickForAI={handlePointClickForAIForecast}
       />
       <AIForecastSection initialDataForForecast={dataForAiForecast} />
-      <RawDataViewer /> {/* Add the new raw data viewer section */}
+      <RawDataViewer />
     </div>
   );
 };
