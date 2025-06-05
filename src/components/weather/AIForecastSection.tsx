@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { generateWeatherForecast, type GenerateWeatherForecastInput, type GenerateWeatherForecastOutput } from '@/ai/flows/generate-weather-forecast';
-import { Wand2, Thermometer, CloudDrizzle, WindIcon, CheckCircle, Leaf, CalendarDays } from 'lucide-react';
+import { Wand2, Thermometer, CloudDrizzle, WindIcon, CheckCircle, Leaf, CalendarDays, Lock } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from '@/components/ui/skeleton';
 import type { WeatherDataPoint } from '@/types/weather';
@@ -25,6 +25,8 @@ interface AIForecastSectionProps {
   initialDataForForecast?: WeatherDataPoint[] | null;
 }
 
+const IS_AI_FORECAST_DISABLED = true; // Control flag for disabling the feature
+
 const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast }) => {
   const [location, setLocation] = useState<string>('Local Area');
   const [forecast, setForecast] = useState<GenerateWeatherForecastOutput | null>(null);
@@ -33,8 +35,10 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
   const { toast } = useToast();
 
   useEffect(() => {
+    if (IS_AI_FORECAST_DISABLED) return;
+
     if (initialDataForForecast === null) {
-       setCustomHistoricalData(''); 
+       setCustomHistoricalData('');
        toast({
          title: "Chart Selection Cleared",
          description: "Historical data input for AI forecast has been cleared.",
@@ -46,7 +50,7 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
         temperature: p.temperature,
         humidity: p.humidity,
         precipitation: p.precipitation,
-        aqi: p.aqiPpm, 
+        aqi: p.aqiPpm,
         lux: p.lux,
         pressure: p.pressure,
       }));
@@ -73,6 +77,8 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
 
 
   const handleGenerateForecast = async () => {
+    if (IS_AI_FORECAST_DISABLED) return;
+
     setIsLoading(true);
     setForecast(null);
 
@@ -86,7 +92,7 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
         typeof item.temperature === 'number' &&
         typeof item.humidity === 'number' &&
         typeof item.precipitation === 'string' &&
-        typeof item.aqi === 'number' && 
+        typeof item.aqi === 'number' &&
         typeof item.lux === 'number' &&
         (item.pressure === undefined || typeof item.pressure === 'number')
       )) {
@@ -120,7 +126,7 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
         const result = await generateWeatherForecast(input);
         setForecast(result);
         setIsLoading(false);
-        return; 
+        return;
       } catch (error: any) {
         console.error(`Error generating forecast (attempt ${attempt}):`, error);
 
@@ -128,7 +134,7 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
 
         if (is503Error) {
           if (attempt < MAX_RETRIES) {
-            const delay = attempt * 1500; 
+            const delay = attempt * 1500;
             toast({
               title: `Forecast Attempt ${attempt} Failed (Model Overloaded)`,
               description: `Retrying in ${delay / 1000}s...`,
@@ -145,7 +151,7 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
             });
             setForecast(null);
             setIsLoading(false);
-            return; 
+            return;
           }
         } else {
           
@@ -156,7 +162,7 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
           });
           setForecast(null);
           setIsLoading(false);
-          return; 
+          return;
         }
       }
     }
@@ -167,126 +173,147 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
 
   return (
     <section className="mb-8">
-      <Card className="shadow-lg">
+      <Card className={`shadow-lg relative ${IS_AI_FORECAST_DISABLED ? 'opacity-70' : ''}`}>
         <CardHeader>
           <CardTitle className="font-headline flex items-center">
             <Wand2 className="mr-2 h-5 w-5 text-accent" />
             AI-Powered Weather Forecast
           </CardTitle>
           <CardDescription>
-            Use AI to predict upcoming weather. 
-            Click a point on the chart in the &quot;Historical Data Analysis&quot; section, or use the &quot;Use All Displayed Data for AI Forecast&quot; button there to auto-fill historical data. 
-            You can also manually input a JSON array below. The AI expects 'aqi' to be the numerical PPM value.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="location" className="text-sm font-medium">Location</Label>
-            <Input
-              id="location"
-              type="text"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="Enter location (e.g., San Francisco)"
-              className="mt-1"
-            />
-          </div>
-          <div>
-            <Label htmlFor="historical-data" className="text-sm font-medium">Historical Data (JSON array)</Label>
-            <Textarea
-              id="historical-data"
-              value={customHistoricalData}
-              onChange={(e) => setCustomHistoricalData(e.target.value)}
-              placeholder="Click a point on the chart or use the button in Historical section, or enter historical weather data as JSON array..."
-              rows={8}
-              className="mt-1 font-mono text-xs"
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              Each point should include: timestamp (number), temperature (number), humidity (number), precipitation (string, e.g., "No Rain"), aqi (number, in PPM), lux (number). Pressure (number) is optional.
-            </p>
-          </div>
-
-          {isLoading && (
-            <div className="space-y-3 pt-4 mt-4 border-t">
-              <Skeleton className="h-6 w-1/3 mb-3" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-5/6" />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                <Skeleton className="h-20 w-full" />
-                <Skeleton className="h-20 w-full" />
-              </div>
-              <Skeleton className="h-40 w-full mt-4" /> 
-            </div>
-          )}
-
-          {forecast && !isLoading && (
-            <div className="space-y-4 pt-4 mt-4 border-t">
-              <h3 className="text-xl font-semibold text-primary mb-2">Forecast for {location}:</h3>
-
-              <p className="text-sm bg-secondary/50 p-3 rounded-md"><strong className="font-medium">Overall Summary:</strong> {forecast.overallSummary}</p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                <div className="flex items-center bg-muted/30 p-3 rounded-md">
-                   <WindIcon className="mr-2 h-5 w-5 text-accent" />
-                  <strong className="font-medium">Wind:</strong>&nbsp;{forecast.windConditions}
-                </div>
-                 <div className="flex items-center bg-muted/30 p-3 rounded-md">
-                   <Leaf className="mr-2 h-5 w-5 text-accent" />
-                  <strong className="font-medium">AQI Outlook:</strong>&nbsp;{forecast.aqiOutlook}
-                </div>
-              </div>
-
-              {forecast.dailyForecasts && forecast.dailyForecasts.length > 0 && (
-                <AIForecastChart dailyForecasts={forecast.dailyForecasts} />
-              )}
-
-              {forecast.dailyForecasts && forecast.dailyForecasts.length > 0 && (
-                <div className="mt-6 space-y-3">
-                  <h4 className="text-lg font-semibold text-primary-700">Daily Details:</h4>
-                  {forecast.dailyForecasts.map((day, index) => (
-                    <Card key={index} className="bg-muted/20 p-4">
-                      <CardHeader className="p-0 pb-2">
-                        <CardTitle className="text-md font-semibold flex items-center">
-                          <CalendarDays className="mr-2 h-5 w-5 text-accent"/>
-                          {new Date(day.date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="p-0 text-sm space-y-1">
-                        <p>{day.daySummary}</p>
-                        <div className="flex items-center">
-                          <Thermometer className="mr-1 h-4 w-4 text-accent-600"/>
-                          High: {day.temperatureHigh}°C, Low: {day.temperatureLow}°C
-                        </div>
-                        <div className="flex items-center">
-                          <CloudDrizzle className="mr-1 h-4 w-4 text-accent-600"/>
-                          Precipitation: {day.precipitationChance}%
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </CardContent>
-        <CardFooter>
-          <Button onClick={handleGenerateForecast} disabled={isLoading} className="w-full sm:w-auto">
-            {isLoading ? (
+            Use AI to predict upcoming weather.
+            {!IS_AI_FORECAST_DISABLED && (
               <>
-                <Wand2 className="mr-2 h-4 w-4 animate-pulse" />
-                Generating Forecast...
-              </>
-            ) : (
-              <>
-                <Wand2 className="mr-2 h-4 w-4" />
-                Generate Detailed Forecast
+                {' '}Click a point on the chart in the &quot;Historical Data Analysis&quot; section, or use the &quot;Use All Displayed Data for AI Forecast&quot; button there to auto-fill historical data.
+                You can also manually input a JSON array below. The AI expects 'aqi' to be the numerical PPM value.
               </>
             )}
-          </Button>
-        </CardFooter>
+          </CardDescription>
+        </CardHeader>
+        <div className="relative">
+          {IS_AI_FORECAST_DISABLED && (
+            <div className="absolute inset-0 bg-slate-200/80 dark:bg-slate-800/80 backdrop-blur-sm flex flex-col items-center justify-center text-center p-4 rounded-b-lg z-10">
+              <Lock size={48} className="text-slate-500 dark:text-slate-400 mb-4" />
+              <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-2">Feature Under Development</h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                Our AI models for this forecasting feature are currently being fine-tuned.
+                <br />
+                We&apos;re excited for you to try it once it&apos;s available! Please check back soon.
+              </p>
+            </div>
+          )}
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="location" className="text-sm font-medium">Location</Label>
+              <Input
+                id="location"
+                type="text"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="Enter location (e.g., San Francisco)"
+                className="mt-1"
+                disabled={IS_AI_FORECAST_DISABLED}
+              />
+            </div>
+            <div>
+              <Label htmlFor="historical-data" className="text-sm font-medium">Historical Data (JSON array)</Label>
+              <Textarea
+                id="historical-data"
+                value={customHistoricalData}
+                onChange={(e) => setCustomHistoricalData(e.target.value)}
+                placeholder="Click a point on the chart or use the button in Historical section, or enter historical weather data as JSON array..."
+                rows={8}
+                className="mt-1 font-mono text-xs"
+                disabled={IS_AI_FORECAST_DISABLED}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Each point should include: timestamp (number), temperature (number), humidity (number), precipitation (string, e.g., "No Rain"), aqi (number, in PPM), lux (number). Pressure (number) is optional.
+              </p>
+            </div>
+
+            {isLoading && !IS_AI_FORECAST_DISABLED && (
+              <div className="space-y-3 pt-4 mt-4 border-t">
+                <Skeleton className="h-6 w-1/3 mb-3" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-5/6" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                  <Skeleton className="h-20 w-full" />
+                  <Skeleton className="h-20 w-full" />
+                </div>
+                <Skeleton className="h-40 w-full mt-4" />
+              </div>
+            )}
+
+            {forecast && !isLoading && !IS_AI_FORECAST_DISABLED && (
+              <div className="space-y-4 pt-4 mt-4 border-t">
+                <h3 className="text-xl font-semibold text-primary mb-2">Forecast for {location}:</h3>
+
+                <p className="text-sm bg-secondary/50 p-3 rounded-md"><strong className="font-medium">Overall Summary:</strong> {forecast.overallSummary}</p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                  <div className="flex items-center bg-muted/30 p-3 rounded-md">
+                     <WindIcon className="mr-2 h-5 w-5 text-accent" />
+                    <strong className="font-medium">Wind:</strong>&nbsp;{forecast.windConditions}
+                  </div>
+                   <div className="flex items-center bg-muted/30 p-3 rounded-md">
+                     <Leaf className="mr-2 h-5 w-5 text-accent" />
+                    <strong className="font-medium">AQI Outlook:</strong>&nbsp;{forecast.aqiOutlook}
+                  </div>
+                </div>
+
+                {forecast.dailyForecasts && forecast.dailyForecasts.length > 0 && (
+                  <AIForecastChart dailyForecasts={forecast.dailyForecasts} />
+                )}
+
+                {forecast.dailyForecasts && forecast.dailyForecasts.length > 0 && (
+                  <div className="mt-6 space-y-3">
+                    <h4 className="text-lg font-semibold text-primary-700">Daily Details:</h4>
+                    {forecast.dailyForecasts.map((day, index) => (
+                      <Card key={index} className="bg-muted/20 p-4">
+                        <CardHeader className="p-0 pb-2">
+                          <CardTitle className="text-md font-semibold flex items-center">
+                            <CalendarDays className="mr-2 h-5 w-5 text-accent"/>
+                            {new Date(day.date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-0 text-sm space-y-1">
+                          <p>{day.daySummary}</p>
+                          <div className="flex items-center">
+                            <Thermometer className="mr-1 h-4 w-4 text-accent-600"/>
+                            High: {day.temperatureHigh}°C, Low: {day.temperatureLow}°C
+                          </div>
+                          <div className="flex items-center">
+                            <CloudDrizzle className="mr-1 h-4 w-4 text-accent-600"/>
+                            Precipitation: {day.precipitationChance}%
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+          <CardFooter>
+            <Button onClick={handleGenerateForecast} disabled={isLoading || IS_AI_FORECAST_DISABLED} className="w-full sm:w-auto">
+              {isLoading && !IS_AI_FORECAST_DISABLED ? (
+                <>
+                  <Wand2 className="mr-2 h-4 w-4 animate-pulse" />
+                  Generating Forecast...
+                </>
+              ) : (
+                <>
+                  <Wand2 className="mr-2 h-4 w-4" />
+                  Generate Detailed Forecast
+                </>
+              )}
+            </Button>
+          </CardFooter>
+        </div>
       </Card>
     </section>
   );
 };
 
 export default AIForecastSection;
+
+    
