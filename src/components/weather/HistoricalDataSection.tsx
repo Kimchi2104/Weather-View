@@ -301,8 +301,8 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
     console.log('[HistoricalDataSection] handleDetailedChartClick received:', { clickedData, rechartsClickProps });
     console.log(`[HistoricalDataSection] Current state: selectedChartType: ${selectedChartType}, isActuallyAggregated: ${isActuallyAggregated}`);
     
-    if (rechartsClickProps && rechartsClickProps.activePayload) {
-        console.log('[HistoricalDataSection] RechartsClickProps activePayload:', rechartsClickProps.activePayload);
+    if (rechartsClickProps) {
+        console.log('[HistoricalDataSection] RechartsClickProps (the event/props from Recharts click):', JSON.stringify(rechartsClickProps, (key, value) => (typeof value === 'function' ? 'function' : value), 2));
     }
 
 
@@ -320,44 +320,69 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
     console.log('[HistoricalDataSection] Checking condition for modal:', 
         `selectedChartType === 'scatter': ${selectedChartType === 'scatter'}`,
         `isActuallyAggregated: ${isActuallyAggregated}`,
-        `!!clickedData: ${!!clickedData}`,
-        `!!rechartsClickProps: ${!!rechartsClickProps}`
+        `!!clickedData: ${!!clickedData}`
     );
 
-    const conditionForModal = selectedChartType === 'scatter' && isActuallyAggregated && clickedData && rechartsClickProps;
+    const conditionForModal = selectedChartType === 'scatter' && isActuallyAggregated && clickedData;
 
     if (conditionForModal) {
       console.log('[HistoricalDataSection] Aggregated scatter click DETECTED for modal.');
       const payloadPoint = clickedData as AggregatedDataPoint;
 
       let metricKeyFromPayload: MetricKey | undefined = undefined;
+
+      // Log the received rechartsClickProps for inspection
+      console.log("[HistoricalDataSection] Scatter click: rechartsClickProps object: ", rechartsClickProps);
+      console.log("[HistoricalDataSection] Scatter click: selectedMetrics array: ", selectedMetrics);
+
+
       if (rechartsClickProps && typeof rechartsClickProps.dataKey === 'string') {
           metricKeyFromPayload = rechartsClickProps.dataKey.replace(/_avg$/, '') as MetricKey;
-          console.log(`[HistoricalDataSection] MetricKey from rechartsClickProps.dataKey: ${metricKeyFromPayload}`);
-      } else if (rechartsClickProps && typeof rechartsClickProps.name === 'string') {
+          console.log(`[HistoricalDataSection] MetricKey from rechartsClickProps.dataKey ('${rechartsClickProps.dataKey}'): ${metricKeyFromPayload}`);
+      } else {
+          console.log("[HistoricalDataSection] rechartsClickProps.dataKey is not a string or not present.");
+      }
+      
+      if (!metricKeyFromPayload && rechartsClickProps && typeof rechartsClickProps.name === 'string') {
           const foundMetric = Object.entries(METRIC_CONFIGS).find(([key, conf]) => conf.name === rechartsClickProps.name || `${conf.name} (Avg)` === rechartsClickProps.name);
           if (foundMetric) {
             metricKeyFromPayload = foundMetric[0] as MetricKey;
-            console.log(`[HistoricalDataSection] MetricKey from rechartsClickProps.name: ${metricKeyFromPayload}`);
+            console.log(`[HistoricalDataSection] MetricKey from rechartsClickProps.name ('${rechartsClickProps.name}'): ${metricKeyFromPayload}`);
+          } else {
+            console.log(`[HistoricalDataSection] Could not find metric by name ('${rechartsClickProps.name}') in METRIC_CONFIGS.`);
           }
+      } else if (!metricKeyFromPayload) {
+          console.log("[HistoricalDataSection] rechartsClickProps.name is not a string or not present (or metricKey already found).");
       }
 
-      if (!metricKeyFromPayload && selectedMetrics.length === 1 && !METRIC_CONFIGS[selectedMetrics[0]].isString) {
-          metricKeyFromPayload = selectedMetrics[0];
-          console.log(`[HistoricalDataSection] Using single selected metric as fallback for modal: ${metricKeyFromPayload}`);
+      if (!metricKeyFromPayload) {
+        const numericSelectedMetrics = selectedMetrics.filter(m => !METRIC_CONFIGS[m].isString);
+        console.log("[HistoricalDataSection] Numeric selected metrics:", numericSelectedMetrics);
+        if (numericSelectedMetrics.length === 1 && payloadPoint.hasOwnProperty(`${numericSelectedMetrics[0]}_avg`)) {
+          metricKeyFromPayload = numericSelectedMetrics[0];
+          console.log(`[HistoricalDataSection] Using single selected numeric metric as fallback: ${metricKeyFromPayload}`);
+        } else {
+            console.log("[HistoricalDataSection] Fallback to single selected metric not applicable or key not in payloadPoint.");
+        }
       }
       
       if (!metricKeyFromPayload) {
-          console.error("[HistoricalDataSection] Could not determine metricKey for modal from Recharts click props. Props:", rechartsClickProps, "SelectedMetrics:", selectedMetrics);
+          console.log("[HistoricalDataSection] Attempting to infer metricKey from payloadPoint's unique _avg key.");
           const numericKeysInPayload = Object.keys(payloadPoint).filter(k => k.endsWith('_avg'));
+          console.log("[HistoricalDataSection] Numeric keys in payloadPoint ending with _avg:", numericKeysInPayload);
           if (numericKeysInPayload.length === 1) {
               metricKeyFromPayload = numericKeysInPayload[0].replace('_avg', '') as MetricKey;
               console.log(`[HistoricalDataSection] Inferred metricKey from payloadPoint's unique _avg key: ${metricKeyFromPayload}`);
           } else {
-              console.error("[HistoricalDataSection] Cannot reliably infer metricKey for modal. Aborting modal open.");
-              return;
+               console.log("[HistoricalDataSection] Could not infer from unique _avg key in payloadPoint. Number of _avg keys:", numericKeysInPayload.length);
           }
       }
+
+      if (!metricKeyFromPayload) {
+          console.error("[HistoricalDataSection] Cannot reliably infer metricKey for modal. Aborting modal open.");
+          return;
+      }
+
 
       const baseMetricKey = metricKeyFromPayload;
       const metricConfig = METRIC_CONFIGS[baseMetricKey];
