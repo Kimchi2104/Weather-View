@@ -1,9 +1,11 @@
 
-
 "use client";
 
 import type { FC } from 'react';
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
+import { useTheme } from 'next-themes';
 import {
   Dialog,
   DialogContent,
@@ -20,7 +22,18 @@ import { formatTimestampToFullUTC } from '@/lib/utils';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, AreaChart, Area, ReferenceLine, ReferenceArea } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle as ModalCardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Download, FileImage, FileText, Loader2, Sun, Moon, Laptop } from 'lucide-react';
 
+type ExportThemeOption = 'current' | 'light' | 'dark';
 
 interface DetailedDistributionModalProps {
   isOpen: boolean;
@@ -63,7 +76,6 @@ const calculateBoxPlotStats = (arr: number[]): { min: number; q1: number; median
   const q3 = percentile(0.75);
   const iqr = q3 - q1;
 
-  // Standard definition for whiskers
   const lowerWhiskerCandidate = q1 - 1.5 * iqr;
   const upperWhiskerCandidate = q3 + 1.5 * iqr;
 
@@ -76,6 +88,13 @@ const calculateBoxPlotStats = (arr: number[]): { min: number; q1: number; median
 
 const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen, onClose, data }) => {
   const [selectedDistributionChart, setSelectedDistributionChart] = useState<'histogram' | 'violin'>('histogram');
+  const { theme: currentSystemTheme, resolvedTheme } = useTheme();
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportThemeOption, setExportThemeOption] = useState<ExportThemeOption>('current');
+
+  const histogramChartRef = useRef<HTMLDivElement>(null);
+  const violinPlotChartRef = useRef<HTMLDivElement>(null);
+
 
   const numericValuesForDistribution = useMemo(() => {
     if (!data || !data.rawPoints || !data.metricKey || !data.metricConfig || data.metricConfig.isString) {
@@ -254,9 +273,63 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
 
 
   const boxPlotStrokeColor = 'hsl(var(--foreground))'; 
-  const boxPlotFillColor = `hsla(${h}, ${s}%, ${lBase * 0.5}%, 0.2)`; // Slightly darker, more transparent version for box
+  const boxPlotFillColor = `hsla(${h}, ${s}%, ${lBase * 0.5}%, 0.2)`; 
   const boxPlotElementsWidth = 0.3; 
   const whiskerCapWidth = boxPlotElementsWidth / 2;
+
+  const exportChartFromModal = async (format: 'png' | 'jpeg' | 'pdf', chartTypeToExport: 'histogram' | 'violin') => {
+    const chartRefToUse = chartTypeToExport === 'histogram' ? histogramChartRef : violinPlotChartRef;
+    if (!chartRefToUse.current || isExporting) return;
+
+    const chartElementToCapture = chartRefToUse.current.querySelector('.recharts-wrapper') || chartRefToUse.current;
+    setIsExporting(true);
+
+    const actualCurrentTheme = resolvedTheme || currentSystemTheme || 'light';
+    const targetExportTheme = exportThemeOption === 'current' ? actualCurrentTheme : exportThemeOption;
+
+    const htmlElement = document.documentElement;
+    const originalHtmlClasses = htmlElement.className;
+
+    if (targetExportTheme === 'light') {
+      htmlElement.classList.remove('dark');
+    } else if (targetExportTheme === 'dark') {
+      htmlElement.classList.add('dark');
+    }
+    // Wait for theme change to apply
+    await new Promise(resolve => setTimeout(resolve, 150));
+
+
+    try {
+      const canvas = await html2canvas(chartElementToCapture as HTMLElement, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: targetExportTheme === 'dark' ? 'hsl(210 20% 10%)' : 'hsl(0 0% 100%)', // Modal background
+      });
+      const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
+      const filenamePrefix = `${metricConfig.name.toLowerCase().replace(/\s/g, '_')}_${chartTypeToExport}`;
+      if (format === 'pdf') {
+        const pdf = new jsPDF({
+          orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
+          unit: 'px',
+          format: [canvas.width, canvas.height],
+        });
+        pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+        pdf.save(`${filenamePrefix}_${targetExportTheme}.pdf`);
+      } else {
+        const link = document.createElement('a');
+        link.download = `${filenamePrefix}_${targetExportTheme}.${format}`;
+        link.href = imgData;
+        link.click();
+      }
+    } catch (error) {
+      console.error('Error exporting modal chart:', error);
+    } finally {
+      htmlElement.className = originalHtmlClasses;
+      // Ensure DOM is updated before setting isExporting to false
+      await new Promise(resolve => setTimeout(resolve, 50));
+      setIsExporting(false);
+    }
+  };
 
 
   return (
@@ -306,9 +379,57 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
 
             <Card>
                 <CardHeader className="pb-2 pt-4">
-                    <ModalCardTitle className="text-md font-semibold">
-                        Value Distribution
-                    </ModalCardTitle>
+                    <div className="flex justify-between items-center">
+                        <ModalCardTitle className="text-md font-semibold">
+                            Value Distribution
+                        </ModalCardTitle>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" disabled={isExporting || !canShowDistributionPlots} className="ml-auto h-8">
+                                {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                                Export
+                            </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Export Options</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <div className="px-2 py-1.5">
+                                <Select value={exportThemeOption} onValueChange={(value) => setExportThemeOption(value as ExportThemeOption)}>
+                                <SelectTrigger className="w-full h-9 text-xs mb-1">
+                                    <SelectValue placeholder="Select export theme" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="current" className="text-xs">
+                                    <div className="flex items-center">
+                                        <Laptop className="mr-2 h-3.5 w-3.5" /> Current View Theme
+                                    </div>
+                                    </SelectItem>
+                                    <SelectItem value="light" className="text-xs">
+                                    <div className="flex items-center">
+                                        <Sun className="mr-2 h-3.5 w-3.5" /> Light Theme
+                                    </div>
+                                    </SelectItem>
+                                    <SelectItem value="dark" className="text-xs">
+                                    <div className="flex items-center">
+                                        <Moon className="mr-2 h-3.5 w-3.5" /> Dark Theme
+                                    </div>
+                                    </SelectItem>
+                                </SelectContent>
+                                </Select>
+                            </div>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => exportChartFromModal('png', selectedDistributionChart)} disabled={isExporting}>
+                                <FileImage className="mr-2 h-4 w-4" /> Export as PNG
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => exportChartFromModal('jpeg', selectedDistributionChart)} disabled={isExporting}>
+                                <FileImage className="mr-2 h-4 w-4" /> Export as JPEG
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => exportChartFromModal('pdf', selectedDistributionChart)} disabled={isExporting}>
+                                <FileText className="mr-2 h-4 w-4" /> Export as PDF
+                            </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
                 </CardHeader>
                 <CardContent className="p-0">
                     <Tabs defaultValue="histogram" onValueChange={(value) => setSelectedDistributionChart(value as 'histogram' | 'violin')} className="w-full pt-2">
@@ -317,9 +438,10 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                             <TabsTrigger value="violin" className="text-xs h-8">Violin Plot</TabsTrigger>
                         </TabsList>
                         <TabsContent value="histogram" className={`p-0 pr-4 pb-2 mt-0 flex items-center justify-center`}>
+                           <div ref={histogramChartRef} className="bg-card"> {/* Added bg-card for consistent export background */}
                             {(() => {
                               const showHistogram = canShowDistributionPlots && histogramData && histogramData.length > 0;
-                              // console.log('[DetailedDistributionModal] Show Histogram condition:', showHistogram);
+                              console.log('[DetailedDistributionModal] Show Histogram condition:', showHistogram);
                               if (showHistogram) {
                                 return (
                                   <BarChart 
@@ -340,11 +462,11 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                                   </BarChart>
                                 );
                               } else {
-                                // console.log('[DetailedDistributionModal] Histogram not shown. Details:', {
-                                //   canShowDistributionPlots,
-                                //   histogramDataLength: histogramData?.length,
-                                //   isString: data?.metricConfig?.isString,
-                                // });
+                                console.log('[DetailedDistributionModal] Histogram not shown. Details:', {
+                                  canShowDistributionPlots,
+                                  histogramDataLength: histogramData?.length,
+                                  isString: data?.metricConfig?.isString,
+                                });
                                 return (
                                   <div className="flex items-center justify-center h-full text-muted-foreground text-sm" style={{height: `${FIXED_CHART_HEIGHT}px`, width: `${FIXED_CHART_WIDTH}px`}}>
                                       {metricConfig.isString ? "Histogram not applicable for textual data." : "Not enough data or variation for histogram."}
@@ -352,11 +474,13 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                                 );
                               }
                             })()}
+                           </div>
                         </TabsContent>
                         <TabsContent value="violin" className={`p-0 pr-1 pb-2 mt-0 flex items-center justify-center`}>
+                          <div ref={violinPlotChartRef} className="bg-card"> {/* Added bg-card for consistent export background */}
                            {(() => {
                               const showViolin = canShowDistributionPlots && violinPlotDataForArea && violinPlotDataForArea.length > 0 && boxPlotStats;
-                              // console.log('[DetailedDistributionModal] Show Violin condition (boolean):', !!showViolin);
+                              console.log('[DetailedDistributionModal] Show Violin condition (boolean):', !!showViolin);
                               
                               if (showViolin) {
                                 return (
@@ -371,7 +495,7 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                                       <XAxis 
                                           type="number" 
                                           domain={[-1.1, 1.1]} 
-                                          tickFormatter={(val) => val.toFixed(1)} 
+                                          tickFormatter={(val) => val.toFixed(1)}
                                           label={{ value: 'Density (Normalized)', position: 'insideBottom', offset: -10, style: {fontSize: '10px', fill: 'hsl(var(--muted-foreground))'} }}
                                           tick={{ fontSize: 9 }}
                                           axisLine={false}
@@ -466,13 +590,13 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                                   </AreaChart>
                                 );
                               } else {
-                                // console.log('[DetailedDistributionModal] Violin Plot not shown. Details:', {
-                                //   canShowDistributionPlots,
-                                //   violinPlotDataForAreaExists: !!violinPlotDataForArea,
-                                //   violinPlotDataLength: violinPlotDataForArea?.length,
-                                //   boxPlotStatsExists: !!boxPlotStats,
-                                //   isString: data?.metricConfig?.isString,
-                                // });
+                                console.log('[DetailedDistributionModal] Violin Plot not shown. Details:', {
+                                  canShowDistributionPlots,
+                                  violinPlotDataForAreaExists: !!violinPlotDataForArea,
+                                  violinPlotDataLength: violinPlotDataForArea?.length,
+                                  boxPlotStatsExists: !!boxPlotStats,
+                                  isString: data?.metricConfig?.isString,
+                                });
                                  return (
                                   <div className="flex items-center justify-center h-full text-muted-foreground text-sm" style={{height: `${FIXED_CHART_HEIGHT}px`, width: `${FIXED_CHART_WIDTH}px`}}>
                                       {metricConfig.isString ? "Violin plot not applicable for textual data." : "Not enough data or variation for violin plot."}
@@ -480,6 +604,7 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                                 );
                               }
                            })()}
+                          </div>
                         </TabsContent>
                     </Tabs>
                 </CardContent>
@@ -533,4 +658,3 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
 
 export default DetailedDistributionModal;
     
-
