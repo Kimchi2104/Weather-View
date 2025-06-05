@@ -308,88 +308,51 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
       if (clickedData && ('rawTimestampString' in clickedData || ('timestamp' in clickedData && !isActuallyAggregated && !('aggregationPeriod' in clickedData)))) {
           console.log('[HistoricalDataSection] Handling AI forecast click with point:', clickedData);
           onChartPointClickForAI(clickedData as WeatherDataPoint);
-          return;
+          return; 
       }
     }
     
-    const conditionForModal = selectedChartType === 'scatter' && isActuallyAggregated && clickedData;
-
     console.log('[HistoricalDataSection] Checking condition for modal:',
         `selectedChartType === 'scatter': ${selectedChartType === 'scatter'}`,
         `isActuallyAggregated: ${isActuallyAggregated}`,
         `!!clickedData: ${!!clickedData}`
     );
-
-    if (conditionForModal) {
-      console.log('[HistoricalDataSection] Aggregated scatter click DETECTED for modal.');
-      const payloadPoint = clickedData as AggregatedDataPoint;
+    
+    if (selectedChartType === 'scatter' && isActuallyAggregated && clickedData) {
+      const payloadPoint = clickedData as AggregatedDataPoint; // This is scatterPointProps.payload from WeatherChart
       let metricKeyFromPayload: MetricKey | undefined = undefined;
 
+      console.log("[HistoricalDataSection] Scatter click: rechartsClickProps object (passed from WeatherChart):");
       try {
-        console.log("[HistoricalDataSection] Scatter click: Full rechartsClickProps object (JSON):", JSON.stringify(rechartsClickProps, (key, value) => {
+        console.log(JSON.stringify(rechartsClickProps, (key, value) => {
+          if (key === 'payload' && value && typeof value === 'object') return '{...payload_data...}'; // Avoid logging full payload data here again
           if (typeof value === 'function') return '[Function]';
-          if (value instanceof Element || typeof value === 'bigint') return String(value); // Handle DOM elements and BigInt
-          if (key === 'target' && value instanceof EventTarget) return '[EventTarget]';
-          try {
-            JSON.stringify(value); // Test if value is serializable
-            return value;
-          } catch (e) {
-            return `[Unserializable value for key ${key}]`;
-          }
+          if (value instanceof Element) return '[DOM Element]';
+          if (value instanceof EventTarget) return '[EventTarget]';
+          if (typeof value === 'bigint') return value.toString() + 'n';
+          return value;
         }, 2));
       } catch (e) {
-        console.warn("[HistoricalDataSection] Could not stringify full rechartsClickProps. Raw object:", rechartsClickProps);
+        console.warn("[HistoricalDataSection] Could not stringify rechartsClickProps for logging:", e);
+        console.log(rechartsClickProps);
       }
       console.log("[HistoricalDataSection] Scatter click: selectedMetrics array:", selectedMetrics);
-      console.log("[HistoricalDataSection] Scatter click: payloadPoint (clickedData):", payloadPoint);
+      console.log("[HistoricalDataSection] Scatter click: payloadPoint (clickedData from chart):", payloadPoint);
 
-
-      console.log("[HistoricalDataSection] Strategy 1 (dataKey from rechartsClickProps): Attempting...");
-      if (rechartsClickProps && typeof rechartsClickProps.dataKey === 'string') {
-          console.log(`[HistoricalDataSection] Strategy 1: Found rechartsClickProps.dataKey: '${rechartsClickProps.dataKey}'`);
-          metricKeyFromPayload = rechartsClickProps.dataKey.replace(/_avg$/, '') as MetricKey;
-          console.log(`[HistoricalDataSection] Strategy 1: DERIVED metricKey '${metricKeyFromPayload}' from dataKey '${rechartsClickProps.dataKey}'`);
+      // Strategy 1: Use explicitMetricKey passed from WeatherChart
+      console.log("[HistoricalDataSection] Strategy 1 (explicitMetricKey from rechartsClickProps): Attempting...");
+      if (rechartsClickProps && rechartsClickProps.explicitMetricKey) {
+        metricKeyFromPayload = rechartsClickProps.explicitMetricKey as MetricKey;
+        console.log(`[HistoricalDataSection] Strategy 1: DERIVED metricKey '${metricKeyFromPayload}' from explicitMetricKey.`);
       } else {
-          console.log(`[HistoricalDataSection] Strategy 1: FAILED. rechartsClickProps.dataKey is not a string or not present. Value:`, rechartsClickProps?.dataKey);
-      }
-      
-      if (!metricKeyFromPayload) {
-          console.log("[HistoricalDataSection] Strategy 2 (name from rechartsClickProps): Attempting...");
-          if (rechartsClickProps && typeof rechartsClickProps.name === 'string') {
-              console.log(`[HistoricalDataSection] Strategy 2: Found rechartsClickProps.name: '${rechartsClickProps.name}'`);
-              metricKeyFromPayload = rechartsClickProps.name.replace(/_avg$/, '') as MetricKey;
-              console.log(`[HistoricalDataSection] Strategy 2: DERIVED metricKey '${metricKeyFromPayload}' from name '${rechartsClickProps.name}'`);
-          } else {
-              console.log(`[HistoricalDataSection] Strategy 2: FAILED. rechartsClickProps.name is not a string or not present. Value:`, rechartsClickProps?.name);
-          }
-      }
-      
-      if (!metricKeyFromPayload) {
-        console.log("[HistoricalDataSection] Strategy 3 (single selected numeric metric): Attempting...");
-        const numericSelectedMetrics = selectedMetrics.filter(m => !METRIC_CONFIGS[m].isString);
-        console.log("[HistoricalDataSection] Strategy 3: Numeric selected metrics:", numericSelectedMetrics);
-        if (numericSelectedMetrics.length === 1 && payloadPoint.hasOwnProperty(`${numericSelectedMetrics[0]}_avg`)) {
-          metricKeyFromPayload = numericSelectedMetrics[0];
-          console.log(`[HistoricalDataSection] Strategy 3: DERIVED metricKey '${metricKeyFromPayload}' using single selected numeric metric.`);
-        } else {
-            console.log("[HistoricalDataSection] Strategy 3: FAILED. Not a single numeric metric or key not in payloadPoint. Number of numeric selected metrics:", numericSelectedMetrics.length);
-        }
-      }
-      
-      if (!metricKeyFromPayload) {
-          console.log("[HistoricalDataSection] Strategy 4 (unique _avg key in payloadPoint): Attempting...");
-          const numericKeysInPayload = Object.keys(payloadPoint).filter(k => k.endsWith('_avg'));
-          console.log("[HistoricalDataSection] Strategy 4: Numeric keys in payloadPoint ending with _avg:", numericKeysInPayload);
-          if (numericKeysInPayload.length === 1) {
-              metricKeyFromPayload = numericKeysInPayload[0].replace('_avg', '') as MetricKey;
-              console.log(`[HistoricalDataSection] Strategy 4: DERIVED metricKey '${metricKeyFromPayload}' from payloadPoint's unique _avg key.`);
-          } else {
-               console.log("[HistoricalDataSection] Strategy 4: FAILED. Could not infer from unique _avg key in payloadPoint. Number of _avg keys:", numericKeysInPayload.length);
-          }
+        console.log("[HistoricalDataSection] Strategy 1: FAILED. explicitMetricKey not found in rechartsClickProps. Value:", rechartsClickProps?.explicitMetricKey);
       }
 
       if (!metricKeyFromPayload) {
           console.error("[HistoricalDataSection] All strategies FAILED. Cannot reliably infer metricKey for modal. Aborting modal open.");
+          console.log("Relevant rechartsClickProps for failure:", { explicitMetricKey: rechartsClickProps?.explicitMetricKey, dataKey: rechartsClickProps?.dataKey, name: rechartsClickProps?.name, payload: rechartsClickProps?.payload } );
+          console.log("Relevant payloadPoint for failure:", payloadPoint);
+          console.log("Selected metrics at failure:", selectedMetrics);
           return;
       }
 
@@ -609,6 +572,7 @@ export default HistoricalDataSection;
     
 
     
+
 
 
 
