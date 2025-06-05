@@ -80,7 +80,7 @@ interface WeatherChartProps {
   metricConfigs: Record<MetricKey, MetricConfig>;
   isLoading: boolean;
   onPointClick?: (pointPayload: WeatherDataPoint | AggregatedDataPoint | null, rechartsClickProps: any | null) => void;
-  chartType: ChartType; // Will now exclude 'violin' for main chart, but modal might use scatter logic
+  chartType: ChartType;
   isAggregated?: boolean;
   showMinMaxLines?: boolean;
   minMaxReferenceData?: Record<string, { minValue: number; maxValue: number }>;
@@ -94,7 +94,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
   metricConfigs: METRIC_CONFIGS,
   isLoading,
   onPointClick,
-  chartType, // No longer 'violin' for main chart
+  chartType,
   isAggregated = false,
   showMinMaxLines = false,
   minMaxReferenceData,
@@ -236,18 +236,34 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
     if (targetExportTheme === 'light') {
       htmlElement.classList.remove('dark');
+      htmlElement.classList.remove('aura-glass'); // Ensure aura-glass is removed for pure light/dark export
     } else if (targetExportTheme === 'dark') {
       htmlElement.classList.add('dark');
+      htmlElement.classList.remove('aura-glass'); // Ensure aura-glass is removed for pure light/dark export
+    } else { // current is aura-glass
+        if (!htmlElement.classList.contains('aura-glass')) {
+            htmlElement.classList.add('aura-glass');
+        }
+         if (actualCurrentTheme === 'dark') { // Aura glass can be on dark or light base
+            htmlElement.classList.add('dark');
+        } else {
+            htmlElement.classList.remove('dark');
+        }
     }
 
-    await new Promise(resolve => setTimeout(resolve, 100));
+
+    await new Promise(resolve => setTimeout(resolve, 150)); // Allow theme styles to apply
 
 
     try {
       const canvas = await html2canvas(chartElementToCapture as HTMLElement, {
         scale: 2,
         useCORS: true,
-        backgroundColor: targetExportTheme === 'dark' ? 'hsl(210 20% 5%)' : 'hsl(210 20% 98%)',
+        backgroundColor: targetExportTheme === 'dark' 
+            ? 'hsl(210 20% 5%)' 
+            : (targetExportTheme === 'light' 
+                ? 'hsl(210 20% 98%)' 
+                : null), // Null for aura-glass to capture gradient if possible, else transparent
       });
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
       if (format === 'pdf') {
@@ -267,7 +283,11 @@ const WeatherChart: FC<WeatherChartProps> = ({
     } catch (error) {
       console.error('Error exporting chart:', error);
     } finally {
-      htmlElement.className = originalHtmlClasses;
+      htmlElement.className = originalHtmlClasses; // Restore original classes
+      // Re-apply aura-glass if it was originally there
+      if (originalHtmlClasses.includes('aura-glass') && !htmlElement.classList.contains('aura-glass')) {
+          htmlElement.classList.add('aura-glass');
+      }
       setIsExporting(false);
     }
   };
@@ -341,7 +361,11 @@ const WeatherChart: FC<WeatherChartProps> = ({
             lowerDataKey.includes("count") ||
             lowerDataKey.includes("aggregationperiod")
             ) {
-            return null;
+            if (chartType === 'scatter' && (nameFromRecharts.toLowerCase().includes("std dev") || dataKey.includes("stddev"))) {
+                // Allow std dev for scatter tooltip custom rendering
+            } else {
+                return null;
+            }
         }
     }
 
@@ -359,7 +383,9 @@ const WeatherChart: FC<WeatherChartProps> = ({
     const displayName = config?.name || (isAvgKey ? `${originalMetricKeyForConfig} (Avg)` : originalMetricKeyForConfig);
 
     if (typeof displayName === 'string' && displayName.toLowerCase().includes("timestamp")) return null;
-    if (typeof displayName === 'string' && (displayName.toLowerCase().includes('std dev') || displayName.toLowerCase().includes('data points') || displayName.toLowerCase().includes('aggregation period'))) return null;
+    if (typeof displayName === 'string' && (displayName.toLowerCase().includes('data points') || displayName.toLowerCase().includes('aggregation period'))) return null;
+    if (typeof displayName === 'string' && displayName.toLowerCase().includes('std. dev') && chartType !== 'scatter') return null;
+
 
     let displayValue: string;
     if (typeof value === 'number' && isFinite(value)) {
@@ -386,7 +412,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
       tooltipHtml += `</div>`;
       return React.createElement('div', { dangerouslySetInnerHTML: { __html: tooltipHtml } });
     }
-
+    
     return [`${displayValue}${unitString}`, displayName];
   };
 
@@ -404,14 +430,10 @@ const WeatherChart: FC<WeatherChartProps> = ({
             dataKey === 'timestamp' ||
             dataKey === 'timestampdisplay' ||
             dataKey === 'tooltiptimestampfull' ||
-            name.includes("std dev") || 
-            dataKey.includes("stddev") || 
+            (dataKey.includes("stddev") && chartType !== 'scatter') || // Hide stddev unless scatter
             dataKey.includes("count") ||
             dataKey.includes("aggregationperiod")
            ) {
-          if (chartType === 'scatter' && (name.includes("std dev") || dataKey.includes("stddev"))) {
-            return false; 
-          }
           return false;
         }
         return true;
@@ -500,7 +522,8 @@ const WeatherChart: FC<WeatherChartProps> = ({
               dataKey={key}
               stroke={color}
               name={name}
-              dot={isAggregated ? { r: 3 } : false}
+              strokeWidth={2}
+              dot={isAggregated ? { r: 3, fill: color, stroke: color, strokeWidth: 1 } : false}
               connectNulls={false}
               animationDuration={300}
             />
@@ -531,7 +554,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
   };
 
   const renderChart = () => {
-    let currentChartDataForRender: any[] = formattedData; // Default to formattedData
+    let currentChartDataForRender: any[] = formattedData; 
 
     console.log(`[WeatherChart] FINAL RENDER PARAMS. chartType: ${chartType}`);
     
@@ -556,11 +579,11 @@ const WeatherChart: FC<WeatherChartProps> = ({
     }
 
     const xAxisProps: any = {
-        stroke: "#888888",
+        stroke: "hsl(var(--foreground))", // Changed from #888888
         tick: { fill: "hsl(var(--foreground))", fontSize: 11 },
     };
     const yAxisProps: any = {
-        stroke: "#888888",
+        stroke: "hsl(var(--foreground))", // Changed from #888888
         tick: { fill: "hsl(var(--foreground))", fontSize: 12 },
         tickFormatter: yAxisTickFormatter,
         domain: yAxisDomain,
@@ -606,7 +629,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
         xAxisProps.height = 30;
         xAxisProps.minTickGap = 5;
         xAxisProps.interval = isAggregated ? "preserveStartEnd" : (currentChartDataForRender.length > 20 ? Math.floor(currentChartDataForRender.length / (currentChartDataForRender.length > 0 ? Math.min(10, currentChartDataForRender.length) : 5)) : 0);
-    } else { // Line chart (default)
+    } else { 
         ChartComponentToRender = LineChart;
         xAxisProps.dataKey = "timestampDisplay";
         xAxisProps.type = "category";
@@ -688,13 +711,13 @@ const WeatherChart: FC<WeatherChartProps> = ({
               stroke={metricConfig.color}
               strokeDasharray="2 2"
               strokeOpacity={0.7}
-              strokeWidth={1}
+              strokeWidth={1.5} // Increased strokeWidth
               label={{
                 value: `Min: ${minValue.toFixed(isAggregated ? 1 : (metricConfig.unit === 'ppm' ? 0 : 2))}${metricConfig.unit || ''}`,
                 position: "right",
                 textAnchor: "end",
                 dx: -5,
-                fill: metricConfig.color,
+                fill: 'hsl(var(--popover-foreground))', // Changed fill for better contrast
                 fontSize: 10,
                 dy: dyMinLabel
               }}
@@ -705,13 +728,13 @@ const WeatherChart: FC<WeatherChartProps> = ({
               stroke={metricConfig.color}
               strokeDasharray="2 2"
               strokeOpacity={0.7}
-              strokeWidth={1}
+              strokeWidth={1.5} // Increased strokeWidth
               label={{
                 value: `Max: ${maxValue.toFixed(isAggregated ? 1 : (metricConfig.unit === 'ppm' ? 0 : 2))}${metricConfig.unit || ''}`,
                 position: "right",
                 textAnchor: "end",
                 dx: -5,
-                fill: metricConfig.color,
+                fill: 'hsl(var(--popover-foreground))', // Changed fill for better contrast
                 fontSize: 10,
                 dy: dyMaxLabel
               }}
@@ -770,7 +793,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
                         <Laptop className="mr-2 h-3.5 w-3.5" /> Current View Theme
                       </div>
                     </SelectItem>
-                     {(resolvedTheme === 'dark' || currentSystemTheme === 'dark') && resolvedTheme !== 'light' ? (
+                     {(resolvedTheme === 'dark' || (resolvedTheme === null && currentSystemTheme === 'dark')) ? ( // Check resolved then system for current
                        <SelectItem value="light" className="text-xs">
                         <div className="flex items-center">
                           <Sun className="mr-2 h-3.5 w-3.5" /> Light Theme
@@ -808,6 +831,3 @@ const WeatherChart: FC<WeatherChartProps> = ({
 };
 
 export default WeatherChart;
-
-
-    

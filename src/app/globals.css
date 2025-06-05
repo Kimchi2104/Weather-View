@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -81,22 +82,22 @@ body {
     --aura-gradient: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%);
 
     /* Base page colors when Aura Glass is active */
-    --background: 0 0% 100%; /* HSL of base color for components, alpha applied separately or via rgba */
-    --foreground: 220 40% 20%; /* Darker, saturated blue for primary text on gradient */
+    --background: 0 0% 100%; 
+    --foreground: 220 40% 20%; 
 
     /* Glassmorphic Card Styles */
-    --card-rgb: 255, 255, 255; /* RGB values for the glass color (white) */
-    --card-alpha: 0.15; /* Opacity for the glass background */
-    --card-blur-value: 10px; /* Blur intensity */
+    --card-rgb: 255, 255, 255; 
+    --card-alpha: 0.15; 
+    --card-blur-value: 10px; 
     --card-border-rgb: 255, 255, 255;
     --card-border-alpha: 0.2;
     
-    --card: 0 0% 100%; /* HSL, ShadCN uses this for the color part, alpha is often applied by Tailwind's bg-opacity */
-    --card-foreground: 220 35% 25%; /* Text on cards */
+    --card: 0 0% 100%; 
+    --card-foreground: 220 35% 25%; 
 
-    /* Glassmorphic Popover/Dropdown/Dialog Styles - slightly more opaque for readability */
+    /* Glassmorphic Popover/Dropdown/Dialog Styles */
     --popover-rgb: 255, 255, 255;
-    --popover-alpha: 0.35; /* More opaque than cards */
+    --popover-alpha: 0.35; 
     --popover-blur-value: 12px;
     --popover-border-rgb: 255, 255, 255;
     --popover-border-alpha: 0.25;
@@ -104,37 +105,37 @@ body {
     --popover: 0 0% 100%;
     --popover-foreground: 220 35% 25%;
 
-    /* General Borders (not specifically on glass elements, or if glass elements need a non-glass border) */
-    --border: 220 20% 85%; /* A light, cool gray, could be semi-transparent too */
+    --border: 220 20% 85%; 
 
     /* Input fields for Aura Glass */
     --input-rgb: 255, 255, 255;
-    --input-alpha: 0.2; /* Slightly more opaque than card for better usability */
+    --input-alpha: 0.2; 
     --input-border-rgb: 255, 255, 255;
     --input-border-alpha: 0.3;
-    --input: 0 0% 100%; /* Base color for input, opacity applied below */
+    --input: 0 0% 100%; 
     
     /* UI Accent Colors */
-    --primary: 230 80% 65%; /* A vibrant, slightly lighter indigo/blue */
+    --primary: 230 80% 65%; 
     --primary-foreground: 0 0% 100%; 
-    --secondary: 220 30% 90%; /* Lighter, cool gray-blue */
+    --secondary: 220 30% 90%; 
     --secondary-foreground: 220 30% 30%;
     --muted: 220 20% 94%; 
     --muted-foreground: 220 25% 50%; 
-    --accent: 270 70% 70%; /* A soft, airy lavender */
+    --accent: 270 70% 70%; 
     --accent-foreground: 0 0% 100%;
     --destructive: 0 70% 60%;
     --destructive-foreground: 0 0% 100%;
     --ring: 230 80% 65%;
 
-    /* Chart Colors for Aura Glass */
-    --chart-1: hsl(var(--primary));
-    --chart-2: hsl(var(--accent));
-    --chart-3: 180 65% 60%; /* A slightly softer cyan */
-    --chart-4: 30 75% 60%;  /* A softer orange */
-    --chart-5: 330 70% 65%; /* A softer pink/rose */
+    /* Chart Colors for Aura Glass - More vibrant for better visibility */
+    --chart-1: 230 70% 60%; /* Brighter Blue/Indigo */
+    --chart-2: 170 60% 55%; /* Teal/Green */
+    --chart-3: 30 80% 60%;  /* Orange */
+    --chart-4: 280 70% 65%; /* Purple */
+    --chart-5: 340 75% 60%; /* Pink/Rose */
 
-    --radius: 0.75rem; /* Slightly more rounded for a softer feel */
+
+    --radius: 0.75rem;
   }
 }
 
@@ -147,48 +148,45 @@ body {
     transition: background-color 0.3s ease, color 0.3s ease, background-image 0.3s ease;
   }
 
-  /* Apply Aura Glass global styles */
-  html.aura-glass body, body.aura-glass { /* Target body when html has the class */
+  html.aura-glass body, body.aura-glass { 
     background-image: var(--aura-gradient) !important;
     background-attachment: fixed !important;
     background-size: cover !important;
     color: hsl(var(--foreground)) !important;
   }
   
-  /* Apply glassmorphism to specific ShadCN component structures in Aura Glass theme */
   .aura-glass .bg-card,
-  html.aura-glass [data-radix-popper-content-wrapper] > div[role^="dialog"], /* DialogContent */
-  html.aura-glass [data-radix-tooltip-content] /* TooltipContent */
+  html.aura-glass [data-radix-popper-content-wrapper] > div[role^="dialog"], 
+  html.aura-glass [data-radix-tooltip-content] 
   {
     background-color: rgba(var(--card-rgb), var(--card-alpha)) !important;
     -webkit-backdrop-filter: blur(var(--card-blur-value));
     backdrop-filter: blur(var(--card-blur-value));
     border: 1px solid rgba(var(--card-border-rgb), var(--card-border-alpha)) !important;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05); /* Subtle shadow */
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
   }
 
   .aura-glass .bg-popover,
-  html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"] /* DropdownMenuContent */
+  html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"] 
   {
     background-color: rgba(var(--popover-rgb), var(--popover-alpha)) !important;
     -webkit-backdrop-filter: blur(var(--popover-blur-value));
     backdrop-filter: blur(var(--popover-blur-value));
     border: 1px solid rgba(var(--popover-border-rgb), var(--popover-border-alpha)) !important;
-    box-shadow: 0 6px 16px rgba(0,0,0,0.07); /* Subtle shadow */
+    box-shadow: 0 6px 16px rgba(0,0,0,0.07); 
   }
 
-  /* Input field styling for Aura Glass */
-  .aura-glass .border-input { /* Catches most ShadCN inputs, buttons with outline variant */
+  .aura-glass .border-input { 
     background-color: rgba(var(--input-rgb), var(--input-alpha)) !important;
     border-color: rgba(var(--input-border-rgb), var(--input-border-alpha)) !important;
-    color: hsl(var(--card-foreground)) !important; /* Text color for inputs */
+    color: hsl(var(--card-foreground)) !important; 
   }
   .aura-glass input::placeholder,
   .aura-glass textarea::placeholder {
     color: hsl(var(--muted-foreground)) !important;
     opacity: 0.6 !important;
   }
-  .aura-glass .ring-ring { /* Focus ring */
+  .aura-glass .ring-ring { 
     --tw-ring-color: hsl(var(--ring) / 0.5) !important;
   }
 
@@ -196,12 +194,14 @@ body {
   .aura-glass .recharts-cartesian-grid line {
      stroke: hsl(var(--card-foreground) / 0.15) !important;
   }
-  .aura-glass .recharts-text.recharts-cartesian-axis-tick-value,
-  .aura-glass .recharts-legend-item text {
-    fill: hsl(var(--card-foreground) / 0.75) !important;
+  .aura-glass .recharts-cartesian-axis-tick-value {
+    fill: hsl(var(--card-foreground) / 0.85) !important; /* Made axis ticks more visible */
   }
-   .aura-glass .recharts-tooltip-wrapper .bg-background { /* Tooltip content in charts often uses raw bg-background */
-    background-color: rgba(var(--popover-rgb), calc(var(--popover-alpha) + 0.4)) !important; /* More opaque tooltip */
+  .aura-glass .recharts-legend-item text {
+    fill: hsl(var(--card-foreground) / 0.85) !important; /* Made legend text more visible */
+  }
+  .aura-glass .recharts-tooltip-wrapper .bg-background { 
+    background-color: rgba(var(--popover-rgb), calc(var(--popover-alpha) + 0.4)) !important; 
     -webkit-backdrop-filter: blur(var(--popover-blur-value));
     backdrop-filter: blur(var(--popover-blur-value));
     border: 1px solid rgba(var(--popover-border-rgb), calc(var(--popover-border-alpha) + 0.1)) !important;
@@ -210,6 +210,21 @@ body {
   .aura-glass .recharts-tooltip-cursor {
     stroke: hsl(var(--accent) / 0.5) !important;
   }
+  .aura-glass .recharts-reference-line .recharts-reference-line-line {
+    stroke: hsl(var(--foreground) / 0.5) !important; /* Make reference lines visible */
+  }
+  .aura-glass .recharts-reference-line .recharts-label text {
+    fill: hsl(var(--foreground) / 0.75) !important; /* Make reference line labels visible */
+  }
+  .aura-glass .recharts-line .recharts-line-curve {
+     /* Default stroke for lines if not overridden by component props, ensure it's visible */
+    stroke-opacity: 0.85 !important; 
+  }
+   .aura-glass .recharts-line .recharts-line-dot circle {
+    /* Default fill for dots if not overridden, ensure it's visible */
+    fill-opacity: 0.85 !important;
+  }
+
 }
 
 
