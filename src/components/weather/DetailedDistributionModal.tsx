@@ -2,7 +2,7 @@
 "use client";
 
 import type { FC } from 'react';
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -16,8 +16,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { WeatherDataPoint, MetricConfig, MetricKey, DetailModalData as DetailModalDataType } from '@/types/weather';
 import { formatTimestampToFullUTC } from '@/lib/utils';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ScatterChart, Scatter } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle as ModalCardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 
 interface DetailedDistributionModalProps {
@@ -39,54 +40,52 @@ const getMetricValueFromPoint = (point: WeatherDataPoint, metricKey: MetricKey, 
   }
 };
 
+const CustomViolinTooltip: FC<any> = ({ active, payload, label }) => {
+  if (active && payload && payload.length) {
+    const dataPoint = payload[0].payload;
+    const metricConfig = payload[0].payload.metricConfig as MetricConfig; // Assuming metricConfig is passed in payload
+    
+    return (
+      <div className="bg-popover text-popover-foreground border rounded-md shadow-md p-2 text-xs">
+        <p className="font-semibold">{metricConfig?.name || 'Value'}: 
+          <span className="font-normal"> {Number(dataPoint.yValue).toFixed(metricConfig?.unit === 'ppm' ? 0 : 2)}{metricConfig?.unit || ''}</span>
+        </p>
+      </div>
+    );
+  }
+  return null;
+};
+
+
 const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen, onClose, data }) => {
-  console.log(`[DetailedDistributionModal] Component rendered. isOpen: ${isOpen}, data exists: ${!!data}`);
+  const [selectedDistributionChart, setSelectedDistributionChart] = useState<'histogram' | 'violin'>('histogram');
 
-  const histogramData = useMemo(() => {
-    console.log('[HistogramCalc] Entered useMemo. Data prop reference:', data);
-    if (!data || !data.rawPoints || !data.metricKey || !data.metricConfig) {
-      console.log('[HistogramCalc] Bailing early: Essential data (data object, rawPoints, metricKey, or metricConfig) is missing. Data:', data ? JSON.stringify(Object.keys(data)) : String(data));
+  const numericValuesForDistribution = useMemo(() => {
+    if (!data || !data.rawPoints || !data.metricKey || !data.metricConfig || data.metricConfig.isString) {
       return null;
     }
-
-    console.log(`[HistogramCalc] Processing for Metric: ${data.metricKey}, IsString: ${data.metricConfig.isString}, Raw points count: ${data.rawPoints.length}`);
-
-    if (data.metricConfig.isString) {
-      console.log('[HistogramCalc] Bailing: Metric is string type.');
-      return null;
-    }
-
-    if (data.rawPoints.length === 0) {
-      console.log('[HistogramCalc] Bailing: No raw points available.');
-      return null;
-    }
-
-    const values = data.rawPoints
+    return data.rawPoints
       .map(point => getMetricValueFromPoint(point, data.metricKey, data.metricConfig))
       .filter((v): v is number => typeof v === 'number' && isFinite(v));
+  }, [data]);
 
-    console.log(`[HistogramCalc] Extracted ${values.length} numeric values for histogram:`, values.slice(0, 10));
-
-    if (values.length < 2) {
-      console.log('[HistogramCalc] Bailing: Not enough numeric values for histogram (need at least 2).');
+  const histogramData = useMemo(() => {
+    if (!numericValuesForDistribution || numericValuesForDistribution.length < 2 || !data?.metricConfig) {
       return null;
     }
 
+    const values = numericValuesForDistribution;
     const dataMin = Math.min(...values);
     const dataMax = Math.max(...values);
-    console.log(`[HistogramCalc] Data Min: ${dataMin}, Data Max: ${dataMax}`);
 
     if (dataMin === dataMax) {
-      console.log('[HistogramCalc] All values are identical. Creating single bin.');
       return [{ range: `${dataMin.toFixed(2)} ${data.metricConfig.unit || ''}`, count: values.length, min: dataMin, max: dataMax }];
     }
 
     const numBins = Math.min(10, Math.max(3, Math.floor(Math.sqrt(values.length))));
     const binWidth = (dataMax - dataMin) / numBins;
-    console.log(`[HistogramCalc] NumBins: ${numBins}, BinWidth: ${binWidth}`);
 
     if (binWidth <= 0) {
-        console.log('[HistogramCalc] Bailing: BinWidth is zero or negative, cannot create bins.');
         return null;
     }
 
@@ -109,18 +108,32 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
         }
       }
     });
-    console.log('[HistogramCalc] Final bins for histogram:', bins);
     return bins.filter(bin => bin.count > 0 || bins.length ===1);
-  }, [data]);
+  }, [numericValuesForDistribution, data?.metricConfig]);
 
-
-  useEffect(() => {
-    console.log(`[DetailedDistributionModal] useEffect triggered. isOpen: ${isOpen}`);
-    if (isOpen && data) {
-      console.log(`[DetailedDistributionModal] Modal is open. Current data:`, data ? JSON.parse(JSON.stringify(data)) : 'null or undefined');
-      console.log('[DetailedDistributionModal] Memoized histogramData (at effect run):', histogramData);
+  const jitteredViolinData = useMemo(() => {
+    if (!numericValuesForDistribution || numericValuesForDistribution.length === 0 || !data?.metricConfig) {
+      return null;
     }
-  }, [isOpen, data, histogramData]);
+    return numericValuesForDistribution.map(val => ({
+      yValue: val,
+      xJitter: (Math.random() - 0.5) * 0.6, // Jitter between -0.3 and 0.3
+      metricConfig: data.metricConfig, // Pass config for tooltip
+    }));
+  }, [numericValuesForDistribution, data?.metricConfig]);
+
+  const violinYAxisDomain = useMemo(() => {
+    if (!numericValuesForDistribution || numericValuesForDistribution.length === 0) {
+      return undefined; 
+    }
+    const minVal = Math.min(...numericValuesForDistribution);
+    const maxVal = Math.max(...numericValuesForDistribution);
+    if (minVal === maxVal) {
+      return [minVal - 1, maxVal + 1]; 
+    }
+    const padding = (maxVal - minVal) * 0.1 || 1; 
+    return [minVal - padding, maxVal + padding];
+  }, [numericValuesForDistribution]);
 
 
   if (!isOpen || !data) {
@@ -129,8 +142,7 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
 
   const { metricKey, metricConfig, aggregationLabel, stats, rawPoints } = data;
 
-  const showHistogramCard = !!histogramData && histogramData.length > 0 && !metricConfig.isString;
-  console.log(`[DetailedDistributionModal] Histogram Rendering Check: showHistogramCard: ${showHistogramCard}, histogramData exists: ${!!histogramData}, length: ${histogramData?.length}, isString: ${metricConfig.isString}`);
+  const canShowDistributionPlots = numericValuesForDistribution && numericValuesForDistribution.length > 0;
 
 
   return (
@@ -169,41 +181,73 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                 </CardContent>
             </Card>
 
-            {showHistogramCard ? (
-                 <Card>
-                    <CardHeader className="pb-2 pt-4">
-                        <ModalCardTitle className="text-md font-semibold">Value Distribution (Histogram)</ModalCardTitle>
-                    </CardHeader>
-                    <CardContent className="h-[150px] p-0 pr-4 pb-2">
-                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={histogramData} margin={{ top: 5, right: 0, left: 0, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                                <XAxis dataKey="range" angle={-25} textAnchor="end" height={40} tick={{ fontSize: 9 }} interval={0} />
-                                <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
-                                <Tooltip
-                                    formatter={(value: number) => [`${value} points`, 'Count']}
-                                    labelFormatter={(label: string) => `Range: ${label} ${metricConfig.unit || ''}`}
-                                    cursor={{fill: 'hsl(var(--accent) / 0.3)'}}
-                                />
-                                <Bar dataKey="count" fill={metricConfig.color || 'hsl(var(--primary))'} radius={[2, 2, 0, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </CardContent>
-                </Card>
-            ) : (metricConfig.isString ? (
-                <Card className="flex items-center justify-center h-full">
-                    <CardContent className="text-center text-muted-foreground">
-                        <p>Histogram not applicable for textual data.</p>
-                    </CardContent>
-                </Card>
-            ) : (
-                 <Card className="flex items-center justify-center h-full">
-                    <CardContent className="text-center text-muted-foreground">
-                        <p>Not enough data or variation for a histogram.</p>
-                    </CardContent>
-                </Card>
-            )
-            )}
+            <Card>
+                <CardHeader className="pb-2 pt-4">
+                    <ModalCardTitle className="text-md font-semibold">
+                        Value Distribution: {selectedDistributionChart === 'histogram' ? 'Histogram' : 'Jitter Plot'}
+                    </ModalCardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                    <Tabs defaultValue="histogram" onValueChange={(value) => setSelectedDistributionChart(value as 'histogram' | 'violin')} className="w-full pt-2">
+                        <TabsList className="grid w-full grid-cols-2 mb-1 px-2">
+                            <TabsTrigger value="histogram" className="text-xs h-8">Histogram</TabsTrigger>
+                            <TabsTrigger value="violin" className="text-xs h-8">Jitter Plot</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="histogram" className="h-[150px] p-0 pr-4 pb-2 mt-0">
+                            {canShowDistributionPlots && histogramData && histogramData.length > 0 ? (
+                                 <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={histogramData} margin={{ top: 5, right: 0, left: 0, bottom: 0 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                                        <XAxis dataKey="range" angle={-25} textAnchor="end" height={40} tick={{ fontSize: 9 }} interval={0} />
+                                        <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
+                                        <Tooltip
+                                            formatter={(value: number) => [`${value} points`, 'Count']}
+                                            labelFormatter={(label: string) => `Range: ${label} ${metricConfig.unit || ''}`}
+                                            cursor={{fill: 'hsl(var(--accent) / 0.3)'}}
+                                        />
+                                        <Bar dataKey="count" fill={metricConfig.color || 'hsl(var(--primary))'} radius={[2, 2, 0, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                                    {metricConfig.isString ? "Histogram not applicable for textual data." : "Not enough data or variation for histogram."}
+                                </div>
+                            )}
+                        </TabsContent>
+                        <TabsContent value="violin" className="h-[150px] p-0 pr-1 pb-2 mt-0">
+                            {canShowDistributionPlots && jitteredViolinData && jitteredViolinData.length > 0 ? (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <ScatterChart margin={{ top: 10, right: 10, bottom: 5, left: -20 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                                        <XAxis type="number" dataKey="xJitter" domain={[-0.5, 0.5]} hide />
+                                        <YAxis 
+                                            type="number" 
+                                            dataKey="yValue" 
+                                            domain={violinYAxisDomain} 
+                                            allowDecimals 
+                                            tick={{ fontSize: 10 }} 
+                                            width={50}
+                                            tickFormatter={(value) => Number(value).toFixed(metricConfig?.unit === 'ppm' ? 0 : 1)}
+                                        />
+                                        <Tooltip cursor={{ fill: 'hsl(var(--accent) / 0.3)' }} content={<CustomViolinTooltip />} />
+                                        <Scatter 
+                                            name={metricConfig.name} 
+                                            data={jitteredViolinData} 
+                                            fill={metricConfig.color || 'hsl(var(--primary))'} 
+                                            shape="circle"
+                                            legendType="none" 
+                                        />
+                                    </ScatterChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                 <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                                    {metricConfig.isString ? "Jitter plot not applicable for textual data." : "Not enough data for jitter plot."}
+                                </div>
+                            )}
+                        </TabsContent>
+                    </Tabs>
+                </CardContent>
+            </Card>
         </div>
 
         <div className="flex-grow overflow-hidden mt-2">
