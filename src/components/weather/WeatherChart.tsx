@@ -22,6 +22,7 @@ import type { WeatherDataPoint, MetricKey, MetricConfig } from '@/types/weather'
 import { Skeleton } from '@/components/ui/skeleton';
 import { Download, FileImage, FileText, Loader2, Sun, Moon, Laptop } from 'lucide-react';
 import { formatTimestampToDdMmHhMmUTC, formatTimestampToFullUTC } from '@/lib/utils';
+import { ChartTooltipContent } from '@/components/ui/chart'; // Import the original
 
 
 const MIN_BUBBLE_AREA = 60;
@@ -182,13 +183,14 @@ const WeatherChart: FC<WeatherChartProps> = ({
   }, [showMinMaxLines, minMaxReferenceData, selectedMetrics, METRIC_CONFIGS, chartType]);
 
   useEffect(() => {
-    if (chartType === 'scatter') {
-      console.log(`[WeatherChart] Chart Type: ${chartType}, Is Aggregated: ${isAggregated}`);
-      console.log(`[WeatherChart] Original Selected Metrics:`, selectedMetrics);
-      console.log(`[WeatherChart] Numeric Metrics for Scatter:`, numericMetricsForScatter);
-      console.log(`[WeatherChart] Formatted Data (first 3):`, JSON.parse(JSON.stringify(formattedData.slice(0,3))));
-      console.log(`[WeatherChart] Y-Axis Domain:`, yAxisDomain);
-    }
+    // Uncomment these logs for deep scatter chart debugging if issues persist.
+    // if (chartType === 'scatter') {
+    //   console.log(`[WeatherChart] Chart Type: ${chartType}, Is Aggregated: ${isAggregated}`);
+    //   console.log(`[WeatherChart] Original Selected Metrics:`, selectedMetrics);
+    //   console.log(`[WeatherChart] Numeric Metrics for Scatter:`, numericMetricsForScatter);
+    //   console.log(`[WeatherChart] Formatted Data (first 3):`, JSON.parse(JSON.stringify(formattedData.slice(0,3))));
+    //   console.log(`[WeatherChart] Y-Axis Domain:`, yAxisDomain);
+    // }
   }, [chartType, isAggregated, selectedMetrics, numericMetricsForScatter, formattedData, yAxisDomain]);
 
 
@@ -296,76 +298,89 @@ const WeatherChart: FC<WeatherChartProps> = ({
     return String(value);
   };
 
-const tooltipFormatter = (value: any, name: any, entry: any) => {
+  const tooltipFormatter = (value: any, name: string, entry: any): React.ReactNode | null => {
     const dataKey = entry.dataKey as string;
 
-    // Filter 1: If the name provided by Recharts for the item label is "timestamp" (or contains it), skip.
-    const lowerCaseName = typeof name === 'string' ? name.toLowerCase() : '';
-    if (lowerCaseName.includes('timestamp')) {
-        return null;
-    }
+    // Uncomment for deep tooltip debugging
+    // console.log(`[WeatherChart TT Formatter] Raw Inputs - value: ${value}, name: "${name}", dataKey: "${dataKey}", entry:`, entry);
 
-    // Filter 2: If the actual dataKey for this series item is one of our X-axis timestamp keys, skip.
-    if (dataKey === 'timestamp' || dataKey === 'timestampDisplay' || dataKey === 'tooltipTimestampFull') {
-        return null;
+    // Aggressive filter for any item whose Recharts-provided 'name' is timestamp-like
+    if (typeof name === 'string' && name.toLowerCase().includes('timestamp')) {
+      // console.log(`[WeatherChart TT Formatter] SKIPPING item because NAME ("${name}") is timestamp-like.`);
+      return null;
     }
     
-    let derivedMetricKey = dataKey;
+    // Aggressive filter for any item whose 'dataKey' is one of our specific timestamp keys
+    const lowerDataKey = typeof dataKey === 'string' ? dataKey.toLowerCase() : '';
+    if (lowerDataKey === 'timestamp' || lowerDataKey === 'timestampdisplay' || lowerDataKey === 'tooltiptimestampfull') {
+      // console.log(`[WeatherChart TT Formatter] SKIPPING item because dataKey ("${dataKey}") is a direct timestamp key.`);
+      return null;
+    }
+
+    let originalMetricKeyForConfig = dataKey;
     if (isAggregated) {
-        if (dataKey.endsWith('_avg')) derivedMetricKey = dataKey.substring(0, dataKey.length - 4);
-        else if (dataKey.endsWith('_stdDev')) derivedMetricKey = dataKey.substring(0, dataKey.length - 7);
-        else if (dataKey.endsWith('_count')) derivedMetricKey = dataKey.substring(0, dataKey.length - 6);
+      if (dataKey.endsWith('_avg')) originalMetricKeyForConfig = dataKey.substring(0, dataKey.length - 4);
+      else if (dataKey.endsWith('_stdDev')) originalMetricKeyForConfig = dataKey.substring(0, dataKey.length - 7); // Should not be a primary series
+      else if (dataKey.endsWith('_count')) originalMetricKeyForConfig = dataKey.substring(0, dataKey.length - 6); // Should not be a primary series
+    }
+    originalMetricKeyForConfig = originalMetricKeyForConfig as MetricKey;
+
+    const lowerCaseDerivedMetricKey = originalMetricKeyForConfig.toLowerCase();
+    if (lowerCaseDerivedMetricKey.includes('timestamp') || lowerCaseDerivedMetricKey.includes('aggregationperiod')) {
+      // console.log(`[WeatherChart TT Formatter] SKIPPING item because derivedMetricKey ("${originalMetricKeyForConfig}") is timestamp/aggregationperiod.`);
+      return null;
+    }
+    // Prevent _stdDev or _count from becoming their own tooltip items if they somehow get here as primary series
+    if (isAggregated && (dataKey.endsWith('_stdDev') || dataKey.endsWith('_count'))) {
+        // console.log(`[WeatherChart TT Formatter] SKIPPING item because dataKey ("${dataKey}") is a stdDev/count direct key.`);
+        return null;
     }
 
-    const originalMetricKeyForConfig = derivedMetricKey as MetricKey;
     const config = METRIC_CONFIGS[originalMetricKeyForConfig];
+    // If no config, or if config is for a string metric and we expect numbers (e.g. for scatter avg), treat carefully.
+    // However, numericMetricsForScatter should pre-filter string metrics for scatter's main Y dataKey.
 
-    // Filter 3: If the derived key is still timestamp-like or an internal aggregation suffix, skip.
-    const lowerCaseDerivedMetricKey = derivedMetricKey.toLowerCase();
-    if (
-        lowerCaseDerivedMetricKey.includes('timestamp') ||
-        lowerCaseDerivedMetricKey.includes('aggregationperiod') ||
-        (isAggregated && (derivedMetricKey.endsWith('_stdDev') || derivedMetricKey.endsWith('_count'))) 
-    ) {
-        return null;
-    }
-
+    // Determine the display name. Prioritize config.name.
     const displayName = config?.name || name || originalMetricKeyForConfig;
-
-    // Filter 4: If the final display name somehow becomes timestamp-like, skip.
-     if (typeof displayName === 'string' && displayName.toLowerCase().includes('timestamp')) {
-        return null;
+    
+    // Final check on displayName itself for safety
+    if (typeof displayName === 'string' && displayName.toLowerCase().includes('timestamp')) {
+      // console.log(`[WeatherChart TT Formatter] SKIPPING item because final displayName ("${displayName}") is timestamp-like.`);
+      return null;
     }
+    // console.log(`[WeatherChart TT Formatter] Processing - displayName: "${displayName}", dataKey: "${dataKey}", originalKey: "${originalMetricKeyForConfig}", config found: ${!!config}`);
 
-    let displayValue;
+
+    let displayValue: string;
     if (typeof value === 'number' && isFinite(value)) {
-        const precision = (config?.unit === 'ppm' ? 0 : (config?.isString ? 0 : (isAggregated ? 1 : 2)));
-        displayValue = value.toFixed(precision);
+      const precision = (config?.unit === 'ppm' ? 0 : (config?.isString ? 0 : (isAggregated ? 1 : 2)));
+      displayValue = value.toFixed(precision);
     } else if (value === undefined || value === null || (typeof value === 'number' && !isFinite(value))) {
-        displayValue = 'N/A';
+      displayValue = 'N/A';
     } else {
-        displayValue = String(value);
+      displayValue = String(value);
     }
 
     const unitString = (typeof value === 'number' && isFinite(value) && config?.unit) ? ` ${config.unit}` : '';
 
-    if (chartType === 'scatter' && isAggregated && entry.payload && !config?.isString) {
-        const stdDevValue = entry.payload[`${originalMetricKeyForConfig}_stdDev`];
-        const countValue = entry.payload[`${originalMetricKeyForConfig}_count`];
-        
-        let tooltipContent = `${displayName}: ${displayValue}${unitString}`;
-        
-        if (typeof stdDevValue === 'number' && isFinite(stdDevValue)) {
-            tooltipContent += `\nStd. Dev: ${stdDevValue.toFixed(2)}${config?.unit || ''}`;
-        }
-        if (typeof countValue === 'number' && isFinite(countValue)) {
-            tooltipContent += `\nData Points: ${countValue}`;
-        }
-        return [tooltipContent.trim(), null];
+    if (chartType === 'scatter' && isAggregated && config && !config.isString && entry.payload) {
+      let tooltipContent = `${displayName}: ${displayValue}${unitString}`;
+      const stdDevValue = entry.payload[`${originalMetricKeyForConfig}_stdDev`];
+      const countValue = entry.payload[`${originalMetricKeyForConfig}_count`];
+
+      if (typeof stdDevValue === 'number' && isFinite(stdDevValue)) {
+        tooltipContent += `\nStd. Dev: ${stdDevValue.toFixed(2)}${config?.unit || ''}`;
+      }
+      if (typeof countValue === 'number' && isFinite(countValue)) {
+        tooltipContent += `\nData Points: ${countValue}`;
+      }
+      // Return a ReactNode to fully control rendering for this item
+      return <div style={{ whiteSpace: 'pre-line', color: config.color }}>{tooltipContent.trim()}</div>;
     }
     
+    // For line, bar, or raw scatter, return [value, name] array for default formatting
     return [`${displayValue}${unitString}`, displayName];
-};
+  };
 
 
   const handleChartClick = (event: any) => {
@@ -387,7 +402,7 @@ const tooltipFormatter = (value: any, name: any, entry: any) => {
       return numericMetricsForScatter.flatMap((key) => {
         const metricConfig = METRIC_CONFIGS[key];
         if (!metricConfig || metricConfig.isString) { 
-          return [];
+          return []; // Should not happen due to numericMetricsForScatter pre-filter
         }
   
         const yDataKey = isAggregated ? `${key}_avg` : key;
@@ -403,7 +418,7 @@ const tooltipFormatter = (value: any, name: any, entry: any) => {
               zAxisId={zAxisUniqueId}
               dataKey={stdDevDataKey}
               range={[MIN_BUBBLE_AREA, MAX_BUBBLE_AREA]}
-              name={`${metricConfig.name} Std Dev`}
+              name={`${metricConfig.name} Std Dev`} // This name is for internal reference, not directly in tooltip unless not formatted
             />
           );
         }
@@ -411,7 +426,7 @@ const tooltipFormatter = (value: any, name: any, entry: any) => {
         elements.push(
           <Scatter
             key={`scatter-${key}`}
-            name={metricConfig.name}
+            name={metricConfig.name} // This name is passed to tooltipFormatter as `name`
             dataKey={yDataKey}
             fill={metricConfig.color || '#8884d8'}
             shape="circle"
@@ -429,7 +444,7 @@ const tooltipFormatter = (value: any, name: any, entry: any) => {
       if (!metricConfig) return null;
 
       const color = metricConfig.color || '#8884d8';
-      const name = metricConfig.name || key;
+      const name = metricConfig.name || key; // This name is passed to tooltipFormatter as `name`
 
       switch (chartType) {
         case 'line':
@@ -451,7 +466,7 @@ const tooltipFormatter = (value: any, name: any, entry: any) => {
               key={`bar-${key}`}
               dataKey={key}
               fill={color}
-              name={name}
+              name={name} // This name is passed to tooltipFormatter as `name`
               radius={[4, 4, 0, 0]}
               animationDuration={300}
             />
@@ -494,6 +509,53 @@ const tooltipFormatter = (value: any, name: any, entry: any) => {
 
 
   const chartDynamicKey = `${chartType}-${selectedMetrics.join('-')}-${JSON.stringify(yAxisDomain)}-${isAggregated}-${formattedData.length}-${showMinMaxLines}`;
+  
+  const standardLabelFormatter = (label: string | number, payload: any[] | undefined) => {
+    if (payload && payload.length > 0 && payload[0].payload.tooltipTimestampFull) {
+      return payload[0].payload.tooltipTimestampFull;
+    }
+    return String(label);
+  };
+
+  const renderCustomTooltipContent = (props: any) => {
+    if (!props.active || !props.payload || props.payload.length === 0) {
+      return null;
+    }
+
+    const filteredPayload = props.payload.filter((pldItem: any) => {
+      const name = typeof pldItem.name === 'string' ? pldItem.name.toLowerCase() : '';
+      const dataKey = typeof pldItem.dataKey === 'string' ? pldItem.dataKey.toLowerCase() : '';
+      
+      if (name.includes('timestamp') || 
+          dataKey === 'timestamp' || 
+          dataKey === 'timestampdisplay' || 
+          dataKey === 'tooltiptimestampfull') {
+        // console.log(`[CustomTooltipContentWrapper] Filtering out item: Name='${pldItem.name}', DataKey='${pldItem.dataKey}'`);
+        return false;
+      }
+      // Also filter out ZAxis specific items if they appear in payload names by chance
+      if (name.includes('std dev')) return false; 
+
+      return true;
+    });
+
+    if (filteredPayload.length === 0) {
+      // console.log(`[CustomTooltipContentWrapper] All items filtered out or empty payload after filtering.`);
+      return null; 
+    }
+    
+    // console.log(`[CustomTooltipContentWrapper] Original Payload:`, props.payload, `Filtered Payload:`, filteredPayload);
+
+    return (
+      <ChartTooltipContent
+        {...props}
+        payload={filteredPayload}
+        formatter={tooltipFormatter}
+        labelFormatter={chartType === 'scatter' ? () => null : standardLabelFormatter}
+        hideIndicator={chartType === 'scatter' && isAggregated} // Hide default dot for aggregated scatter if custom node is returned
+      />
+    );
+  };
 
   const renderChart = () => (
     <ResponsiveContainer width="100%" height="100%">
@@ -530,25 +592,8 @@ const tooltipFormatter = (value: any, name: any, entry: any) => {
           allowDataOverflow={chartType === 'line' || chartType === 'scatter'}
         />
         <Tooltip
-          formatter={tooltipFormatter}
-          labelFormatter={(label, payload) => {
-            if (chartType === 'scatter') {
-                return null; 
-            }
-            if (payload && payload.length > 0 && payload[0].payload.tooltipTimestampFull) {
-              return payload[0].payload.tooltipTimestampFull;
-            }
-            return String(label);
-          }}
-          contentStyle={{
-            backgroundColor: 'hsl(var(--popover))',
-            borderColor: 'hsl(var(--border))',
-            borderRadius: 'var(--radius)',
-            boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)',
-            color: 'hsl(var(--popover-foreground))',
-            whiteSpace: 'pre-line',
-          }}
-          itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+          content={renderCustomTooltipContent}
+          wrapperStyle={{ outline: "none" }} // Prevents potential focus outline on the entire tooltip box
           cursor={{ stroke: 'hsl(var(--accent))', strokeWidth: 1, strokeDasharray: '3 3' }}
           animationDuration={150}
           animationEasing="ease-out"
@@ -559,6 +604,14 @@ const tooltipFormatter = (value: any, name: any, entry: any) => {
           layout="horizontal"
           align="center"
           verticalAlign="top"
+          formatter={(value, entry, index) => {
+            // The 'value' here is the 'name' prop of Line/Bar/Scatter
+            const config = METRIC_CONFIGS[entry.dataKey as MetricKey]; // Attempt to get original key if simple
+            if (config && !config.isString) return config.name;
+            // Fallback for complex keys or scatter where dataKey might be temperature_avg
+            // The 'value' passed to formatter is usually the 'name' prop of the series component
+            return value; 
+          }}
         />
         {renderChartSpecificElements()}
 
@@ -706,4 +759,3 @@ const tooltipFormatter = (value: any, name: any, entry: any) => {
 };
 
 export default WeatherChart;
-
