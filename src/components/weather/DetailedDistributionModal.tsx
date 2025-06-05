@@ -19,7 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { WeatherDataPoint, MetricConfig, MetricKey, DetailModalData as DetailModalDataType } from '@/types/weather';
 import { formatTimestampToFullUTC } from '@/lib/utils';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, AreaChart, Area, ReferenceLine, ReferenceArea } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, AreaChart, Area, ReferenceLine, ReferenceArea, ResponsiveContainer } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle as ModalCardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -219,7 +219,6 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
 
   const canShowDistributionPlots = numericValuesForDistribution && numericValuesForDistribution.length > 0;
   const CHART_HEIGHT = 350; 
-  const FIXED_CHART_WIDTH = 450; 
   const FIXED_CHART_HEIGHT = CHART_HEIGHT - 50; 
 
 
@@ -438,28 +437,28 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                             <TabsTrigger value="violin" className="text-xs h-8">Violin Plot</TabsTrigger>
                         </TabsList>
                         <TabsContent value="histogram" className={`p-0 pr-4 pb-2 mt-0 flex items-center justify-center`}>
-                           <div ref={histogramChartRef} className="bg-card"> {/* Added bg-card for consistent export background */}
+                           <div ref={histogramChartRef} className="w-full bg-card">
                             {(() => {
                               const showHistogram = canShowDistributionPlots && histogramData && histogramData.length > 0;
                               console.log('[DetailedDistributionModal] Show Histogram condition:', showHistogram);
                               if (showHistogram) {
                                 return (
-                                  <BarChart 
-                                    width={FIXED_CHART_WIDTH} 
-                                    height={FIXED_CHART_HEIGHT} 
-                                    data={histogramData} 
-                                    margin={{ top: 5, right: 0, left: -10, bottom: 20 }}
-                                  >
-                                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                                      <XAxis dataKey="range" angle={-30} textAnchor="end" height={50} tick={{ fontSize: 9 }} interval={Math.max(0, Math.floor(histogramData.length / 7) -1)} />
-                                      <YAxis allowDecimals={false} tick={{ fontSize: 10 }} label={{ value: 'Count', angle: -90, position: 'insideLeft', offset: 0, style: {fontSize: '10px', fill: 'hsl(var(--muted-foreground))'} }}/>
-                                      <Tooltip
-                                          formatter={(value: number) => [`${value} points`, 'Count']}
-                                          labelFormatter={(label: string) => `Range: ${label} ${metricConfig.unit || ''}`}
-                                          cursor={{fill: 'hsl(var(--accent) / 0.3)'}}
-                                      />
-                                      <Bar dataKey="count" fill={metricConfig.color || 'hsl(var(--primary))'} radius={[2, 2, 0, 0]} />
-                                  </BarChart>
+                                  <ResponsiveContainer width="100%" height={FIXED_CHART_HEIGHT}>
+                                    <BarChart 
+                                      data={histogramData} 
+                                      margin={{ top: 5, right: 0, left: -10, bottom: 20 }}
+                                    >
+                                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                                        <XAxis dataKey="range" angle={-30} textAnchor="end" height={50} tick={{ fontSize: 9 }} interval={Math.max(0, Math.floor(histogramData.length / 7) -1)} />
+                                        <YAxis allowDecimals={false} tick={{ fontSize: 10 }} label={{ value: 'Count', angle: -90, position: 'insideLeft', offset: 0, style: {fontSize: '10px', fill: 'hsl(var(--muted-foreground))'} }}/>
+                                        <Tooltip
+                                            formatter={(value: number) => [`${value} points`, 'Count']}
+                                            labelFormatter={(label: string) => `Range: ${label} ${metricConfig.unit || ''}`}
+                                            cursor={{fill: 'hsl(var(--accent) / 0.3)'}}
+                                        />
+                                        <Bar dataKey="count" fill={metricConfig.color || 'hsl(var(--primary))'} radius={[2, 2, 0, 0]} />
+                                    </BarChart>
+                                  </ResponsiveContainer>
                                 );
                               } else {
                                 console.log('[DetailedDistributionModal] Histogram not shown. Details:', {
@@ -468,7 +467,7 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                                   isString: data?.metricConfig?.isString,
                                 });
                                 return (
-                                  <div className="flex items-center justify-center h-full text-muted-foreground text-sm" style={{height: `${FIXED_CHART_HEIGHT}px`, width: `${FIXED_CHART_WIDTH}px`}}>
+                                  <div className="flex items-center justify-center h-full text-muted-foreground text-sm" style={{height: `${FIXED_CHART_HEIGHT}px`}}>
                                       {metricConfig.isString ? "Histogram not applicable for textual data." : "Not enough data or variation for histogram."}
                                   </div>
                                 );
@@ -477,117 +476,121 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                            </div>
                         </TabsContent>
                         <TabsContent value="violin" className={`p-0 pr-1 pb-2 mt-0 flex items-center justify-center`}>
-                          <div ref={violinPlotChartRef} className="bg-card"> {/* Added bg-card for consistent export background */}
+                          <div ref={violinPlotChartRef} className="w-full bg-card">
                            {(() => {
                               const showViolin = canShowDistributionPlots && violinPlotDataForArea && violinPlotDataForArea.length > 0 && boxPlotStats;
-                              console.log('[DetailedDistributionModal] Show Violin condition (boolean):', !!showViolin);
+                              const currentShowViolinLog = `[DetailedDistributionModal] Show Violin condition (boolean): ${!!showViolin}`;
+                              if (console.log && (console.log as any).lastLog !== currentShowViolinLog) {
+                                console.log(currentShowViolinLog);
+                                (console.log as any).lastLog = currentShowViolinLog;
+                              }
                               
                               if (showViolin) {
                                 return (
-                                  <AreaChart 
-                                    width={FIXED_CHART_WIDTH} 
-                                    height={FIXED_CHART_HEIGHT}
-                                    data={violinPlotDataForArea}
-                                    margin={{ top: 10, right: 20, bottom: 20, left: 0 }} 
-                                    layout="vertical"
-                                  >
-                                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                                      <XAxis 
-                                          type="number" 
-                                          domain={[-1.1, 1.1]} 
-                                          tickFormatter={(val) => val.toFixed(1)}
-                                          label={{ value: 'Density (Normalized)', position: 'insideBottom', offset: -10, style: {fontSize: '10px', fill: 'hsl(var(--muted-foreground))'} }}
-                                          tick={{ fontSize: 9 }}
-                                          axisLine={false}
-                                          tickLine={false}
-                                      />
-                                      <YAxis 
-                                          type="number" 
-                                          dataKey="y" 
-                                          domain={violinYAxisDomain} 
-                                          allowDecimals 
-                                          tick={{ fontSize: 10 }} 
-                                          width={50}
-                                          tickFormatter={(value) => Number(value).toFixed(metricConfig?.unit === 'ppm' ? 0 : 1)}
-                                          label={{ value: metricConfig.unit || metricConfig.name, angle: -90, position: 'insideLeft', offset: 10, style: {fontSize: '10px', fill: 'hsl(var(--muted-foreground))'} }}
-                                      />
-                                      <Tooltip
-                                          formatter={(value: number, name: string, props: any) => {
-                                              if (name === 'densityLeft' || name === 'densityRight') {
-                                                  return [`${(Math.abs(value) * 100).toFixed(1)}% relative density`, `Value: ${props.payload.y.toFixed(2)} ${metricConfig.unit || ''}`];
-                                              }
-                                              return [value, name];
-                                          }}
-                                          labelFormatter={(label, payload) => {
-                                              if (payload && payload.length > 0 && payload[0]?.payload?.y !== undefined) {
-                                                  return `Value: ${Number(payload[0].payload.y).toFixed(2)} ${metricConfig.unit || ''}`;
-                                              }
-                                              return '';
-                                          }}
-                                          itemSorter={(item) => item.name === 'densityRight' ? 1 : -1} 
-                                          cursor={{ stroke: 'hsl(var(--accent))', strokeDasharray: '3 3' }}
-                                      />
-                                      <Area type="monotone" dataKey="densityRight" strokeWidth={1.5} stroke={violinPrimaryColor} fill={dynamicViolinFillColor} fillOpacity={0.7} baseValue={0} name="Density (Right)" />
-                                      <Area type="monotone" dataKey="densityLeft" strokeWidth={1.5} stroke={violinPrimaryColor} fill={dynamicViolinFillColor} fillOpacity={0.7} baseValue={0} name="Density (Left)" />
-                                      
-                                      {/* Inner Box Plot Elements */}
-                                      {boxPlotStats && (
-                                        <>
-                                          {/* IQR Box */}
-                                          <ReferenceArea
-                                            y1={boxPlotStats.q1}
-                                            y2={boxPlotStats.q3}
-                                            x1={-boxPlotElementsWidth / 2} 
-                                            x2={boxPlotElementsWidth / 2}
-                                            stroke={boxPlotStrokeColor}
-                                            strokeOpacity={0.6}
-                                            fill={boxPlotFillColor}
-                                            fillOpacity={0.4}
-                                            ifOverflow="visible"
-                                            isFront={true}
-                                          />
-                                          {/* Median Line */}
-                                          <ReferenceLine
-                                            y={boxPlotStats.median}
-                                            stroke={boxPlotStrokeColor}
-                                            strokeWidth={2}
-                                            ifOverflow="visible"
-                                            segment={[{ x: -boxPlotElementsWidth / 2, y: boxPlotStats.median }, { x: boxPlotElementsWidth / 2, y: boxPlotStats.median }]}
-                                            isFront={true}
-                                          />
-                                          {/* Whiskers - Vertical Lines */}
-                                          <ReferenceLine
-                                            stroke={boxPlotStrokeColor}
-                                            strokeWidth={1}
-                                            ifOverflow="visible"
-                                            segment={[{ x: 0, y: boxPlotStats.q1 }, { x: 0, y: boxPlotStats.whiskerLow }]}
-                                            isFront={true}
-                                          />
-                                          <ReferenceLine
-                                            stroke={boxPlotStrokeColor}
-                                            strokeWidth={1}
-                                            ifOverflow="visible"
-                                            segment={[{ x: 0, y: boxPlotStats.q3 }, { x: 0, y: boxPlotStats.whiskerHigh }]}
-                                            isFront={true}
-                                          />
-                                          {/* Whisker Caps - Horizontal Lines */}
-                                          <ReferenceLine
-                                            stroke={boxPlotStrokeColor}
-                                            strokeWidth={1}
-                                            ifOverflow="visible"
-                                            segment={[{ x: -whiskerCapWidth / 2, y: boxPlotStats.whiskerHigh }, { x: whiskerCapWidth / 2, y: boxPlotStats.whiskerHigh }]}
-                                            isFront={true}
-                                          />
-                                          <ReferenceLine
-                                            stroke={boxPlotStrokeColor}
-                                            strokeWidth={1}
-                                            ifOverflow="visible"
-                                            segment={[{ x: -whiskerCapWidth / 2, y: boxPlotStats.whiskerLow }, { x: whiskerCapWidth / 2, y: boxPlotStats.whiskerLow }]}
-                                            isFront={true}
-                                          />
-                                        </>
-                                      )}
-                                  </AreaChart>
+                                  <ResponsiveContainer width="100%" height={FIXED_CHART_HEIGHT}>
+                                    <AreaChart 
+                                      data={violinPlotDataForArea}
+                                      margin={{ top: 10, right: 20, bottom: 20, left: 0 }} 
+                                      layout="vertical"
+                                    >
+                                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                                        <XAxis 
+                                            type="number" 
+                                            domain={[-1.1, 1.1]} 
+                                            tickFormatter={(val) => val.toFixed(1)}
+                                            label={{ value: 'Density (Normalized)', position: 'insideBottom', offset: -10, style: {fontSize: '10px', fill: 'hsl(var(--muted-foreground))'} }}
+                                            tick={{ fontSize: 9 }}
+                                            axisLine={false}
+                                            tickLine={false}
+                                        />
+                                        <YAxis 
+                                            type="number" 
+                                            dataKey="y" 
+                                            domain={violinYAxisDomain} 
+                                            allowDecimals 
+                                            tick={{ fontSize: 10 }} 
+                                            width={50}
+                                            tickFormatter={(value) => Number(value).toFixed(metricConfig?.unit === 'ppm' ? 0 : 1)}
+                                            label={{ value: metricConfig.unit || metricConfig.name, angle: -90, position: 'insideLeft', offset: 10, style: {fontSize: '10px', fill: 'hsl(var(--muted-foreground))'} }}
+                                        />
+                                        <Tooltip
+                                            formatter={(value: number, name: string, props: any) => {
+                                                if (name === 'densityLeft' || name === 'densityRight') {
+                                                    return [`${(Math.abs(value) * 100).toFixed(1)}% relative density`, `Value: ${props.payload.y.toFixed(2)} ${metricConfig.unit || ''}`];
+                                                }
+                                                return [value, name];
+                                            }}
+                                            labelFormatter={(label, payload) => {
+                                                if (payload && payload.length > 0 && payload[0]?.payload?.y !== undefined) {
+                                                    return `Value: ${Number(payload[0].payload.y).toFixed(2)} ${metricConfig.unit || ''}`;
+                                                }
+                                                return '';
+                                            }}
+                                            itemSorter={(item) => item.name === 'densityRight' ? 1 : -1} 
+                                            cursor={{ stroke: 'hsl(var(--accent))', strokeDasharray: '3 3' }}
+                                        />
+                                        <Area type="monotone" dataKey="densityRight" strokeWidth={1} stroke={violinPrimaryColor} fill={dynamicViolinFillColor} fillOpacity={0.7} baseValue={0} name="Density (Right)" />
+                                        <Area type="monotone" dataKey="densityLeft" strokeWidth={1} stroke={violinPrimaryColor} fill={dynamicViolinFillColor} fillOpacity={0.7} baseValue={0} name="Density (Left)" />
+                                        
+                                        {/* Inner Box Plot Elements */}
+                                        {boxPlotStats && (
+                                          <>
+                                            {/* IQR Box */}
+                                            <ReferenceArea
+                                              y1={boxPlotStats.q1}
+                                              y2={boxPlotStats.q3}
+                                              x1={-boxPlotElementsWidth / 2} 
+                                              x2={boxPlotElementsWidth / 2}
+                                              stroke={boxPlotStrokeColor}
+                                              strokeOpacity={0.6}
+                                              fill={boxPlotFillColor}
+                                              fillOpacity={0.4}
+                                              ifOverflow="visible"
+                                              isFront={true}
+                                            />
+                                            {/* Median Line */}
+                                            <ReferenceLine
+                                              y={boxPlotStats.median}
+                                              stroke={boxPlotStrokeColor}
+                                              strokeWidth={2}
+                                              ifOverflow="visible"
+                                              segment={[{ x: -boxPlotElementsWidth / 2, y: boxPlotStats.median }, { x: boxPlotElementsWidth / 2, y: boxPlotStats.median }]}
+                                              isFront={true}
+                                            />
+                                            {/* Whiskers - Vertical Lines */}
+                                            <ReferenceLine
+                                              stroke={boxPlotStrokeColor}
+                                              strokeWidth={1}
+                                              ifOverflow="visible"
+                                              segment={[{ x: 0, y: boxPlotStats.q1 }, { x: 0, y: boxPlotStats.whiskerLow }]}
+                                              isFront={true}
+                                            />
+                                            <ReferenceLine
+                                              stroke={boxPlotStrokeColor}
+                                              strokeWidth={1}
+                                              ifOverflow="visible"
+                                              segment={[{ x: 0, y: boxPlotStats.q3 }, { x: 0, y: boxPlotStats.whiskerHigh }]}
+                                              isFront={true}
+                                            />
+                                            {/* Whisker Caps - Horizontal Lines */}
+                                            <ReferenceLine
+                                              stroke={boxPlotStrokeColor}
+                                              strokeWidth={1}
+                                              ifOverflow="visible"
+                                              segment={[{ x: -whiskerCapWidth / 2, y: boxPlotStats.whiskerHigh }, { x: whiskerCapWidth / 2, y: boxPlotStats.whiskerHigh }]}
+                                              isFront={true}
+                                            />
+                                            <ReferenceLine
+                                              stroke={boxPlotStrokeColor}
+                                              strokeWidth={1}
+                                              ifOverflow="visible"
+                                              segment={[{ x: -whiskerCapWidth / 2, y: boxPlotStats.whiskerLow }, { x: whiskerCapWidth / 2, y: boxPlotStats.whiskerLow }]}
+                                              isFront={true}
+                                            />
+                                          </>
+                                        )}
+                                    </AreaChart>
+                                  </ResponsiveContainer>
                                 );
                               } else {
                                 console.log('[DetailedDistributionModal] Violin Plot not shown. Details:', {
@@ -598,7 +601,7 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                                   isString: data?.metricConfig?.isString,
                                 });
                                  return (
-                                  <div className="flex items-center justify-center h-full text-muted-foreground text-sm" style={{height: `${FIXED_CHART_HEIGHT}px`, width: `${FIXED_CHART_WIDTH}px`}}>
+                                  <div className="flex items-center justify-center h-full text-muted-foreground text-sm" style={{height: `${FIXED_CHART_HEIGHT}px`}}>
                                       {metricConfig.isString ? "Violin plot not applicable for textual data." : "Not enough data or variation for violin plot."}
                                   </div>
                                 );
