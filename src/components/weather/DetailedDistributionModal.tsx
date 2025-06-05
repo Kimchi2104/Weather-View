@@ -14,36 +14,25 @@ import {
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import type { WeatherDataPoint, MetricConfig, MetricKey } from '@/types/weather'; 
+import type { WeatherDataPoint, MetricConfig, MetricKey, DetailModalData as DetailModalDataType } from '@/types/weather';
 import { formatTimestampToFullUTC } from '@/lib/utils';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle as ModalCardTitle } from '@/components/ui/card';
 
-
-export interface DetailModalData {
-  metricKey: MetricKey; 
-  metricConfig: MetricConfig;
-  aggregationLabel: string;
-  stats: {
-    avg?: number;
-    min?: number;
-    max?: number;
-    stdDev?: number;
-    count?: number;
-  };
-  rawPoints: WeatherDataPoint[];
-}
+// DetailModalData interface is now imported from types/weather
 
 interface DetailedDistributionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  data: DetailModalData | null;
+  data: DetailModalDataType | null;
 }
 
-const getMetricValueFromPoint = (point: WeatherDataPoint, metricKey: MetricKey, metricConfig: MetricConfig): number | string | undefined => {
+const getMetricValueFromPoint = (point: WeatherDataPoint, metricKey: MetricKey, metricConfig?: MetricConfig): number | string | undefined => {
+  if (!point || metricKey === undefined) return undefined;
+  
   const value = point[metricKey];
 
-  if (metricConfig.isString) {
+  if (metricConfig?.isString) {
     return typeof value === 'string' ? value : (value !== undefined && value !== null ? String(value) : undefined);
   } else {
     const num = Number(value);
@@ -55,25 +44,53 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
   console.log(`[DetailedDistributionModal] Component rendered. isOpen: ${isOpen}, data exists: ${!!data}`);
 
   const histogramData = useMemo(() => {
-    if (!data || !data.rawPoints || data.rawPoints.length === 0 || data.metricConfig.isString) {
+    console.log('[HistogramCalc] Entered useMemo. Data available:', !!data, 'MetricKey:', data?.metricKey, 'Config available:', !!data?.metricConfig, 'RawPoints available:', !!data?.rawPoints);
+
+    if (!data || !data.rawPoints || !data.metricKey || !data.metricConfig) {
+      console.log('[HistogramCalc] Bailing early: Essential data (data object, rawPoints, metricKey, or metricConfig) is missing.');
+      return null;
+    }
+    
+    console.log(`[HistogramCalc] Processing for Metric: ${data.metricKey}, IsString: ${data.metricConfig.isString}`);
+
+    if (data.metricConfig.isString) {
+      console.log('[HistogramCalc] Bailing: Metric is string type.');
+      return null;
+    }
+
+    if (data.rawPoints.length === 0) {
+      console.log('[HistogramCalc] Bailing: No raw points available.');
       return null;
     }
 
     const values = data.rawPoints
       .map(point => getMetricValueFromPoint(point, data.metricKey, data.metricConfig))
       .filter((v): v is number => typeof v === 'number' && isFinite(v));
+    
+    console.log(`[HistogramCalc] Extracted ${values.length} numeric values for histogram:`, values.slice(0, 10)); // Log first 10
 
-    if (values.length < 2) return null; 
+    if (values.length < 2) {
+      console.log('[HistogramCalc] Bailing: Not enough numeric values for histogram (need at least 2).');
+      return null;
+    }
 
     const dataMin = Math.min(...values);
     const dataMax = Math.max(...values);
+    console.log(`[HistogramCalc] Data Min: ${dataMin}, Data Max: ${dataMax}`);
 
-    if (dataMin === dataMax) { 
-        return [{ range: `${dataMin.toFixed(2)} ${data.metricConfig.unit}`, count: values.length, min: dataMin, max: dataMax }];
+    if (dataMin === dataMax) {
+      console.log('[HistogramCalc] All values are identical. Creating single bin.');
+      return [{ range: `${dataMin.toFixed(2)} ${data.metricConfig.unit || ''}`, count: values.length, min: dataMin, max: dataMax }];
     }
 
     const numBins = Math.min(10, Math.max(3, Math.floor(Math.sqrt(values.length))));
     const binWidth = (dataMax - dataMin) / numBins;
+    console.log(`[HistogramCalc] NumBins: ${numBins}, BinWidth: ${binWidth}`);
+
+    if (binWidth <= 0) {
+        console.log('[HistogramCalc] Bailing: BinWidth is zero or negative, cannot create bins.');
+        return null;
+    }
 
     const bins = Array(numBins).fill(0).map((_, i) => {
       const binStart = dataMin + i * binWidth;
@@ -88,20 +105,22 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
 
     values.forEach(value => {
       for (let i = 0; i < bins.length; i++) {
-        if (value >= bins[i].min && (value < bins[i].max || (i === bins.length - 1 && value <= bins[i].max + 0.00001))) { 
+        if (value >= bins[i].min && (value < bins[i].max || (i === bins.length - 1 && value <= bins[i].max + 0.00001))) {
           bins[i].count++;
           break;
         }
       }
     });
-    return bins.filter(bin => bin.count > 0 || bins.length ===1); 
-  }, [data]);
+    console.log('[HistogramCalc] Final bins for histogram:', bins);
+    return bins.filter(bin => bin.count > 0 || bins.length ===1);
+  }, [data?.rawPoints, data?.metricKey, data?.metricConfig]); // More specific dependencies
+
 
   useEffect(() => {
     console.log(`[DetailedDistributionModal] useEffect triggered. isOpen: ${isOpen}`);
-    if (isOpen) {
-      console.log(`[DetailedDistributionModal] Modal is open. Current data:`, data ? JSON.parse(JSON.stringify(data)) : 'null or undefined');
-      console.log('[DetailedDistributionModal] Calculated histogramData (at effect run):', histogramData);
+    if (isOpen && data) {
+      console.log(`[DetailedDistributionModal] Modal is open. Current data:`, JSON.parse(JSON.stringify(data)));
+      console.log('[DetailedDistributionModal] Memoized histogramData (at effect run):', histogramData);
     }
   }, [isOpen, data, histogramData]);
 
@@ -111,6 +130,9 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
   }
 
   const { metricKey, metricConfig, aggregationLabel, stats, rawPoints } = data;
+
+  const showHistogramCard = !!histogramData && histogramData.length > 0 && !metricConfig.isString;
+  console.log(`[DetailedDistributionModal] Histogram Rendering Check: showHistogramCard: ${showHistogramCard}, histogramData exists: ${!!histogramData}, length: ${histogramData?.length}, isString: ${metricConfig.isString}`);
 
 
   return (
@@ -149,7 +171,7 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                 </CardContent>
             </Card>
             
-            {histogramData && histogramData.length > 0 && !metricConfig.isString && (
+            {showHistogramCard ? (
                  <Card>
                     <CardHeader className="pb-2 pt-4">
                         <ModalCardTitle className="text-md font-semibold">Value Distribution (Histogram)</ModalCardTitle>
@@ -162,7 +184,7 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                                 <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
                                 <Tooltip
                                     formatter={(value: number) => [`${value} points`, 'Count']}
-                                    labelFormatter={(label: string) => `Range: ${label} ${metricConfig.unit}`}
+                                    labelFormatter={(label: string) => `Range: ${label} ${metricConfig.unit || ''}`}
                                     cursor={{fill: 'hsl(var(--accent) / 0.3)'}}
                                 />
                                 <Bar dataKey="count" fill={metricConfig.color || 'hsl(var(--primary))'} radius={[2, 2, 0, 0]} />
@@ -170,22 +192,20 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                         </ResponsiveContainer>
                     </CardContent>
                 </Card>
-            )}
-             {(!histogramData || histogramData.length === 0) && !metricConfig.isString && (
+            ) : (metricConfig.isString ? (
                 <Card className="flex items-center justify-center h-full">
-                    <CardContent className="text-center text-muted-foreground">
-                        <p>Not enough data or variation for a histogram.</p>
-                    </CardContent>
-                </Card>
-            )}
-            {metricConfig.isString && (
-                 <Card className="flex items-center justify-center h-full">
                     <CardContent className="text-center text-muted-foreground">
                         <p>Histogram not applicable for textual data.</p>
                     </CardContent>
                 </Card>
+            ) : (
+                 <Card className="flex items-center justify-center h-full">
+                    <CardContent className="text-center text-muted-foreground">
+                        <p>Not enough data or variation for a histogram.</p>
+                    </CardContent>
+                </Card>
+            )
             )}
-
         </div>
 
         <div className="flex-grow overflow-hidden mt-2">
@@ -234,3 +254,4 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
 };
 
 export default DetailedDistributionModal;
+    
