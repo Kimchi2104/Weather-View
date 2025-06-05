@@ -35,7 +35,7 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
   const { toast } = useToast();
 
   useEffect(() => {
-    if (IS_AI_FORECAST_DISABLED) return;
+    if (IS_AI_FORECAST_DISABLED) return; // Early exit if feature is disabled
 
     if (initialDataForForecast === null) {
        setCustomHistoricalData('');
@@ -174,24 +174,9 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
   return (
     <section className="mb-8">
       <Card className={`shadow-lg relative ${IS_AI_FORECAST_DISABLED ? 'opacity-70' : ''}`}>
-        <CardHeader>
-          <CardTitle className="font-headline flex items-center">
-            <Wand2 className="mr-2 h-5 w-5 text-accent" />
-            AI-Powered Weather Forecast
-          </CardTitle>
-          <CardDescription>
-            Use AI to predict upcoming weather.
-            {!IS_AI_FORECAST_DISABLED && (
-              <>
-                {' '}Click a point on the chart in the &quot;Historical Data Analysis&quot; section, or use the &quot;Use All Displayed Data for AI Forecast&quot; button there to auto-fill historical data.
-                You can also manually input a JSON array below. The AI expects 'aqi' to be the numerical PPM value.
-              </>
-            )}
-          </CardDescription>
-        </CardHeader>
-        <div className="relative">
+        <div className="relative"> {/* Added relative wrapper for overlay */}
           {IS_AI_FORECAST_DISABLED && (
-            <div className="absolute inset-0 bg-slate-200/80 dark:bg-slate-800/80 backdrop-blur-sm flex flex-col items-center justify-center text-center p-4 rounded-b-lg z-10">
+            <div className="absolute inset-0 bg-slate-200/80 dark:bg-slate-800/80 backdrop-blur-sm flex flex-col items-center justify-center text-center p-4 rounded-lg z-10">
               <Lock size={48} className="text-slate-500 dark:text-slate-400 mb-4" />
               <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-2">Feature Under Development</h3>
               <p className="text-sm text-slate-600 dark:text-slate-400">
@@ -201,6 +186,21 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
               </p>
             </div>
           )}
+          <CardHeader>
+            <CardTitle className="font-headline flex items-center">
+              <Wand2 className="mr-2 h-5 w-5 text-accent" />
+              AI-Powered Weather Forecast
+            </CardTitle>
+            <CardDescription>
+              Use AI to predict upcoming weather.
+              {!IS_AI_FORECAST_DISABLED && (
+                <>
+                  {' '}Click a point on the chart in the &quot;Historical Data Analysis&quot; section, or use the &quot;Use All Displayed Data for AI Forecast&quot; button there to auto-fill historical data.
+                  You can also manually input a JSON array below. The AI expects 'aqi' to be the numerical PPM value.
+                </>
+              )}
+            </CardDescription>
+          </CardHeader>
           <CardContent className="space-y-4">
             <div>
               <Label htmlFor="location" className="text-sm font-medium">Location</Label>
@@ -308,12 +308,13 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
               )}
             </Button>
           </CardFooter>
-        </div>
+        </div> {/* End of relative wrapper for overlay */}
       </Card>
     </section>
   );
 };
 
 export default AIForecastSection;
+    
 
     
