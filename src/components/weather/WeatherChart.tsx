@@ -236,15 +236,15 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
     if (targetExportTheme === 'light') {
       htmlElement.classList.remove('dark');
-      htmlElement.classList.remove('aura-glass'); // Ensure aura-glass is removed for pure light/dark export
+      htmlElement.classList.remove('aura-glass'); 
     } else if (targetExportTheme === 'dark') {
       htmlElement.classList.add('dark');
-      htmlElement.classList.remove('aura-glass'); // Ensure aura-glass is removed for pure light/dark export
-    } else { // current is aura-glass
+      htmlElement.classList.remove('aura-glass'); 
+    } else { 
         if (!htmlElement.classList.contains('aura-glass')) {
             htmlElement.classList.add('aura-glass');
         }
-         if (actualCurrentTheme === 'dark') { // Aura glass can be on dark or light base
+         if (actualCurrentTheme === 'dark') { 
             htmlElement.classList.add('dark');
         } else {
             htmlElement.classList.remove('dark');
@@ -252,7 +252,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
     }
 
 
-    await new Promise(resolve => setTimeout(resolve, 150)); // Allow theme styles to apply
+    await new Promise(resolve => setTimeout(resolve, 150)); 
 
 
     try {
@@ -263,7 +263,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
             ? 'hsl(210 20% 5%)' 
             : (targetExportTheme === 'light' 
                 ? 'hsl(210 20% 98%)' 
-                : null), // Null for aura-glass to capture gradient if possible, else transparent
+                : null), 
       });
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
       if (format === 'pdf') {
@@ -283,8 +283,8 @@ const WeatherChart: FC<WeatherChartProps> = ({
     } catch (error) {
       console.error('Error exporting chart:', error);
     } finally {
-      htmlElement.className = originalHtmlClasses; // Restore original classes
-      // Re-apply aura-glass if it was originally there
+      htmlElement.className = originalHtmlClasses; 
+      
       if (originalHtmlClasses.includes('aura-glass') && !htmlElement.classList.contains('aura-glass')) {
           htmlElement.classList.add('aura-glass');
       }
@@ -360,9 +360,9 @@ const WeatherChart: FC<WeatherChartProps> = ({
             lowerDataKey.includes("stddev") ||
             lowerDataKey.includes("count") ||
             lowerDataKey.includes("aggregationperiod")
-            ) {
+           ) {
             if (chartType === 'scatter' && (nameFromRecharts.toLowerCase().includes("std dev") || dataKey.includes("stddev"))) {
-                // Allow std dev for scatter tooltip custom rendering
+                
             } else {
                 return null;
             }
@@ -430,7 +430,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
             dataKey === 'timestamp' ||
             dataKey === 'timestampdisplay' ||
             dataKey === 'tooltiptimestampfull' ||
-            (dataKey.includes("stddev") && chartType !== 'scatter') || // Hide stddev unless scatter
+            (dataKey.includes("stddev") && chartType !== 'scatter') || 
             dataKey.includes("count") ||
             dataKey.includes("aggregationperiod")
            ) {
@@ -579,11 +579,11 @@ const WeatherChart: FC<WeatherChartProps> = ({
     }
 
     const xAxisProps: any = {
-        stroke: "hsl(var(--foreground))", // Changed from #888888
+        stroke: "hsl(var(--foreground))", 
         tick: { fill: "hsl(var(--foreground))", fontSize: 11 },
     };
     const yAxisProps: any = {
-        stroke: "hsl(var(--foreground))", // Changed from #888888
+        stroke: "hsl(var(--foreground))", 
         tick: { fill: "hsl(var(--foreground))", fontSize: 12 },
         tickFormatter: yAxisTickFormatter,
         domain: yAxisDomain,
@@ -711,13 +711,13 @@ const WeatherChart: FC<WeatherChartProps> = ({
               stroke={metricConfig.color}
               strokeDasharray="2 2"
               strokeOpacity={0.7}
-              strokeWidth={1.5} // Increased strokeWidth
+              strokeWidth={1.5} 
               label={{
                 value: `Min: ${minValue.toFixed(isAggregated ? 1 : (metricConfig.unit === 'ppm' ? 0 : 2))}${metricConfig.unit || ''}`,
                 position: "right",
                 textAnchor: "end",
                 dx: -5,
-                fill: 'hsl(var(--popover-foreground))', // Changed fill for better contrast
+                fill: 'hsl(var(--popover-foreground))', 
                 fontSize: 10,
                 dy: dyMinLabel
               }}
@@ -728,13 +728,13 @@ const WeatherChart: FC<WeatherChartProps> = ({
               stroke={metricConfig.color}
               strokeDasharray="2 2"
               strokeOpacity={0.7}
-              strokeWidth={1.5} // Increased strokeWidth
+              strokeWidth={1.5} 
               label={{
                 value: `Max: ${maxValue.toFixed(isAggregated ? 1 : (metricConfig.unit === 'ppm' ? 0 : 2))}${metricConfig.unit || ''}`,
                 position: "right",
                 textAnchor: "end",
                 dx: -5,
-                fill: 'hsl(var(--popover-foreground))', // Changed fill for better contrast
+                fill: 'hsl(var(--popover-foreground))', 
                 fontSize: 10,
                 dy: dyMaxLabel
               }}
@@ -763,7 +763,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
         <ChartContainer
             ref={chartRef}
             config={chartConfigForShadcn}
-            className="w-full h-[550px] bg-card mx-auto overflow-hidden"
+            className="w-full h-[550px] mx-auto overflow-hidden"
           >
           {renderChart()}
         </ChartContainer>
@@ -793,7 +793,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
                         <Laptop className="mr-2 h-3.5 w-3.5" /> Current View Theme
                       </div>
                     </SelectItem>
-                     {(resolvedTheme === 'dark' || (resolvedTheme === null && currentSystemTheme === 'dark')) ? ( // Check resolved then system for current
+                     {(resolvedTheme === 'dark' || (resolvedTheme === null && currentSystemTheme === 'dark')) ? ( 
                        <SelectItem value="light" className="text-xs">
                         <div className="flex items-center">
                           <Sun className="mr-2 h-3.5 w-3.5" /> Light Theme
@@ -831,3 +831,5 @@ const WeatherChart: FC<WeatherChartProps> = ({
 };
 
 export default WeatherChart;
+
+    
