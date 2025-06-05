@@ -3,26 +3,28 @@
 
 import type { FC } from 'react';
 import React, { useRef, useState, useMemo, useEffect } from 'react';
-import html2canvas from 'html2canvas';
+import { Suspense } from 'react';
+import dynamic from 'next/dynamic';
 import jsPDF from 'jspdf';
 import { useTheme } from 'next-themes';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, ScatterChart, Scatter, ReferenceLine, ZAxis } from 'recharts';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel, DropdownMenuTrigger, } from "@/components/ui/dropdown-menu";
 import type { WeatherDataPoint, MetricKey, MetricConfig, AggregatedDataPoint, ChartType } from '@/types/weather';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Download, FileImage, FileText, Loader2, Sun, Moon, Laptop } from 'lucide-react';
 import { formatTimestampToDdMmHhMmUTC, formatTimestampToFullUTC } from '@/lib/utils';
 import { ChartTooltipContent, ChartContainer, type ChartConfig } from '@/components/ui/chart';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, ScatterChart, Scatter, ReferenceLine, ZAxis } from 'recharts';
+
+
+// Dynamically import html2canvas
+const html2canvas = dynamic(() => import('html2canvas'), { suspense: true });
+const Select = dynamic(() => import('@/components/ui/select').then(mod => mod.Select), { ssr: false });
+const SelectContent = dynamic(() => import('@/components/ui/select').then(mod => mod.SelectContent), { ssr: false });
+const SelectItem = dynamic(() => import('@/components/ui/select').then(mod => mod.SelectItem), { ssr: false });
+const SelectTrigger = dynamic(() => import('@/components/ui/select').then(mod => mod.SelectTrigger), { ssr: false });
+const SelectValue = dynamic(() => import('@/components/ui/select').then(mod => mod.SelectValue), { ssr: false });
 
 
 const MIN_BUBBLE_AREA = 60;
@@ -46,6 +48,7 @@ const getPaddedMinYDomain = (dataMin: number, dataMax: number): number => {
   } else {
     const padding = Math.max(3, 0.15 * Math.abs(dataMin));
     paddedMin = Math.floor(dataMin - padding);
+    if (paddedMin > 0 && dataMin < 0) paddedMin = 0; // Ensure it doesn't cross 0 if min is negative
   }
   return paddedMin;
 };
@@ -65,10 +68,10 @@ const getPaddedMaxYDomain = (dataMax: number, dataMin: number): number => {
   } else if (dataMax >= 10) {
     const padding = Math.max(5, 0.15 * dataMax);
     paddedMax = Math.ceil(dataMax + padding);
-  } else {
+  } else { // dataMax is negative
     const padding = Math.max(3, 0.15 * Math.abs(dataMax));
     paddedMax = Math.ceil(dataMax + padding);
-    if (paddedMax > 0 && dataMax < 0) paddedMax = 0;
+    if (paddedMax > 0 && dataMax < 0) paddedMax = 0; // Ensure it doesn't cross 0 if max is negative
   }
   return paddedMax;
 };
@@ -168,7 +171,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
         });
     }
     
-    if (effectiveMin === Infinity || effectiveMax === -Infinity) {
+    if (effectiveMin === Infinity || effectiveMax === -Infinity) { // If still default after checks
       effectiveMin = 0;
       effectiveMax = 10;
     }
@@ -201,17 +204,17 @@ const WeatherChart: FC<WeatherChartProps> = ({
         color: metricConf.color,
       };
       if (isAggregated && !metricConf.isString) {
-        config[`${key}_avg`] = {
+        config[`${key}_avg`] = { // For aggregated data, the main data key might be metric_avg
           label: `${metricConf.name} (Avg)`,
           icon: metricConf.Icon,
           color: metricConf.color,
         };
-         config[`${key}_stdDev`] = {
+         config[`${key}_stdDev`] = { // For ZAxis in scatter plots
           label: `${metricConf.name} (Std. Dev)`,
-          icon: undefined,
+          icon: undefined, // No icon needed for ZAxis typically
           color: metricConf.color,
         };
-         config[`${key}_count`] = {
+         config[`${key}_count`] = { // For tooltip or other displays
             label: `${metricConf.name} (Count)`,
             icon: undefined,
             color: metricConf.color,
@@ -231,19 +234,22 @@ const WeatherChart: FC<WeatherChartProps> = ({
     const actualCurrentTheme = resolvedTheme || currentSystemTheme || 'light';
     const targetExportTheme = exportThemeOption === 'current' ? actualCurrentTheme : exportThemeOption;
 
+    // Temporarily apply the target theme for export if it's different
     const htmlElement = document.documentElement;
     const originalHtmlClasses = htmlElement.className;
 
     if (targetExportTheme === 'light') {
       htmlElement.classList.remove('dark');
-      htmlElement.classList.remove('aura-glass'); 
+      htmlElement.classList.remove('aura-glass'); // Ensure aura-glass specific styles are off if exporting plain light
     } else if (targetExportTheme === 'dark') {
       htmlElement.classList.add('dark');
-      htmlElement.classList.remove('aura-glass'); 
-    } else { 
+      htmlElement.classList.remove('aura-glass'); // Ensure aura-glass specific styles are off if exporting plain dark
+    } else { // 'aura-glass' is the target
+        // If current theme is not already aura-glass, apply it temporarily
         if (!htmlElement.classList.contains('aura-glass')) {
             htmlElement.classList.add('aura-glass');
         }
+         // If actual current (resolved) theme was dark but we are exporting aura, it might need dark context
          if (actualCurrentTheme === 'dark') { 
             htmlElement.classList.add('dark');
         } else {
@@ -252,18 +258,19 @@ const WeatherChart: FC<WeatherChartProps> = ({
     }
 
 
-    await new Promise(resolve => setTimeout(resolve, 150)); 
+    // Wait for styles to apply
+    await new Promise(resolve => setTimeout(resolve, 150)); // Small delay for styles to take effect
 
 
     try {
-      const canvas = await html2canvas(chartElementToCapture as HTMLElement, {
-        scale: 2,
+      const canvas = await (await html2canvas)(chartElementToCapture as HTMLElement, {
+        scale: 2, // Higher resolution
         useCORS: true,
         backgroundColor: targetExportTheme === 'dark' 
-            ? 'hsl(210 20% 5%)' 
+            ? 'hsl(var(--card))' // Use card background for dark theme export
             : (targetExportTheme === 'light' 
-                ? 'hsl(210 20% 98%)' 
-                : null), 
+                ? 'hsl(var(--card))' // Use card background for light theme export
+                : null), // For aura-glass, let transparency handle it
       });
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
       if (format === 'pdf') {
@@ -283,8 +290,10 @@ const WeatherChart: FC<WeatherChartProps> = ({
     } catch (error) {
       console.error('Error exporting chart:', error);
     } finally {
+      // Restore original classes
       htmlElement.className = originalHtmlClasses; 
       
+      // If original was aura-glass and it was removed, add it back.
       if (originalHtmlClasses.includes('aura-glass') && !htmlElement.classList.contains('aura-glass')) {
           htmlElement.classList.add('aura-glass');
       }
@@ -300,30 +309,33 @@ const WeatherChart: FC<WeatherChartProps> = ({
     if (typeof value === 'number' && isFinite(value)) {
       return value.toFixed( Math.abs(value) < 10 && value !== 0 ? 1 : 0 );
     }
-    if (value === undefined || value === null || (typeof value === 'number' && !isFinite(value))) {
+     if (value === undefined || value === null || (typeof value === 'number' && !isFinite(value))) {
       return 'N/A';
     }
     return String(value);
   };
 
+  // Handler for scatter plot point clicks
   const handleScatterPointClick = (scatterPointProps: any, index: number, event: React.MouseEvent<SVGElement>, explicitMetricKey: MetricKey) => {
     if (scatterPointProps && onPointClick) {
+      // Pass the original payload and the explicitMetricKey
       onPointClick(scatterPointProps.payload, { ...scatterPointProps, explicitMetricKey: explicitMetricKey });
     }
   };
 
 
+  // Handler for line and bar chart clicks
   const handleLineBarChartClick = (rechartsEvent: any) => {
     let activePayloadData: any = null;
     let activePayloadFull: any = null;
 
     if (rechartsEvent && rechartsEvent.activePayload && rechartsEvent.activePayload.length > 0) {
         activePayloadData = rechartsEvent.activePayload[0].payload;
-        activePayloadFull = rechartsEvent.activePayload[0];
+        activePayloadFull = rechartsEvent.activePayload[0]; // Keep the full Recharts event data if needed
         onPointClick?.(activePayloadData, activePayloadFull);
-    } else if (rechartsEvent && (rechartsEvent.chartX || rechartsEvent.xValue)) {
-        onPointClick?.(null, null);
-    } else {
+    } else if (rechartsEvent && (rechartsEvent.chartX || rechartsEvent.xValue)) { // Click on empty chart area
+        onPointClick?.(null, null); // Indicate no specific point was clicked
+    } else { // Fallback, potentially for programmatic interactions or unusual cases
         onPointClick?.(null, null);
     }
   };
@@ -331,6 +343,8 @@ const WeatherChart: FC<WeatherChartProps> = ({
   const chartDynamicKey = `${chartType}-${selectedMetrics.join('-')}-${JSON.stringify(yAxisDomain)}-${isAggregated}-${(chartInputData || []).length}-${showMinMaxLines}`;
 
   const tooltipLabelFormatter = (label: string | number, payload: any[] | undefined) => {
+    // For scatter plots, the label might be the x-axis data key's value.
+    // We want to show the timestampDisplay or tooltipTimestampFull from the payload.
     if (chartType === 'scatter') {
       if (payload && payload.length > 0 && payload[0].payload.timestampDisplay) {
         return payload[0].payload.timestampDisplay;
@@ -338,55 +352,64 @@ const WeatherChart: FC<WeatherChartProps> = ({
        if (payload && payload.length > 0 && payload[0].payload.tooltipTimestampFull) {
         return payload[0].payload.tooltipTimestampFull;
       }
-      return String(label);
+      return String(label); // Fallback if specific timestamp fields are not found
     }
 
+    // For line and bar charts, use tooltipTimestampFull if available
     if (payload && payload.length > 0 && payload[0].payload.tooltipTimestampFull) {
       return payload[0].payload.tooltipTimestampFull;
     }
-    return String(label);
+    return String(label); // Fallback for line/bar or if tooltipTimestampFull is missing
   };
 
 
  const tooltipFormatter = (value: any, nameFromRecharts: string, entry: any): React.ReactNode | [string, string] | null => {
-    const dataKey = entry.dataKey as string;
+    const dataKey = entry.dataKey as string; // The actual key from the data object
     
+    // Skip unwanted internal/timestamp keys, unless it's a stdDev for scatter
     if (typeof nameFromRecharts === 'string' && nameFromRecharts.toLowerCase().includes("timestamp")) return null;
     if (typeof dataKey === 'string') {
         const lowerDataKey = dataKey.toLowerCase();
         if (lowerDataKey === 'timestamp' ||
             lowerDataKey === 'timestampdisplay' ||
             lowerDataKey === 'tooltiptimestampfull' ||
-            lowerDataKey.includes("stddev") ||
+            lowerDataKey.includes("stddev") || // Default skip for stddev
             lowerDataKey.includes("count") ||
             lowerDataKey.includes("aggregationperiod")
            ) {
+            // Exception: Allow stdDev if it's explicitly part of a scatter plot's ZAxis configuration
             if (chartType === 'scatter' && (nameFromRecharts.toLowerCase().includes("std dev") || dataKey.includes("stddev"))) {
-                
+                // This allows stdDev to be formatted for scatter tooltips when it's a ZAxis
             } else {
                 return null;
             }
         }
     }
 
+    // Determine the original metric key for config lookup
     let originalMetricKeyForConfig = dataKey;
     let isAvgKey = false;
     if (isAggregated) {
+      // If it's an aggregated value like 'temperature_avg', strip '_avg' to get 'temperature'
       if (typeof originalMetricKeyForConfig === 'string' && originalMetricKeyForConfig.endsWith('_avg')) {
         originalMetricKeyForConfig = originalMetricKeyForConfig.substring(0, originalMetricKeyForConfig.length - 4);
         isAvgKey = true;
       }
     }
-    originalMetricKeyForConfig = originalMetricKeyForConfig as MetricKey;
+    originalMetricKeyForConfig = originalMetricKeyForConfig as MetricKey; // Cast to MetricKey
 
+    // Get config and display name
     const config = METRIC_CONFIGS[originalMetricKeyForConfig];
     const displayName = config?.name || (isAvgKey ? `${originalMetricKeyForConfig} (Avg)` : originalMetricKeyForConfig);
 
+    // Skip other unwanted labels
     if (typeof displayName === 'string' && displayName.toLowerCase().includes("timestamp")) return null;
     if (typeof displayName === 'string' && (displayName.toLowerCase().includes('data points') || displayName.toLowerCase().includes('aggregation period'))) return null;
+    // For scatter, std. dev might be shown via ZAxis, for other charts, usually not in main tooltip items
     if (typeof displayName === 'string' && displayName.toLowerCase().includes('std. dev') && chartType !== 'scatter') return null;
 
 
+    // Format the value
     let displayValue: string;
     if (typeof value === 'number' && isFinite(value)) {
       const precision = (config?.unit === 'ppm' ? 0 : (config?.isString ? 0 : (isAggregated ? 1 : 2)));
@@ -398,10 +421,11 @@ const WeatherChart: FC<WeatherChartProps> = ({
     }
     const unitString = (typeof value === 'number' && isFinite(value) && config?.unit) ? ` ${config.unit}` : '';
 
+    // Special handling for aggregated scatter plots to include StdDev and Count in the same tooltip item
     if (chartType === 'scatter' && isAggregated && config && !config.isString && entry.payload) {
       let tooltipHtml = `<div style="color: ${config.color || 'inherit'};"><strong>${displayName}:</strong> ${displayValue}${unitString}`;
-      const stdDevValue = entry.payload[`${originalMetricKeyForConfig}_stdDev`];
-      const countValue = entry.payload[`${originalMetricKeyForConfig}_count`];
+      const stdDevValue = entry.payload[`${originalMetricKeyForConfig}_stdDev`]; // e.g., temperature_stdDev
+      const countValue = entry.payload[`${originalMetricKeyForConfig}_count`]; // e.g., temperature_count
 
       if (typeof stdDevValue === 'number' && isFinite(stdDevValue)) {
         tooltipHtml += `<br/>Std. Dev: ${stdDevValue.toFixed(2)}${config?.unit || ''}`;
@@ -413,7 +437,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
       return React.createElement('div', { dangerouslySetInnerHTML: { __html: tooltipHtml } });
     }
     
-    return [`${displayValue}${unitString}`, displayName];
+    return [`${displayValue}${unitString}`, displayName]; // Standard format for other charts
   };
 
 
@@ -422,34 +446,42 @@ const WeatherChart: FC<WeatherChartProps> = ({
       return null;
     }
 
+    // Filter out payloads that should not be displayed in the tooltip
     const filteredPayload = props.payload.filter((pldItem: any) => {
         const name = typeof pldItem.name === 'string' ? pldItem.name.toLowerCase() : '';
         const dataKey = typeof pldItem.dataKey === 'string' ? pldItem.dataKey.toLowerCase() : '';
 
+        // General exclusions
         if (name.includes("timestamp") ||
             dataKey === 'timestamp' ||
             dataKey === 'timestampdisplay' ||
             dataKey === 'tooltiptimestampfull' ||
-            (dataKey.includes("stddev") && chartType !== 'scatter') || 
-            dataKey.includes("count") ||
+            // dataKey.includes("stddev") || // Let scatter handle its own stddev tooltip
+            dataKey.includes("count") || // Usually shown as part of scatter tooltip if aggregated
             dataKey.includes("aggregationperiod")
            ) {
           return false;
         }
+        // For scatter plots, if the dataKey is for stdDev, but it's not one of the selected ZAxis metrics, hide it.
+        // This prevents stdDev from showing up as a separate line item if it's only used for bubble size.
+         if (chartType === 'scatter' && dataKey.includes("stddev") && !numericMetricsForScatter.some(m => `${m}_stdDev` === dataKey)) {
+             return false;
+         }
+
         return true;
       });
 
     if (filteredPayload.length === 0) {
-      return null;
+      return null; // Don't render tooltip if no valid items remain
     }
 
     return (
       <ChartTooltipContent
         {...props}
-        payload={filteredPayload}
+        payload={filteredPayload} // Use the filtered payload
         formatter={tooltipFormatter}
         labelFormatter={tooltipLabelFormatter}
-        hideIndicator={(chartType === 'scatter' && isAggregated)}
+        hideIndicator={(chartType === 'scatter' && isAggregated)} // Hide default indicator for aggregated scatter, as info is in the bubble/custom format
       />
     );
   };
@@ -458,36 +490,38 @@ const WeatherChart: FC<WeatherChartProps> = ({
     if (chartType === 'scatter') {
       return selectedMetrics.filter(key => {
         const config = METRIC_CONFIGS[key];
-        return config && !config.isString;
+        return config && !config.isString; // Scatter only for numeric
       });
     }
+    // Line and Bar can show string data (though typically they won't make sense, they don't break)
     return selectedMetrics;
   }, [selectedMetrics, METRIC_CONFIGS, chartType]);
 
 
   const renderChartSpecificElements = () => {
-    console.log('[WeatherChart] renderChartSpecificElements called. chartType:', chartType);
     
     if (chartType === 'scatter') {
-      console.log('[WeatherChart] Rendering SCATTER elements.');
       if (numericMetricsForScatter.length === 0) return null;
+      // For scatter plots, each metric is a separate <Scatter> component
+      // If aggregated, ZAxis is used for stdDev to control bubble size.
       const elements: JSX.Element[] = [];
       numericMetricsForScatter.forEach((key) => {
         const metricConfig = METRIC_CONFIGS[key];
-        if (!metricConfig || metricConfig.isString) return;
+        if (!metricConfig || metricConfig.isString) return; // Should be pre-filtered by numericMetricsForScatter
 
-        const yDataKey = isAggregated ? `${key}_avg` : key;
-        const baseMetricKey = key;
+        const yDataKey = isAggregated ? `${key}_avg` : key; // Y-axis is always the value (or avg)
+        const baseMetricKey = key; // For click handler to know original metric
         const stdDevDataKey = isAggregated ? `${key}_stdDev` : undefined;
-        const zAxisUniqueId = `z-${key}`;
+        const zAxisUniqueId = `z-${key}`; // Unique ID for ZAxis if used
 
+        // Add ZAxis only if aggregated and stdDevDataKey exists
         if (isAggregated && stdDevDataKey) {
           elements.push(
             <ZAxis
               key={`zaxis-${key}`}
-              zAxisId={zAxisUniqueId}
+              zAxisId={zAxisUniqueId} // Associate ZAxis with Scatter by this ID
               dataKey={stdDevDataKey}
-              range={[MIN_BUBBLE_AREA, MAX_BUBBLE_AREA]}
+              range={[MIN_BUBBLE_AREA, MAX_BUBBLE_AREA]} // Define bubble size range
               name={chartConfigForShadcn[`${key}_stdDev`]?.label || `${metricConfig.name} Std Dev`}
             />
           );
@@ -495,42 +529,40 @@ const WeatherChart: FC<WeatherChartProps> = ({
         elements.push(
           <Scatter
             key={`scatter-${key}`}
-            name={chartConfigForShadcn[yDataKey]?.label || yDataKey}
-            dataKey={yDataKey}
+            name={chartConfigForShadcn[yDataKey]?.label || yDataKey} // Legend name
+            dataKey={yDataKey} // Y-axis value
             fill={metricConfig.color || '#8884d8'}
             shape="circle"
             animationDuration={300}
-            {...(isAggregated && stdDevDataKey ? { zAxisId: zAxisUniqueId } : {})}
+            {...(isAggregated && stdDevDataKey ? { zAxisId: zAxisUniqueId } : {})} // Apply ZAxis if defined
             onClick={(props, index, event) => handleScatterPointClick(props, index, event as React.MouseEvent<SVGElement>, baseMetricKey)}
           />
         );
       });
       return elements;
     } else if (chartType === 'line') {
-        console.log('[WeatherChart] Rendering LINE elements because chartType is line.');
         const metricsToRenderForLine = selectedMetrics.filter(key => !METRIC_CONFIGS[key]?.isString);
         if (metricsToRenderForLine.length === 0) return null;
         return metricsToRenderForLine.map((key) => {
           const metricConfig = METRIC_CONFIGS[key];
-          if (!metricConfig) return null;
+          if (!metricConfig) return null; // Should not happen if selectedMetrics are valid
           const color = metricConfig.color || '#8884d8';
           const name = chartConfigForShadcn[key]?.label || metricConfig.name || key;
           return (
             <Line
               key={`line-${key}`}
               type="monotone"
-              dataKey={key}
+              dataKey={key} // For raw data, this is the direct metric key
               stroke={color}
               name={name}
               strokeWidth={2}
               dot={isAggregated ? { r: 3, fill: color, stroke: color, strokeWidth: 1 } : false}
-              connectNulls={false}
+              connectNulls={false} // Do not connect across null/missing data points
               animationDuration={300}
             />
           );
         });
     } else if (chartType === 'bar') {
-        console.log('[WeatherChart] Rendering BAR elements.');
         const metricsToRenderForBar = selectedMetrics.filter(key => !METRIC_CONFIGS[key]?.isString);
         if (metricsToRenderForBar.length === 0) return null;
         return metricsToRenderForBar.map((key) => {
@@ -550,14 +582,14 @@ const WeatherChart: FC<WeatherChartProps> = ({
           );
         });
     }
-    return null;
+    return null; // Should not be reached if chartType is valid
   };
 
+  // This function determines which Recharts component to render
   const renderChart = () => {
-    let currentChartDataForRender: any[] = formattedData; 
+    let currentChartDataForRender: any[] = formattedData; // Use the memoized formattedData
 
-    console.log(`[WeatherChart] FINAL RENDER PARAMS. chartType: ${chartType}`);
-    
+    // Loading state or no data/metrics selected
     if (isLoading || !currentChartDataForRender || currentChartDataForRender.length === 0 || (metricsAvailableForCurrentChartType.length === 0 && selectedMetrics.length > 0)) {
       return (
         <Card className="shadow-lg h-full">
@@ -565,7 +597,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
             <Skeleton className="h-6 w-1/2 mb-2" />
             <Skeleton className="h-4 w-1/3" />
           </CardHeader>
-          <CardContent className="p-4 pt-0 h-[450px] flex items-center justify-center">
+          <CardContent className="p-4 pt-0 h-[450px] flex items-center justify-center"> {/* Ensure chart area has a defined height */}
             <p className="text-muted-foreground">
               {isLoading ? "Loading chart data..." :
                 (metricsAvailableForCurrentChartType.length === 0 && selectedMetrics.length > 0 && chartType === 'scatter') ?
@@ -578,59 +610,64 @@ const WeatherChart: FC<WeatherChartProps> = ({
       );
     }
 
+    // Common X and Y Axis props
     const xAxisProps: any = {
-        stroke: "hsl(var(--foreground))", 
+        stroke: "hsl(var(--foreground))", // Ensure this uses a theme variable
         tick: { fill: "hsl(var(--foreground))", fontSize: 11 },
     };
     const yAxisProps: any = {
-        stroke: "hsl(var(--foreground))", 
+        stroke: "hsl(var(--foreground))", // Ensure this uses a theme variable
         tick: { fill: "hsl(var(--foreground))", fontSize: 12 },
         tickFormatter: yAxisTickFormatter,
         domain: yAxisDomain,
         allowDecimals: true,
-        type: "number" as const,
+        type: "number" as const, // Important for correct axis scaling
         scale: "linear" as const,
-        allowDataOverflow: chartType !== 'bar',
+        allowDataOverflow: chartType !== 'bar', // Bar charts usually clip, others can extend
     };
 
     let ChartComponentToRender: React.ComponentType<any>;
 
+    // Determine chart component and specific X-axis props based on chartType
     if (chartType === 'scatter') {
         ChartComponentToRender = ScatterChart;
-        if (!isAggregated) {
+        // Scatter-specific X-axis props
+        if (!isAggregated) { // Raw data scatter plot
             xAxisProps.dataKey = "timestamp";
             xAxisProps.type = "number";
-            xAxisProps.domain = ['dataMin', 'dataMax'];
+            xAxisProps.domain = ['dataMin', 'dataMax']; // Numeric domain for time
             xAxisProps.tickFormatter = (value: number) => formatTimestampToDdMmHhMmUTC(value);
             xAxisProps.scale = "time";
             xAxisProps.angle = -45;
             xAxisProps.textAnchor = "end";
             xAxisProps.dy = 10;
-            xAxisProps.height = 70;
+            xAxisProps.height = 70; // Taller to accommodate angled labels
             xAxisProps.minTickGap = 20;
-            xAxisProps.interval = currentChartDataForRender.length > 15 ? Math.floor(currentChartDataForRender.length / 10) : 0;
-        } else {
+            xAxisProps.interval = currentChartDataForRender.length > 15 ? Math.floor(currentChartDataForRender.length / 10) : 0; // Dynamic interval
+        } else { // Aggregated data scatter plot
             xAxisProps.dataKey = "timestampDisplay";
-            xAxisProps.type = "category";
+            xAxisProps.type = "category"; // Categories for aggregated timestamps
             xAxisProps.angle = -45;
             xAxisProps.textAnchor = "end";
             xAxisProps.dy = 10;
             xAxisProps.height = 70;
-            xAxisProps.minTickGap = 5;
-            xAxisProps.interval = "preserveStartEnd";
+            xAxisProps.minTickGap = 5; // Closer ticks for categories
+            xAxisProps.interval = "preserveStartEnd"; // Show first and last, and some in between
         }
     } else if (chartType === 'bar') {
         ChartComponentToRender = BarChart;
+        // Bar chart X-axis (always categorical for this setup)
         xAxisProps.dataKey = "timestampDisplay";
         xAxisProps.type = "category";
-        xAxisProps.angle = 0;
+        xAxisProps.angle = 0; // Horizontal labels for bar chart usually
         xAxisProps.textAnchor = "middle";
         xAxisProps.dy = 0;
-        xAxisProps.height = 30;
+        xAxisProps.height = 30; // Standard height
         xAxisProps.minTickGap = 5;
         xAxisProps.interval = isAggregated ? "preserveStartEnd" : (currentChartDataForRender.length > 20 ? Math.floor(currentChartDataForRender.length / (currentChartDataForRender.length > 0 ? Math.min(10, currentChartDataForRender.length) : 5)) : 0);
-    } else { 
+    } else { // Default to Line chart
         ChartComponentToRender = LineChart;
+        // Line chart X-axis (categorical for timestampDisplay)
         xAxisProps.dataKey = "timestampDisplay";
         xAxisProps.type = "category";
         xAxisProps.angle = (chartType === 'line' && !isAggregated) ? -45 : 0;
@@ -642,10 +679,11 @@ const WeatherChart: FC<WeatherChartProps> = ({
     }
 
     return (
+    // @ts-ignore
     <ChartComponentToRender
-      key={chartDynamicKey}
+      key={chartDynamicKey} // Force re-render on key props change
       data={currentChartDataForRender}
-      onClick={chartType === 'line' || chartType === 'bar' ? handleLineBarChartClick : undefined}
+      onClick={chartType === 'line' || chartType === 'bar' ? handleLineBarChartClick : undefined} // Scatter has its own onClick on <Scatter> elements
       {...commonCartesianProps}
     >
       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -665,26 +703,30 @@ const WeatherChart: FC<WeatherChartProps> = ({
         align="center"
         verticalAlign="top"
         formatter={(value, entry: any, index) => {
-          const rechartsName = entry.name as string | undefined;
+          const rechartsName = entry.name as string | undefined; // This 'name' comes from the 'name' prop of Line/Bar/Scatter
           if (typeof rechartsName !== 'string') {
-            return value;
+            return value; // Fallback
           }
 
+          // Determine original metric key (e.g. 'temperature' from 'temperature_avg')
           let originalKey = rechartsName;
           if (isAggregated && rechartsName.endsWith('_avg')) {
             originalKey = rechartsName.substring(0, rechartsName.length - 4);
           } else if (isAggregated && rechartsName.endsWith('_stdDev')) {
+              // For scatter plots, if ZAxis is named (e.g., "Temperature Std Dev"), we don't want it in legend
+              // because the bubble size represents it.
               if (chartType === 'scatter' && numericMetricsForScatter.includes(originalKey.replace('_stdDev','') as MetricKey) ) {
-                  return null; 
+                  return null; // Don't show Std Dev in legend for scatter
               }
           }
 
           const config = chartConfigForShadcn[originalKey as MetricKey];
-          return config?.label || value;
+          return config?.label || value; // Use label from chartConfigForShadcn if available
         }}
       />
-      {renderChartSpecificElements()}
+      {renderChartSpecificElements()} {/* Renders Line, Bar, or Scatter components */}
 
+      {/* Min/Max Reference Lines - only for Line charts and if enabled */}
       {showMinMaxLines && chartType === 'line' && minMaxReferenceData &&
         selectedMetrics.flatMap(metricKey => {
           const metricMinMax = minMaxReferenceData[metricKey];
@@ -694,30 +736,33 @@ const WeatherChart: FC<WeatherChartProps> = ({
               typeof metricMinMax.minValue !== 'number' || !isFinite(metricMinMax.minValue) ||
               typeof metricMinMax.maxValue !== 'number' || !isFinite(metricMinMax.maxValue)
           ) {
-            return [];
+            return []; // Skip if no valid min/max data or not applicable
           }
 
           const { minValue, maxValue } = metricMinMax;
+          // Determine order for label positioning to avoid overlap
           const orderIndex = metricsWithMinMaxLines.indexOf(metricKey);
-          const activeOrderIndex = orderIndex !== -1 ? orderIndex : 0;
+          const activeOrderIndex = orderIndex !== -1 ? orderIndex : 0; // Fallback if not found
 
-          const dyMinLabel = 5 + activeOrderIndex * 12;
-          const dyMaxLabel = -5 - activeOrderIndex * 12;
+          // Dynamic vertical positioning for labels
+          const dyMinLabel = 5 + activeOrderIndex * 12; // Adjust multiplier as needed
+          const dyMaxLabel = -5 - activeOrderIndex * 12; // Adjust multiplier as needed
+
 
           return [
             <ReferenceLine
               key={`min-line-${metricKey}`}
               y={minValue}
-              stroke={metricConfig.color}
+              stroke={metricConfig.color} // Use metric's color
               strokeDasharray="2 2"
               strokeOpacity={0.7}
-              strokeWidth={1.5} 
+              strokeWidth={1.5} // Made slightly thicker
               label={{
                 value: `Min: ${minValue.toFixed(isAggregated ? 1 : (metricConfig.unit === 'ppm' ? 0 : 2))}${metricConfig.unit || ''}`,
-                position: "right",
-                textAnchor: "end",
-                dx: -5,
-                fill: 'hsl(var(--popover-foreground))', 
+                position: "right", // Position relative to the line
+                textAnchor: "end", // Align text
+                dx: -5, // Horizontal offset
+                fill: 'hsl(var(--popover-foreground))', // Use a theme color for text
                 fontSize: 10,
                 dy: dyMinLabel
               }}
@@ -725,16 +770,16 @@ const WeatherChart: FC<WeatherChartProps> = ({
             <ReferenceLine
               key={`max-line-${metricKey}`}
               y={maxValue}
-              stroke={metricConfig.color}
+              stroke={metricConfig.color} // Use metric's color
               strokeDasharray="2 2"
               strokeOpacity={0.7}
-              strokeWidth={1.5} 
+              strokeWidth={1.5} // Made slightly thicker
               label={{
                 value: `Max: ${maxValue.toFixed(isAggregated ? 1 : (metricConfig.unit === 'ppm' ? 0 : 2))}${metricConfig.unit || ''}`,
                 position: "right",
                 textAnchor: "end",
                 dx: -5,
-                fill: 'hsl(var(--popover-foreground))', 
+                fill: 'hsl(var(--popover-foreground))', // Use a theme color for text
                 fontSize: 10,
                 dy: dyMaxLabel
               }}
@@ -755,18 +800,24 @@ const WeatherChart: FC<WeatherChartProps> = ({
             Displaying {chartType.charAt(0).toUpperCase() + chartType.slice(1)} Chart
             {(isAggregated && chartInputData.length > 0 ? ` (Aggregated Data - ${chartInputData[0]?.timestampDisplay ? (chartInputData[0] as AggregatedDataPoint).aggregationPeriod : 'N/A'})` : ` (Raw Data)`)}.
             {(((chartType === 'line' && !isAggregated)) || (chartType === 'scatter' && !isAggregated)) && " Point clicks can populate AI forecast."}
+            {/* Specific message for scatter plots when aggregated */}
             {chartType === 'scatter' && isAggregated && numericMetricsForScatter.length > 0 && " Bubble size indicates data spread (standard deviation)."}
           </CardDescription>
         </div>
       </CardHeader>
       <CardContent className="p-4 pt-0">
+        {/* ChartContainer from shadcn/ui/chart for consistent styling context */}
         <ChartContainer
             ref={chartRef}
-            config={chartConfigForShadcn}
-            className="w-full h-[550px] mx-auto overflow-hidden"
+            config={chartConfigForShadcn} // Pass the generated chart config
+            className="w-full h-[550px] mx-auto overflow-hidden" // Removed bg-card from here
           >
-          {renderChart()}
+          {/* Suspense fallback for dynamic imports if any part of renderChart is heavy or dynamic itself */}
+          {/* <Suspense fallback={<Skeleton className="h-[450px] w-full]" />}> */}
+            {renderChart()}
+          {/* </Suspense> */}
         </ChartContainer>
+        {/* Export button and options */}
         <div className="flex justify-center items-center pt-2 space-x-4">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -783,31 +834,35 @@ const WeatherChart: FC<WeatherChartProps> = ({
               <DropdownMenuLabel>Export Options</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <div className="px-2 py-1.5">
-                <Select value={exportThemeOption} onValueChange={(value) => setExportThemeOption(value as ExportThemeOption)}>
-                  <SelectTrigger className="w-full h-9 text-xs mb-1">
-                    <SelectValue placeholder="Select export theme" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="current" className="text-xs">
-                      <div className="flex items-center">
-                        <Laptop className="mr-2 h-3.5 w-3.5" /> Current View Theme
-                      </div>
-                    </SelectItem>
-                     {(resolvedTheme === 'dark' || (resolvedTheme === null && currentSystemTheme === 'dark')) ? ( 
-                       <SelectItem value="light" className="text-xs">
-                        <div className="flex items-center">
-                          <Sun className="mr-2 h-3.5 w-3.5" /> Light Theme
-                        </div>
-                      </SelectItem>
-                    ) : (
-                      <SelectItem value="dark" className="text-xs">
-                        <div className="flex items-center">
-                          <Moon className="mr-2 h-3.5 w-3.5" /> Dark Theme
-                        </div>
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
+                <Suspense fallback={<Skeleton className="w-full h-9" />}>
+                  {Select && SelectTrigger && SelectValue && SelectContent && SelectItem && (
+                    <Select value={exportThemeOption} onValueChange={(value) => setExportThemeOption(value as ExportThemeOption)}>
+                      <SelectTrigger className="w-full h-9 text-xs mb-1">
+                        <SelectValue placeholder="Select export theme" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="current" className="text-xs">
+                          <div className="flex items-center">
+                            <Laptop className="mr-2 h-3.5 w-3.5" /> Current View Theme
+                          </div>
+                        </SelectItem>
+                         {(resolvedTheme === 'dark' || (resolvedTheme === null && currentSystemTheme === 'dark')) ? ( 
+                           <SelectItem value="light" className="text-xs">
+                            <div className="flex items-center">
+                              <Sun className="mr-2 h-3.5 w-3.5" /> Light Theme
+                            </div>
+                          </SelectItem>
+                        ) : (
+                          <SelectItem value="dark" className="text-xs">
+                            <div className="flex items-center">
+                              <Moon className="mr-2 h-3.5 w-3.5" /> Dark Theme
+                            </div>
+                          </SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </Suspense>
               </div>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => exportChart('png')}>

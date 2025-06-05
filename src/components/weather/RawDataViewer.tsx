@@ -15,8 +15,6 @@ import type { RawFirebaseDataPoint } from '@/types/weather';
 import { parseCustomTimestamp } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +22,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Download } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 
 interface RawDataTableRow extends RawFirebaseDataPoint {
   id: string; // Firebase key
@@ -162,6 +162,11 @@ const RawDataViewer: FC = () => {
   };
 
   const exportToCSV = () => {
+    // Dynamically import jspdf (not needed for CSV, but keeping the pattern)
+    // For CSV, we just need to generate text content.
+
+    // Implementation for CSV export
+
     if (displayedData.length === 0) return;
     const headers = ['ID', ...tableHeaders.map(h => h.label)];
     const rows = displayedData.map(row => [
@@ -176,6 +181,11 @@ const RawDataViewer: FC = () => {
   };
 
   const exportToTXT = () => {
+    // Dynamically import jspdf (not needed for TXT, but keeping the pattern)
+    // For TXT, we just need to generate text content.
+
+    // Implementation for TXT export
+
     if (displayedData.length === 0) return;
     let txtContent = `Raw Data Export - ${formatDateFns(new Date(), 'yyyy-MM-dd HH:mm:ss')}\n`;
     txtContent += `Date Range: ${dateRange?.from ? formatDateFns(dateRange.from, 'yyyy-MM-dd') : 'N/A'} ${startTime} to ${dateRange?.to ? formatDateFns(dateRange.to, 'yyyy-MM-dd') : 'N/A'} ${endTime}\n`;
@@ -206,6 +216,11 @@ const RawDataViewer: FC = () => {
   };
 
   const exportToXML = () => {
+    // Dynamically import jspdf (not needed for XML, but keeping the pattern)
+    // For XML, we just need to generate text content.
+
+    // Implementation for XML export
+
     if (displayedData.length === 0) return;
     let xmlContent = '<?xml version="1.0" encoding="UTF-8"?>\n<records>\n';
     displayedData.forEach(row => {
