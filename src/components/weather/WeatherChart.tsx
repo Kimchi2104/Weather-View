@@ -140,7 +140,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
       formattedData.map(p => {
         let value;
         if (chartType === 'scatter' && isAggregated) {
-          value = p[\`\${metricKey}_avg\`] as number;
+          value = p[metricKey + '_avg'] as number;
         } else {
           value = p[metricKey] as number;
         }
@@ -195,18 +195,18 @@ const WeatherChart: FC<WeatherChartProps> = ({
         color: metricConf.color,
       };
       if (isAggregated && !metricConf.isString) {
-        config[\`\${key}_avg\`] = { 
-          label: \`\${metricConf.name} (Avg)\`,
+        config[`${key}_avg`] = { 
+          label: `${metricConf.name} (Avg)`,
           icon: metricConf.Icon,
           color: metricConf.color,
         };
-         config[\`\${key}_stdDev\`] = { 
-          label: \`\${metricConf.name} (Std. Dev)\`,
+         config[`${key}_stdDev`] = { 
+          label: `${metricConf.name} (Std. Dev)`,
           icon: undefined, 
           color: metricConf.color, 
         };
-         config[\`\${key}_count\`] = { // Added for count
-            label: \`\${metricConf.name} (Count)\`,
+         config[`${key}_count`] = { // Added for count
+            label: `${metricConf.name} (Count)`,
             icon: undefined,
             color: metricConf.color,
         };
@@ -251,10 +251,10 @@ const WeatherChart: FC<WeatherChartProps> = ({
           format: [canvas.width, canvas.height],
         });
         pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
-        pdf.save(\`weather-chart-\${targetExportTheme}.pdf\`);
+        pdf.save(`weather-chart-${targetExportTheme}.pdf`);
       } else {
         const link = document.createElement('a');
-        link.download = \`weather-chart-\${targetExportTheme}.\${format}\`;
+        link.download = `weather-chart-${targetExportTheme}.${format}`;
         link.href = imgData;
         link.click();
       }
@@ -307,7 +307,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
     originalMetricKeyForConfig = originalMetricKeyForConfig as MetricKey;
 
     const config = METRIC_CONFIGS[originalMetricKeyForConfig];
-    const displayName = config?.name || (isAvgKey ? \`\${originalMetricKeyForConfig} (Avg)\` : originalMetricKeyForConfig);
+    const displayName = config?.name || (isAvgKey ? `${originalMetricKeyForConfig} (Avg)` : originalMetricKeyForConfig);
     
     if (typeof displayName === 'string' && displayName.toLowerCase().includes("timestamp")) return null;
     if (displayName.toLowerCase().includes('std dev') || displayName.toLowerCase().includes('data points') || displayName.toLowerCase().includes('aggregation period')) return null;
@@ -321,31 +321,31 @@ const WeatherChart: FC<WeatherChartProps> = ({
     } else {
       displayValue = String(value);
     }
-    const unitString = (typeof value === 'number' && isFinite(value) && config?.unit) ? \` \${config.unit}\` : '';
+    const unitString = (typeof value === 'number' && isFinite(value) && config?.unit) ? ` ${config.unit}` : '';
 
     if (chartType === 'scatter' && isAggregated && config && !config.isString && entry.payload) {
-      let tooltipHtml = \`<div style="color: \${config.color || 'inherit'};"><strong>\${displayName}:</strong> \${displayValue}\${unitString}\`;
-      const stdDevValue = entry.payload[\`\${originalMetricKeyForConfig}_stdDev\`];
-      const countValue = entry.payload[\`\${originalMetricKeyForConfig}_count\`];
+      let tooltipHtml = `<div style="color: ${config.color || 'inherit'};"><strong>${displayName}:</strong> ${displayValue}${unitString}`;
+      const stdDevValue = entry.payload[`${originalMetricKeyForConfig}_stdDev`];
+      const countValue = entry.payload[`${originalMetricKeyForConfig}_count`];
 
       if (typeof stdDevValue === 'number' && isFinite(stdDevValue)) {
-        tooltipHtml += \`<br/>Std. Dev: \${stdDevValue.toFixed(2)}\${config?.unit || ''}\`;
+        tooltipHtml += `<br/>Std. Dev: ${stdDevValue.toFixed(2)}${config?.unit || ''}`;
       }
       if (typeof countValue === 'number' && isFinite(countValue)) {
-        tooltipHtml += \`<br/>Data Points: \${countValue}\`;
+        tooltipHtml += `<br/>Data Points: ${countValue}`;
       }
-      tooltipHtml += \`</div>\`;
+      tooltipHtml += `</div>`;
       return <div dangerouslySetInnerHTML={{ __html: tooltipHtml }} />;
     }
     
-    return [\`\${displayValue}\${unitString}\`, displayName];
+    return [`${displayValue}${unitString}`, displayName];
   };
 
 
   const handleChartClick = (rechartsEvent: any) => {
     console.log('[WeatherChart] handleChartClick triggered. Event:', rechartsEvent);
     if (rechartsEvent && rechartsEvent.activePayload) {
-      console.log('[WeatherChart] Active Payload:', rechartsEvent.activePayload);
+        console.log('[WeatherChart] Active Payload:', rechartsEvent.activePayload);
     }
 
     if (onPointClick) {
@@ -357,7 +357,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
               ('rawTimestampString' in clickedPointPayload || 
                ('timestamp' in clickedPointPayload && !isAggregated && !('aggregationPeriod' in clickedPointPayload)))) {
             console.log('[WeatherChart] Calling onPointClick for AI (raw data point).');
-            onPointClick(clickedPointPayload as WeatherDataPoint, null);
+            onPointClick(clickedPointPayload as WeatherDataPoint, null); // Pass null for event as it's an AI click
             return;
           }
         }
@@ -365,9 +365,10 @@ const WeatherChart: FC<WeatherChartProps> = ({
         console.log('[WeatherChart] Calling onPointClick for modal/detail (aggregated or other).');
         onPointClick(clickedPointPayload, rechartsEvent); 
   
-      } else if (rechartsEvent && rechartsEvent.chartX && rechartsEvent.chartY && !rechartsEvent.activePayload) {
+      } else if (rechartsEvent && rechartsEvent.chartX && rechartsEvent.chartY && (!rechartsEvent.activePayload || rechartsEvent.activePayload.length === 0)) {
+        // This is a click on an empty space in the chart
         console.log('[WeatherChart] Calling onPointClick for AI (empty chart space click).');
-        onPointClick(null, null);
+        onPointClick(null, null); // Pass null for both point and event
       }
     }
   };
@@ -383,33 +384,33 @@ const WeatherChart: FC<WeatherChartProps> = ({
           return [];
         }
   
-        const yDataKey = isAggregated ? \`\${key}_avg\` : key;
-        const stdDevDataKey = isAggregated ? \`\${key}_stdDev\` : undefined;
-        const zAxisUniqueId = \`z-\${key}\`; 
+        const yDataKey = isAggregated ? `${key}_avg` : key;
+        const stdDevDataKey = isAggregated ? `${key}_stdDev` : undefined;
+        const zAxisUniqueId = `z-${key}`; 
   
         const elements = [];
   
         if (isAggregated && stdDevDataKey) { 
           elements.push(
             <ZAxis
-              key={\`zaxis-\${key}\`}
+              key={`zaxis-${key}`}
               zAxisId={zAxisUniqueId}
               dataKey={stdDevDataKey}
               range={[MIN_BUBBLE_AREA, MAX_BUBBLE_AREA]}
-              name={chartConfigForShadcn[\`\${key}_stdDev\`]?.label || \`\${metricConfig.name} Std Dev\`}
+              name={chartConfigForShadcn[`${key}_stdDev`]?.label || `${metricConfig.name} Std Dev`}
             />
           );
         }
   
         elements.push(
           <Scatter
-            key={\`scatter-\${key}\`}
+            key={`scatter-${key}`}
             name={chartConfigForShadcn[yDataKey]?.label || chartConfigForShadcn[key]?.label || metricConfig.name}
             dataKey={yDataKey}
             fill={metricConfig.color || '#8884d8'}
             shape="circle"
             animationDuration={300}
-            {\...(isAggregated && stdDevDataKey ? { zAxisId: zAxisUniqueId } : {})}
+            {...(isAggregated && stdDevDataKey ? { zAxisId: zAxisUniqueId } : {})}
           />
         );
         return elements;
@@ -428,7 +429,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
         case 'line':
           return (
             <Line
-              key={\`line-\${key}\`}
+              key={`line-${key}`}
               type="monotone"
               dataKey={key}
               stroke={color}
@@ -441,7 +442,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
         case 'bar':
           return (
             <Bar
-              key={\`bar-\${key}\`}
+              key={`bar-${key}`}
               dataKey={key}
               fill={color}
               name={name}
@@ -485,7 +486,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
     ChartComponent = ScatterChart;
   }
 
-  const chartDynamicKey = \`\${chartType}-\${selectedMetrics.join('-')}-\${JSON.stringify(yAxisDomain)}-\${isAggregated}-\${formattedData.length}-\${showMinMaxLines}\`;
+  const chartDynamicKey = `${chartType}-${selectedMetrics.join('-')}-${JSON.stringify(yAxisDomain)}-${isAggregated}-${formattedData.length}-${showMinMaxLines}`;
   
   const scatterLabelFormatter = (label: string | number, payload: any[] | undefined) => {
     if (chartType === 'scatter') return null; 
@@ -592,7 +593,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           
           const config = chartConfigForShadcn[originalKey as MetricKey];
           if (config?.label) {
-            return isAggregated && dataKey.endsWith('_avg') ? \`\${config.label}\` : config.label;
+            return isAggregated && dataKey.endsWith('_avg') ? `${config.label}` : config.label;
           }
           return value;
         }}
@@ -622,14 +623,14 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
           return [
             <ReferenceLine
-              key={\`min-line-\${metricKey}\`}
+              key={`min-line-${metricKey}`}
               y={Number(minValue)}
               stroke={metricConfig.color}
               strokeDasharray="2 2"
               strokeOpacity={0.7}
               strokeWidth={1}
               label={{
-                value: \`Min: \${Number(minValue).toFixed(isAggregated ? 1 : (metricConfig.unit === 'ppm' ? 0 : 2))}\${metricConfig.unit || ''}\`,
+                value: `Min: ${Number(minValue).toFixed(isAggregated ? 1 : (metricConfig.unit === 'ppm' ? 0 : 2))}${metricConfig.unit || ''}`,
                 position: "right",
                 textAnchor: "end",
                 dx: -5,
@@ -639,14 +640,14 @@ const WeatherChart: FC<WeatherChartProps> = ({
               }}
             />,
             <ReferenceLine
-              key={\`max-line-\${metricKey}\`}
+              key={`max-line-${metricKey}`}
               y={Number(maxValue)}
               stroke={metricConfig.color}
               strokeDasharray="2 2"
               strokeOpacity={0.7}
               strokeWidth={1}
               label={{
-                value: \`Max: \${Number(maxValue).toFixed(isAggregated ? 1 : (metricConfig.unit === 'ppm' ? 0 : 2))}\${metricConfig.unit || ''}\`,
+                value: `Max: ${Number(maxValue).toFixed(isAggregated ? 1 : (metricConfig.unit === 'ppm' ? 0 : 2))}${metricConfig.unit || ''}`,
                 position: "right",
                 textAnchor: "end",
                 dx: -5,
@@ -685,7 +686,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           <CardTitle className="font-headline">Historical Data Trends</CardTitle>
           <CardDescription>
             Displaying {chartType.charAt(0).toUpperCase() + chartType.slice(1)} Chart
-            {(chartType !== 'scatter' || (chartType === 'scatter' && isAggregated)) && (isAggregated ? \` (Aggregated Data - \${formattedData[0]?.aggregationPeriod || ''})\` : \` (Raw Data)\`)}.
+            {(chartType !== 'scatter' || (chartType === 'scatter' && isAggregated)) && (isAggregated ? ` (Aggregated Data - ${formattedData[0]?.aggregationPeriod || ''})` : ` (Raw Data)`)}.
             {(((chartType === 'line' && !isAggregated)) || (chartType === 'scatter' && !isAggregated)) && " Point clicks can populate AI forecast."}
             {chartType === 'scatter' && isAggregated && numericMetricsForScatter.length > 0 && " Bubble size indicates data spread (standard deviation)."}
           </CardDescription>
@@ -709,7 +710,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           <CardTitle className="font-headline">Historical Data Trends</CardTitle>
            <CardDescription>
             Displaying {chartType.charAt(0).toUpperCase() + chartType.slice(1)} Chart
-            {(chartType !== 'scatter' || (chartType === 'scatter' && isAggregated)) && (isAggregated ? \` (Aggregated Data - \${formattedData[0]?.aggregationPeriod || ''})\` : \` (Raw Data)\`)}.
+            {(chartType !== 'scatter' || (chartType === 'scatter' && isAggregated)) && (isAggregated ? ` (Aggregated Data - ${formattedData[0]?.aggregationPeriod || ''})` : ` (Raw Data)`)}.
             {(((chartType === 'line' && !isAggregated)) || (chartType === 'scatter' && !isAggregated)) && " Point clicks can populate AI forecast."}
             {chartType === 'scatter' && isAggregated && numericMetricsForScatter.length > 0 && " Bubble size indicates data spread (standard deviation)."}
           </CardDescription>
@@ -788,3 +789,4 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
 export default WeatherChart;
     
+
