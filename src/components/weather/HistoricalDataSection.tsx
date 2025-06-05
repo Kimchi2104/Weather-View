@@ -15,7 +15,7 @@ import { Label as ShadcnLabel } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { transformRawDataToWeatherDataPoint, formatTimestampToDdMmHhMmUTC, formatTimestampToFullUTC, parseCustomTimestamp } from '@/lib/utils';
+import { transformRawDataToWeatherDataPoint, formatTimestampToDdMmHhMmUTC, formatTimestampToFullUTC } from '@/lib/utils';
 import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge, ShieldCheck } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from '@/components/ui/skeleton';
@@ -25,7 +25,6 @@ const WeatherChart = dynamic(() => import('./WeatherChart'), {
   loading: () => <div className="mt-6"><Skeleton className="h-[550px] w-full" /></div>,
 });
 
-
 const HISTORICAL_AVAILABLE_METRICS: { key: MetricKey; name: string }[] = [
   { key: 'temperature', name: 'Temperature' },
   { key: 'humidity', name: 'Humidity' },
@@ -34,6 +33,7 @@ const HISTORICAL_AVAILABLE_METRICS: { key: MetricKey; name: string }[] = [
   { key: 'pressure', name: 'Pressure' },
 ];
 
+// Moved METRIC_CONFIGS to module scope
 const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
   temperature: { name: 'Temperature', unit: '°C', Icon: Thermometer, color: 'hsl(var(--chart-1))', healthyMin: 0, healthyMax: 35 },
   humidity: { name: 'Humidity', unit: '%', Icon: Droplets, color: 'hsl(var(--chart-2))', healthyMin: 30, healthyMax: 70 },
@@ -45,9 +45,8 @@ const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
 };
 
 type ChartType = 'line' | 'bar' | 'scatter';
-type AggregationPeriod = 'daily' | 'weekly' | 'monthly';
+type AggregationPeriod = 'hourly' | 'daily' | 'weekly' | 'monthly';
 type ChartAggregationMode = AggregationPeriod | 'raw';
-
 
 interface AggregatedDataPoint {
   timestamp: number;
@@ -64,12 +63,17 @@ const calculateStandardDeviation = (values: number[]): number => {
   if (!values || values.length === 0) return 0;
   const validValues = values.filter(v => typeof v === 'number' && isFinite(v));
   if (validValues.length <= 1) return 0;
+
   const mean = validValues.reduce((sum, val) => sum + val, 0) / validValues.length;
+  if (!isFinite(mean)) return 0; // Handle case where mean might become NaN/Infinity
+
   const variance = validValues.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / validValues.length;
   if (isNaN(variance) || !isFinite(variance)) return 0;
+
   const stdDev = Math.sqrt(variance);
   return isNaN(stdDev) || !isFinite(stdDev) ? 0 : stdDev;
 };
+
 
 const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointClick }) => {
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
@@ -82,7 +86,6 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
   const [selectedChartType, setSelectedChartType] = useState<ChartType>('line');
   const [aggregationType, setAggregationType] = useState<ChartAggregationMode>('raw');
   const [showMinMaxLines, setShowMinMaxLines] = useState<boolean>(false);
-
 
   const firebaseDataPath = 'devices/TGkMhLL4k4ZFBwgOyRVNKe5mTQq1/records/';
 
@@ -172,7 +175,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
       // Scatter can work with raw, no change needed automatically
     } else if (newChartType === 'scatter' && aggregationType !== 'raw') {
       // If switching to scatter and already aggregated, keep aggregation
-    } else if (aggregationType === 'raw') { // For Line/Bar and if current is raw, switch to daily
+    } else if (aggregationType === 'raw') { 
         setAggregationType('daily');
     }
   };
@@ -191,7 +194,9 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
       displayedData.forEach(point => {
         let key = '';
         const pointDate = new Date(point.timestamp);
-        if (currentAggregationPeriod === 'daily') {
+        if (currentAggregationPeriod === 'hourly') {
+          key = format(pointDate, 'yyyy-MM-dd HH');
+        } else if (currentAggregationPeriod === 'daily') {
           key = format(pointDate, 'yyyy-MM-dd');
         } else if (currentAggregationPeriod === 'weekly') {
           const weekYear = getYear(pointDate);
@@ -214,7 +219,9 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           aggregationPeriod: currentAggregationPeriod,
         };
 
-        if (currentAggregationPeriod === 'daily') {
+        if (currentAggregationPeriod === 'hourly') {
+          aggregatedPoint.timestampDisplay = format(new Date(pointsInGroup[0].timestamp), 'MMM dd HH:00');
+        } else if (currentAggregationPeriod === 'daily') {
           aggregatedPoint.timestampDisplay = format(new Date(pointsInGroup[0].timestamp), 'MMM dd');
         } else if (currentAggregationPeriod === 'weekly') {
            const dateFromKey = new Date(pointsInGroup[0].timestamp);
@@ -225,14 +232,13 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
         
         selectedMetrics.forEach(metricKey => {
           const config = METRIC_CONFIGS[metricKey];
-          if (config && !config.isString) { // Numeric metrics
+          if (config && !config.isString) { 
             const values = pointsInGroup.map(p => p[metricKey] as number).filter(v => typeof v === 'number' && isFinite(v));
             if (values.length > 0) {
               const average = values.reduce((sum, val) => sum + val, 0) / values.length;
                 (aggregatedPoint as any)[`${metricKey}_avg`] = average;
                 (aggregatedPoint as any)[`${metricKey}_stdDev`] = calculateStandardDeviation(values);
                 (aggregatedPoint as any)[`${metricKey}_count`] = values.length;
-                 // For line/bar charts, also provide the direct metricKey for simplicity if needed by chart.
                 if (selectedChartType === 'line' || selectedChartType === 'bar') {
                     aggregatedPoint[metricKey] = average;
                 }
@@ -244,10 +250,10 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
                      aggregatedPoint[metricKey] = null;
                 }
             }
-          } else if (config && config.isString) { // String metrics
+          } else if (config && config.isString) { 
              const firstValue = pointsInGroup[0]?.[metricKey];
-             aggregatedPoint[metricKey] = firstValue; // For line/bar: use first string value
-             if (selectedChartType === 'scatter') { // For scatter: provide structure but avg/stdDev are not meaningful
+             aggregatedPoint[metricKey] = firstValue; 
+             if (selectedChartType === 'scatter' && isActuallyAggregated) {
                 (aggregatedPoint as any)[`${metricKey}_avg`] = null; 
                 (aggregatedPoint as any)[`${metricKey}_stdDev`] = 0; 
                 (aggregatedPoint as any)[`${metricKey}_count`] = pointsInGroup.length;
@@ -259,7 +265,6 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
       return aggregatedResult;
     }
     
-    // Raw data handling (for all chart types, including scatter)
     return displayedData.map(point => ({
         ...point,
         timestampDisplay: formatTimestampToDdMmHhMmUTC(point.timestamp),
@@ -268,7 +273,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
   }, [displayedData, selectedChartType, aggregationType, selectedMetrics, isActuallyAggregated]);
 
   const minMaxReferenceData = useMemo(() => {
-    if (!showMinMaxLines || chartData.length === 0) {
+    if (!showMinMaxLines || chartData.length === 0 || selectedChartType !== 'line') {
       return undefined;
     }
     const result: Record<string, { minValue: number; maxValue: number }> = {};
@@ -276,9 +281,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
       const config = METRIC_CONFIGS[metricKey];
       if (config && !config.isString) {
         const values = chartData.map(p => {
-          if (selectedChartType === 'scatter' && isActuallyAggregated) {
-            return (p as any)[`${metricKey}_avg`] as number;
-          }
+          // For line charts, directly use the metricKey, which holds the average if aggregated
           return (p as any)[metricKey] as number;
         }).filter(v => typeof v === 'number' && isFinite(v));
         
@@ -291,8 +294,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
       }
     });
     return result;
-  }, [showMinMaxLines, chartData, selectedMetrics, isActuallyAggregated, selectedChartType]);
-
+  }, [showMinMaxLines, chartData, selectedMetrics, selectedChartType, isActuallyAggregated]); // isActuallyAggregated influences chartData structure
 
   return (
     <section className="mb-8">
@@ -359,8 +361,6 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
               <Select 
                 value={aggregationType} 
                 onValueChange={(value) => setAggregationType(value as ChartAggregationMode)}
-                // Bar chart should not be "raw" if it was forced to daily, but user can switch back to other aggregations.
-                // Scatter can be raw. Line can be raw.
                 disabled={(selectedChartType === 'bar' && aggregationType === 'raw')}
               >
                 <SelectTrigger id="aggregation-type-select" className="w-full sm:w-auto sm:min-w-[150px]">
@@ -368,6 +368,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
                 </SelectTrigger>
                 <SelectContent>
                   { (selectedChartType === 'line' || selectedChartType === 'scatter' ) && <SelectItem value="raw">Raw Data</SelectItem> }
+                  <SelectItem value="hourly">Hourly</SelectItem>
                   <SelectItem value="daily">Daily</SelectItem>
                   <SelectItem value="weekly">Weekly</SelectItem>
                   <SelectItem value="monthly">Monthly</SelectItem>
