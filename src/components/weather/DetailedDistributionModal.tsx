@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import type { FC } from 'react';
@@ -16,7 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { WeatherDataPoint, MetricConfig, MetricKey, DetailModalData as DetailModalDataType } from '@/types/weather';
 import { formatTimestampToFullUTC } from '@/lib/utils';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, AreaChart, Area, ReferenceLine } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, AreaChart, Area, ReferenceLine, ReferenceArea } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle as ModalCardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -198,7 +199,7 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
   const canShowDistributionPlots = numericValuesForDistribution && numericValuesForDistribution.length > 0;
   const CHART_HEIGHT = 350; 
   const FIXED_CHART_WIDTH = 450; 
-  const FIXED_CHART_HEIGHT = 300; 
+  const FIXED_CHART_HEIGHT = CHART_HEIGHT - 50; // Adjust for tab headers etc.
 
 
   // LOGGING START
@@ -231,26 +232,22 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
   const { metricKey, metricConfig, aggregationLabel, stats, rawPoints } = data;
 
   const violinPrimaryColor = metricConfig.color || 'hsl(var(--primary))';
-  const violinFillColor = `hsla(var(--primary-hsl), 0.3)`; // Assuming primary color has an HSL var
-
-  // Extract HSL values from the primary color string for dynamic opacity
-  let primaryHslValues = "210 75% 50%"; // Default fallback
-  if (violinPrimaryColor.startsWith('hsl(var(--chart-')) {
-      // This requires globals.css to have --chart-X-hsl vars or similar
-      // For now, we'll use a fallback or assume a specific chart var
-      const chartVarMatch = violinPrimaryColor.match(/--chart-(\d)/);
-      if (chartVarMatch && chartVarMatch[1]) {
-          const chartNum = chartVarMatch[1];
-          // This is tricky as we can't directly read CSS vars in JS easily.
-          // We'll use a fallback or predefined HSL values for chart colors.
-          // Example for chart-1:
-          if (chartNum === '1') primaryHslValues = "210 75% 50%"; // --chart-1 HSL
-          else if (chartNum === '2') primaryHslValues = "180 60% 50%"; // --chart-2 HSL
-          // Add more cases if other chart colors are used for violin
-      }
-  } else if (violinPrimaryColor.startsWith('hsl(var(--primary')) {
-       primaryHslValues = "210 75% 50%"; // --primary HSL
+  let primaryHslValues = "210 75% 50%"; // Default for primary
+  
+  const chartVarMatch = violinPrimaryColor.match(/--chart-(\d)/);
+  if (chartVarMatch && chartVarMatch[1]) {
+      const chartNum = chartVarMatch[1];
+      if (chartNum === '1') primaryHslValues = "210 75% 50%"; 
+      else if (chartNum === '2') primaryHslValues = "180 60% 50%";
+      else if (chartNum === '3') primaryHslValues = "30 80% 55%";
+      else if (chartNum === '4') primaryHslValues = "280 65% 60%";
+      else if (chartNum === '5') primaryHslValues = "340 75% 55%";
+  } else if (violinPrimaryColor === 'hsl(var(--primary))') {
+    primaryHslValues = "210 75% 50%";
+  } else if (violinPrimaryColor === 'hsl(var(--accent))') {
+    primaryHslValues = "180 60% 50%";
   }
+  
   const dynamicViolinFillColor = `hsla(${primaryHslValues.split(' ')[0]}, ${primaryHslValues.split(' ')[1]}, ${primaryHslValues.split(' ')[2].replace('%','')*0.8}%, 0.3)`;
 
 
@@ -311,7 +308,7 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                             <TabsTrigger value="histogram" className="text-xs h-8">Histogram</TabsTrigger>
                             <TabsTrigger value="violin" className="text-xs h-8">Violin Plot</TabsTrigger>
                         </TabsList>
-                        <TabsContent value="histogram" className={`min-h-[${CHART_HEIGHT}px] p-0 pr-4 pb-2 mt-0 flex items-center justify-center`}>
+                        <TabsContent value="histogram" className={`h-[${CHART_HEIGHT}px] p-0 pr-4 pb-2 mt-0 flex items-center justify-center`}>
                             {(() => {
                               const showHistogram = canShowDistributionPlots && histogramData && histogramData.length > 0;
                               console.log('[DetailedDistributionModal] Show Histogram condition:', showHistogram);
@@ -348,17 +345,24 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                               }
                             })()}
                         </TabsContent>
-                        <TabsContent value="violin" className={`min-h-[${CHART_HEIGHT}px] p-0 pr-1 pb-2 mt-0 flex items-center justify-center`}>
+                        <TabsContent value="violin" className={`h-[${CHART_HEIGHT}px] p-0 pr-1 pb-2 mt-0 flex items-center justify-center`}>
                            {(() => {
                               const showViolin = canShowDistributionPlots && violinPlotDataForArea && violinPlotDataForArea.length > 0 && boxPlotStats;
-                              console.log('[DetailedDistributionModal] Show Violin condition (boolean):', !!showViolin);
+                              const violinLogCondition =  `${canShowDistributionPlots} && ${!!violinPlotDataForArea} && ${violinPlotDataForArea?.length > 0} && ${!!boxPlotStats}`;
+                              console.log('[DetailedDistributionModal] Show Violin condition (boolean):', !!showViolin, ' // From:', violinLogCondition);
+                              
                               if (showViolin) {
+                                const boxPlotStrokeColor = 'hsl(var(--foreground))';
+                                const boxPlotFillColor = 'hsla(var(--foreground-hsl), 0.1)';
+                                const boxPlotElementsWidth = 0.3; // Relative to density axis (-1 to 1)
+
                                 return (
                                   <AreaChart 
                                     width={FIXED_CHART_WIDTH} 
                                     height={FIXED_CHART_HEIGHT}
                                     data={violinPlotDataForArea}
                                     margin={{ top: 10, right: 20, bottom: 20, left: 0 }} 
+                                    layout="vertical"
                                   >
                                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                                       <XAxis 
@@ -396,24 +400,58 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                                           itemSorter={(item) => item.name === 'densityRight' ? 1 : -1} 
                                           cursor={{ stroke: 'hsl(var(--accent))', strokeDasharray: '3 3' }}
                                       />
-                                      <Area type="monotone" dataKey="densityRight" strokeWidth={1} stroke={violinPrimaryColor} fill={dynamicViolinFillColor} fillOpacity={0.7} stackId="1" name="Density (Right)" />
-                                      <Area type="monotone" dataKey="densityLeft" strokeWidth={1} stroke={violinPrimaryColor} fill={dynamicViolinFillColor} fillOpacity={0.7} stackId="1" name="Density (Left)" />
+                                      <Area type="monotone" dataKey="densityRight" strokeWidth={1.5} stroke={violinPrimaryColor} fill={dynamicViolinFillColor} fillOpacity={0.7} stackId="1" name="Density (Right)" />
+                                      <Area type="monotone" dataKey="densityLeft" strokeWidth={1.5} stroke={violinPrimaryColor} fill={dynamicViolinFillColor} fillOpacity={0.7} stackId="1" name="Density (Left)" />
                                       
+                                      {/* Inner Box Plot Elements */}
                                       {boxPlotStats && (
                                         <>
-                                            <ReferenceLine y={boxPlotStats.median} stroke="hsl(var(--foreground))" strokeWidth={1.5} strokeOpacity={0.9} ifOverflow="visible">
-                                                <YAxis.Label value="Median" offset={5} position="right" style={{fontSize: '9px', fill: 'hsl(var(--foreground))'}} className="recharts-label"/>
-                                            </ReferenceLine>
-                                            <ReferenceLine y={boxPlotStats.q1} stroke="hsl(var(--muted-foreground))" strokeWidth={1} strokeDasharray="2 2" strokeOpacity={0.7} ifOverflow="visible">
-                                                 <YAxis.Label value="Q1" offset={5} position="right" style={{fontSize: '9px', fill: 'hsl(var(--muted-foreground))'}} className="recharts-label"/>
-                                            </ReferenceLine>
-                                            <ReferenceLine y={boxPlotStats.q3} stroke="hsl(var(--muted-foreground))" strokeWidth={1} strokeDasharray="2 2" strokeOpacity={0.7} ifOverflow="visible">
-                                                 <YAxis.Label value="Q3" offset={5} position="right" style={{fontSize: '9px', fill: 'hsl(var(--muted-foreground))'}} className="recharts-label"/>
-                                            </ReferenceLine>
-                                            <ReferenceLine y={boxPlotStats.whiskerLow} stroke="hsl(var(--border))" strokeWidth={1} strokeDasharray="4 4" strokeOpacity={0.6} ifOverflow="visible">
-                                              <YAxis.Label value="Whisker" offset={5} position="right" style={{fontSize: '9px', fill: 'hsl(var(--border))'}} className="recharts-label"/>
-                                            </ReferenceLine>
-                                            <ReferenceLine y={boxPlotStats.whiskerHigh} stroke="hsl(var(--border))" strokeWidth={1} strokeDasharray="4 4" strokeOpacity={0.6} ifOverflow="visible"/>
+                                          {/* IQR Box */}
+                                          <ReferenceArea
+                                            y1={boxPlotStats.q1}
+                                            y2={boxPlotStats.q3}
+                                            x1={-boxPlotElementsWidth / 2} 
+                                            x2={boxPlotElementsWidth / 2}
+                                            stroke={boxPlotStrokeColor}
+                                            strokeOpacity={0.6}
+                                            fill={boxPlotFillColor}
+                                            fillOpacity={0.4}
+                                            ifOverflow="visible"
+                                          />
+                                          {/* Median Line */}
+                                          <ReferenceLine
+                                            y={boxPlotStats.median}
+                                            stroke={boxPlotStrokeColor}
+                                            strokeWidth={2}
+                                            ifOverflow="visible"
+                                            segment={[{ x: -boxPlotElementsWidth / 2, y: boxPlotStats.median }, { x: boxPlotElementsWidth / 2, y: boxPlotStats.median }]}
+                                          />
+                                          {/* Whiskers - Vertical Lines */}
+                                          <ReferenceLine
+                                            stroke={boxPlotStrokeColor}
+                                            strokeWidth={1}
+                                            ifOverflow="visible"
+                                            segment={[{ x: 0, y: boxPlotStats.q1 }, { x: 0, y: boxPlotStats.whiskerLow }]}
+                                          />
+                                          <ReferenceLine
+                                            stroke={boxPlotStrokeColor}
+                                            strokeWidth={1}
+                                            ifOverflow="visible"
+                                            segment={[{ x: 0, y: boxPlotStats.q3 }, { x: 0, y: boxPlotStats.whiskerHigh }]}
+                                          />
+                                          {/* Whisker Caps - Horizontal Lines */}
+                                          <ReferenceLine
+                                            stroke={boxPlotStrokeColor}
+                                            strokeWidth={1}
+                                            ifOverflow="visible"
+                                            segment={[{ x: -boxPlotElementsWidth / 4, y: boxPlotStats.whiskerHigh }, { x: boxPlotElementsWidth / 4, y: boxPlotStats.whiskerHigh }]}
+                                          />
+                                          <ReferenceLine
+                                            stroke={boxPlotStrokeColor}
+                                            strokeWidth={1}
+                                            ifOverflow="visible"
+                                            segment={[{ x: -boxPlotElementsWidth / 4, y: boxPlotStats.whiskerLow }, { x: boxPlotElementsWidth / 4, y: boxPlotStats.whiskerLow }]}
+                                          />
                                         </>
                                       )}
                                   </AreaChart>
@@ -486,4 +524,3 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
 
 export default DetailedDistributionModal;
     
-
