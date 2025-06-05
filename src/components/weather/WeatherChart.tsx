@@ -339,15 +339,14 @@ const WeatherChart: FC<WeatherChartProps> = ({
     return [`${displayValue}${unitString}`, displayName];
   };
 
-
   const handleScatterPointClick = (scatterPointProps: any, index: number) => {
     console.log('[WeatherChart] Scatter Point Clicked. Index:', index);
     // Log the full scatterPointProps object to inspect its structure
-    console.log('[WeatherChart] Full scatterPointProps from Recharts (raw):', scatterPointProps);
     try {
       console.log('[WeatherChart] Full scatterPointProps from Recharts (JSON):', JSON.stringify(scatterPointProps, null, 2));
     } catch (e) {
-      console.warn('[WeatherChart] Could not stringify scatterPointProps:', e);
+      console.warn('[WeatherChart] Could not stringify scatterPointProps for logging:', e);
+      console.log('[WeatherChart] Full scatterPointProps from Recharts (raw):', scatterPointProps);
     }
 
     if (scatterPointProps) {
@@ -357,6 +356,9 @@ const WeatherChart: FC<WeatherChartProps> = ({
       }
       // Pass the entire scatterPointProps as the second argument (rechartsClickProps)
       // as it contains Recharts context like dataKey, name, etc.
+      // scatterPointProps (1st arg) is the object with payload, dataKey, name, etc.
+      // The 2nd arg from <Scatter /> onClick is the index. We pass scatterPointProps again
+      // for HistoricalDataSection to parse.
       onPointClick?.(scatterPointProps.payload, scatterPointProps);
     } else {
       console.warn('[WeatherChart] scatterPointProps was null or undefined for scatter click.');
@@ -366,25 +368,36 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
   const handleLineBarChartClick = (rechartsEvent: any) => {
     let eventDataString = 'Could not stringify event';
+    let activePayloadData: any = null;
+    let activePayloadFull: any = null;
+
     try {
-      eventDataString = JSON.stringify(rechartsEvent, (key, value) => {
-        if (typeof value === 'function') return '[Function]';
-        if (value instanceof Element) return '[DOM Element]';
-        if (key === 'target' && value instanceof EventTarget) return '[EventTarget]';
-        return value;
-      }, 2);
-    } catch (e) { /* ignore stringify errors */ }
+        eventDataString = JSON.stringify(rechartsEvent, (key, value) => {
+            if (typeof value === 'function') return '[Function]';
+            if (value instanceof Element) return '[DOM Element]';
+            if (key === 'target' && value instanceof EventTarget) return '[EventTarget]';
+            // Add more sophisticated filtering if needed, e.g., for very large objects
+            return value;
+        }, 2);
+    } catch (e) {
+        // Fallback if stringify fails for any reason
+        console.warn('[WeatherChart] Could not stringify full rechartsEvent for Line/Bar click:', e);
+        eventDataString = 'Event object too complex or circular to stringify.';
+    }
     console.log('[WeatherChart] Line/Bar Chart Click. Full Event Data (Sanitized):', eventDataString);
 
+
     if (rechartsEvent && rechartsEvent.activePayload && rechartsEvent.activePayload.length > 0) {
-      console.log('[WeatherChart] Line/Bar - Active Payload FOUND:', rechartsEvent.activePayload);
-      onPointClick?.(rechartsEvent.activePayload[0].payload, rechartsEvent.activePayload[0]); // Pass activePayload[0] as rechartsClickProps
+        console.log('[WeatherChart] Line/Bar - Active Payload FOUND:', rechartsEvent.activePayload);
+        activePayloadData = rechartsEvent.activePayload[0].payload;
+        activePayloadFull = rechartsEvent.activePayload[0];
+        onPointClick?.(activePayloadData, activePayloadFull);
     } else if (rechartsEvent && (rechartsEvent.chartX || rechartsEvent.xValue)) {
-      console.log('[WeatherChart] Line/Bar - Click on chart area (empty space). Calling onPointClick with nulls.');
-      onPointClick?.(null, null);
+        console.log('[WeatherChart] Line/Bar - Click on chart area (empty space). Calling onPointClick with nulls.');
+        onPointClick?.(null, null);
     } else {
-      console.log('[WeatherChart] Line/Bar - Generic chart click, no specific active payload or chart coordinates. Calling onPointClick with nulls.');
-      onPointClick?.(null, null);
+        console.log('[WeatherChart] Line/Bar - Generic chart click, no specific active payload or chart coordinates. Calling onPointClick with nulls.');
+        onPointClick?.(null, null);
     }
   };
 
@@ -421,7 +434,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
         elements.push(
           <Scatter
             key={`scatter-${key}`}
-            name={yDataKey} // Set name to yDataKey for programmatic parsing
+            name={yDataKey} 
             dataKey={yDataKey}
             fill={metricConfig.color || '#8884d8'}
             shape="circle"
@@ -440,7 +453,6 @@ const WeatherChart: FC<WeatherChartProps> = ({
       if (!metricConfig) return null;
 
       const color = metricConfig.color || '#8884d8';
-      // Use the raw key for the name prop if a label isn't found, for programmatic access
       const name = chartConfigForShadcn[key]?.label || metricConfig.name || key;
 
       switch (chartType) {
@@ -599,20 +611,24 @@ const WeatherChart: FC<WeatherChartProps> = ({
         align="center"
         verticalAlign="top"
         formatter={(value, entry, index) => {
-          // The 'value' here is the 'name' prop from the <Line />, <Bar />, or <Scatter /> component
-          const rechartsName = entry.name as string; // This should be the yDataKey like 'temperature_avg' for scatter
+          const rechartsName = entry.name as string; 
           let originalKey = rechartsName;
+          
+          if (typeof rechartsName !== 'string') {
+            // console.warn('[WeatherChart] Legend formatter: rechartsName is not a string.', {value, entry});
+            return value; // Fallback to the 'value' Recharts passes
+          }
 
           if (isAggregated && rechartsName.endsWith('_avg')) {
             originalKey = rechartsName.substring(0, rechartsName.length - 4);
           } else if (isAggregated && rechartsName.endsWith('_stdDev')) {
              if (chartType === 'scatter' && numericMetricsForScatter.includes(originalKey.replace('_stdDev','') as MetricKey) ) {
-                 return null; // Don't show std dev in legend for scatter
+                 return null; 
              }
           }
           
           const config = chartConfigForShadcn[originalKey as MetricKey];
-          return config?.label || value; // Fallback to the original value (which might be label or key)
+          return config?.label || value; 
         }}
       />
       {renderChartSpecificElements()}
@@ -806,4 +822,3 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
 export default WeatherChart;
     
-
