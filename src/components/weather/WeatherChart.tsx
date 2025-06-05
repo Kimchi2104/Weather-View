@@ -90,7 +90,7 @@ type ExportThemeOption = 'current' | 'light' | 'dark';
 const WeatherChart: FC<WeatherChartProps> = ({
   data: chartInputData,
   selectedMetrics,
-  metricConfigs: METRIC_CONFIGS, // Renamed for clarity within this component
+  metricConfigs: METRIC_CONFIGS, 
   isLoading,
   onPointClick,
   chartType,
@@ -181,7 +181,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
     }).sort();
   }, [showMinMaxLines, minMaxReferenceData, selectedMetrics, METRIC_CONFIGS, chartType]);
 
- useEffect(() => {
+  useEffect(() => {
     // Uncomment these logs if scatter chart is still not working as expected
     // if (chartType === 'scatter') {
     //   console.log(`[WeatherChart] Chart Type: ${chartType}, Is Aggregated: ${isAggregated}`);
@@ -297,65 +297,64 @@ const WeatherChart: FC<WeatherChartProps> = ({
     return String(value);
   };
 
-  const tooltipFormatter = (value: any, name: any, entry: any) => {
-    // `name` is `metricConfig.name` (e.g., "Temperature", "Humidity")
-    // `entry.dataKey` is the actual data key from the data object (e.g., "temperature_avg", "humidity")
-    // `entry.payload` is the full data object for that point in the chart
-  
+const tooltipFormatter = (value: any, name: any, entry: any) => {
     const dataKey = entry.dataKey as string;
-  
-    let originalMetricKey = dataKey as MetricKey;
-    if (isAggregated && dataKey.endsWith('_avg')) {
-      originalMetricKey = dataKey.substring(0, dataKey.length - 4) as MetricKey;
-    } else if (isAggregated && dataKey.endsWith('_stdDev')) { // Should not be a primary formatted item
-      return null; 
+    let processingName = name; 
+    let derivedMetricKey = dataKey; 
+
+    if (isAggregated) {
+        if (dataKey.endsWith('_avg')) derivedMetricKey = dataKey.substring(0, dataKey.length - 4);
+        else if (dataKey.endsWith('_stdDev')) derivedMetricKey = dataKey.substring(0, dataKey.length - 7);
+        else if (dataKey.endsWith('_count')) derivedMetricKey = dataKey.substring(0, dataKey.length - 6);
     }
-  
-    // Explicitly skip any "timestamp" related keys from being formatted as individual tooltip items
-    const lowerCaseOriginalMetricKey = originalMetricKey.toLowerCase();
-    if (lowerCaseOriginalMetricKey.includes('timestamp') || lowerCaseOriginalMetricKey.includes('aggregationperiod')) {
+    
+    if (typeof processingName === 'string' && processingName.toLowerCase().includes('timestamp')) {
         return null;
     }
 
-    const config = METRIC_CONFIGS[originalMetricKey];
-    const displayName = config?.name || name || originalMetricKey;
-  
+    const lowerCaseDerivedMetricKey = derivedMetricKey.toLowerCase();
+    if (
+        lowerCaseDerivedMetricKey.includes('timestamp') ||
+        lowerCaseDerivedMetricKey.includes('aggregationperiod') ||
+        (isAggregated && (dataKey.endsWith('_stdDev') || dataKey.endsWith('_count')))
+    ) {
+        return null; 
+    }
+
+    const originalMetricKeyForConfig = derivedMetricKey as MetricKey;
+    const config = METRIC_CONFIGS[originalMetricKeyForConfig];
+    const displayName = config?.name || processingName || originalMetricKeyForConfig; 
+
+
     let displayValue;
     if (typeof value === 'number' && isFinite(value)) {
-      const precision = (config?.unit === 'ppm' ? 0 : (config?.isString ? 0 : (isAggregated ? 1 : 2)));
-      displayValue = value.toFixed(precision);
+        const precision = (config?.unit === 'ppm' ? 0 : (config?.isString ? 0 : (isAggregated ? 1 : 2)));
+        displayValue = value.toFixed(precision);
     } else if (value === undefined || value === null || (typeof value === 'number' && !isFinite(value))) {
-      displayValue = 'N/A';
+        displayValue = 'N/A';
     } else {
-      displayValue = String(value);
+        displayValue = String(value);
     }
-  
+
     const unitString = (typeof value === 'number' && isFinite(value) && config?.unit) ? ` ${config.unit}` : '';
-  
+
     if (chartType === 'scatter' && isAggregated && entry.payload) {
-      const stdDevValue = entry.payload[`${originalMetricKey}_stdDev`];
-      const countValue = entry.payload[`${originalMetricKey}_count`];
-      
-      let tooltipContent = `${displayName}: ${displayValue}${unitString}`;
-      
-      if (typeof stdDevValue === 'number' && isFinite(stdDevValue)) {
-        tooltipContent += `\nStd. Dev: ${stdDevValue.toFixed(2)}${config?.unit || ''}`;
-      }
-      if (typeof countValue === 'number' && isFinite(countValue)) {
-        tooltipContent += `\nData Points: ${countValue}`;
-      }
-      // For scatter tooltips with multiple items, return an array [value, name]
-      // where value can be a multi-line string. Recharts will handle styling.
-      // We return `displayName` as the second element, which Recharts uses as the label for this item.
-      // However, to avoid repeating the metric name if it's already in `tooltipContent`,
-      // we can return null for the label part if displayName is already clear.
-      // Let's try returning the built string as the "value" and the metric name as "name" for clarity.
-      return [tooltipContent.trim(), null]; // Pass null for the label part if the metric name is already in the content.
+        const stdDevValue = entry.payload[`${originalMetricKeyForConfig}_stdDev`];
+        const countValue = entry.payload[`${originalMetricKeyForConfig}_count`];
+        
+        let tooltipContent = `${displayName}: ${displayValue}${unitString}`;
+        
+        if (typeof stdDevValue === 'number' && isFinite(stdDevValue)) {
+            tooltipContent += `\nStd. Dev: ${stdDevValue.toFixed(2)}${config?.unit || ''}`;
+        }
+        if (typeof countValue === 'number' && isFinite(countValue)) {
+            tooltipContent += `\nData Points: ${countValue}`;
+        }
+        return [tooltipContent.trim(), null];
     }
     
-    // For raw scatter, line, or bar charts
     return [`${displayValue}${unitString}`, displayName];
-  };
+};
 
 
   const handleChartClick = (event: any) => {
@@ -376,7 +375,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
       }
       return numericMetricsForScatter.flatMap((key) => {
         const metricConfig = METRIC_CONFIGS[key];
-        if (!metricConfig || metricConfig.isString) { // Should be redundant due to numericMetricsForScatter filter
+        if (!metricConfig || metricConfig.isString) { 
           return [];
         }
   
@@ -523,7 +522,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           formatter={tooltipFormatter}
           labelFormatter={(label, payload) => {
             if (chartType === 'scatter') {
-              return null; 
+                return null; 
             }
             if (payload && payload.length > 0 && payload[0].payload.tooltipTimestampFull) {
               return payload[0].payload.tooltipTimestampFull;
@@ -696,3 +695,4 @@ const WeatherChart: FC<WeatherChartProps> = ({
 };
 
 export default WeatherChart;
+
