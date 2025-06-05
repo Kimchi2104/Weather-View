@@ -16,7 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { WeatherDataPoint, MetricConfig, MetricKey, DetailModalData as DetailModalDataType } from '@/types/weather';
 import { formatTimestampToFullUTC } from '@/lib/utils';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, ReferenceLine } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, AreaChart, Area, ReferenceLine } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle as ModalCardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -327,7 +327,7 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                         <TabsContent value="violin" className={`min-h-[${CHART_HEIGHT}px] p-0 pr-1 pb-2 mt-0 flex items-center justify-center`}>
                            {(() => {
                               const showViolin = canShowDistributionPlots && violinPlotDataForArea && violinPlotDataForArea.length > 0 && boxPlotStats;
-                              console.log('[DetailedDistributionModal] Show Violin condition:', showViolin);
+                              console.log('[DetailedDistributionModal] Show Violin condition (boolean):', !!showViolin);
                               if (showViolin) {
                                 return (
                                   <AreaChart 
@@ -372,22 +372,26 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                                           itemSorter={(item) => item.name === 'densityRight' ? 1 : -1} 
                                           cursor={{ stroke: 'hsl(var(--accent))', strokeDasharray: '3 3' }}
                                       />
-                                      <Area type="monotone" dataKey="densityRight" stroke={metricConfig.color || 'hsl(var(--primary))'} fill={metricConfig.color || 'hsl(var(--primary))'} fillOpacity={0.3} stackId="1" name="Density (Right)" />
-                                      <Area type="monotone" dataKey="densityLeft" stroke={metricConfig.color || 'hsl(var(--primary))'} fill={metricConfig.color || 'hsl(var(--primary))'} fillOpacity={0.3} stackId="1" name="Density (Left)" />
+                                      <Area type="monotone" dataKey="densityRight" strokeWidth={1} stroke="#FF0000" fill="rgba(255,0,0,0.3)" stackId="1" name="Density (Right)" />
+                                      <Area type="monotone" dataKey="densityLeft" strokeWidth={1} stroke="#0000FF" fill="rgba(0,0,255,0.3)" stackId="1" name="Density (Left)" />
                                       
-                                      <ReferenceLine y={boxPlotStats.median} stroke="hsl(var(--foreground))" strokeWidth={1.5} strokeOpacity={0.9} ifOverflow="visible">
-                                          <YAxis.Label value="Median" offset={5} position="right" style={{fontSize: '9px', fill: 'hsl(var(--foreground))'}} className="recharts-label"/>
-                                      </ReferenceLine>
-                                      <ReferenceLine y={boxPlotStats.q1} stroke="hsl(var(--muted-foreground))" strokeWidth={1} strokeDasharray="2 2" strokeOpacity={0.7} ifOverflow="visible">
-                                           <YAxis.Label value="Q1" offset={5} position="right" style={{fontSize: '9px', fill: 'hsl(var(--muted-foreground))'}} className="recharts-label"/>
-                                      </ReferenceLine>
-                                      <ReferenceLine y={boxPlotStats.q3} stroke="hsl(var(--muted-foreground))" strokeWidth={1} strokeDasharray="2 2" strokeOpacity={0.7} ifOverflow="visible">
-                                           <YAxis.Label value="Q3" offset={5} position="right" style={{fontSize: '9px', fill: 'hsl(var(--muted-foreground))'}} className="recharts-label"/>
-                                      </ReferenceLine>
-                                       <ReferenceLine y={boxPlotStats.whiskerLow} stroke="hsl(var(--border))" strokeWidth={1} strokeDasharray="4 4" strokeOpacity={0.6} ifOverflow="visible">
-                                         <YAxis.Label value="Whisker" offset={5} position="right" style={{fontSize: '9px', fill: 'hsl(var(--border))'}} className="recharts-label"/>
-                                       </ReferenceLine>
-                                       <ReferenceLine y={boxPlotStats.whiskerHigh} stroke="hsl(var(--border))" strokeWidth={1} strokeDasharray="4 4" strokeOpacity={0.6} ifOverflow="visible"/>
+                                      {boxPlotStats && (
+                                        <>
+                                            <ReferenceLine y={boxPlotStats.median} stroke="hsl(var(--foreground))" strokeWidth={1.5} strokeOpacity={0.9} ifOverflow="visible">
+                                                <YAxis.Label value="Median" offset={5} position="right" style={{fontSize: '9px', fill: 'hsl(var(--foreground))'}} className="recharts-label"/>
+                                            </ReferenceLine>
+                                            <ReferenceLine y={boxPlotStats.q1} stroke="hsl(var(--muted-foreground))" strokeWidth={1} strokeDasharray="2 2" strokeOpacity={0.7} ifOverflow="visible">
+                                                 <YAxis.Label value="Q1" offset={5} position="right" style={{fontSize: '9px', fill: 'hsl(var(--muted-foreground))'}} className="recharts-label"/>
+                                            </ReferenceLine>
+                                            <ReferenceLine y={boxPlotStats.q3} stroke="hsl(var(--muted-foreground))" strokeWidth={1} strokeDasharray="2 2" strokeOpacity={0.7} ifOverflow="visible">
+                                                 <YAxis.Label value="Q3" offset={5} position="right" style={{fontSize: '9px', fill: 'hsl(var(--muted-foreground))'}} className="recharts-label"/>
+                                            </ReferenceLine>
+                                            <ReferenceLine y={boxPlotStats.whiskerLow} stroke="hsl(var(--border))" strokeWidth={1} strokeDasharray="4 4" strokeOpacity={0.6} ifOverflow="visible">
+                                              <YAxis.Label value="Whisker" offset={5} position="right" style={{fontSize: '9px', fill: 'hsl(var(--border))'}} className="recharts-label"/>
+                                            </ReferenceLine>
+                                            <ReferenceLine y={boxPlotStats.whiskerHigh} stroke="hsl(var(--border))" strokeWidth={1} strokeDasharray="4 4" strokeOpacity={0.6} ifOverflow="visible"/>
+                                        </>
+                                      )}
                                   </AreaChart>
                                 );
                               } else {
