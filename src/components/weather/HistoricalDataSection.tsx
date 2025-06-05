@@ -300,86 +300,89 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
   const handleDetailedChartClick = (clickedData: WeatherDataPoint | AggregatedDataPoint | null, rechartsClickProps: any | null) => {
     console.log('[HistoricalDataSection] handleDetailedChartClick received:', { clickedData, rechartsClickProps });
     console.log(`[HistoricalDataSection] Current state: selectedChartType: ${selectedChartType}, isActuallyAggregated: ${isActuallyAggregated}`);
-    
-    if (rechartsClickProps) {
-        console.log('[HistoricalDataSection] RechartsClickProps (the event/props from Recharts click):', JSON.stringify(rechartsClickProps, (key, value) => (typeof value === 'function' ? 'function' : value), 2));
-    }
 
+    const isRawLineOrScatterClickForAI = 
+      ((selectedChartType === 'line' || selectedChartType === 'scatter') && !isActuallyAggregated);
 
-    const isRawLineOrScatterClickForAI = ((selectedChartType === 'line' && !isActuallyAggregated) || (selectedChartType === 'scatter' && !isActuallyAggregated));
-    if (isRawLineOrScatterClickForAI) {
-        if (clickedData && ('rawTimestampString' in clickedData || ('timestamp' in clickedData && !isActuallyAggregated && !('aggregationPeriod' in clickedData)))) {
-            if (onChartPointClickForAI) {
-                console.log('[HistoricalDataSection] Handling AI forecast click with point:', clickedData);
-                onChartPointClickForAI(clickedData as WeatherDataPoint);
-            }
-             return;
-        }
+    if (isRawLineOrScatterClickForAI && onChartPointClickForAI) {
+      if (clickedData && ('rawTimestampString' in clickedData || ('timestamp' in clickedData && !isActuallyAggregated && !('aggregationPeriod' in clickedData)))) {
+          console.log('[HistoricalDataSection] Handling AI forecast click with point:', clickedData);
+          onChartPointClickForAI(clickedData as WeatherDataPoint);
+          return; 
+      }
     }
     
+    const conditionForModal = selectedChartType === 'scatter' && isActuallyAggregated && clickedData;
+
     console.log('[HistoricalDataSection] Checking condition for modal:', 
         `selectedChartType === 'scatter': ${selectedChartType === 'scatter'}`,
         `isActuallyAggregated: ${isActuallyAggregated}`,
         `!!clickedData: ${!!clickedData}`
     );
 
-    const conditionForModal = selectedChartType === 'scatter' && isActuallyAggregated && clickedData;
-
     if (conditionForModal) {
-      console.log('[HistoricalDataSection] Aggregated scatter click DETECTED for modal.');
-      const payloadPoint = clickedData as AggregatedDataPoint;
+      console.log('[HistoricalDataSection] Scatter click DETECTED for modal.');
+      const payloadPoint = clickedData as AggregatedDataPoint; 
 
+      console.log("[HistoricalDataSection] Scatter click: rechartsClickProps object received:", rechartsClickProps);
+      console.log("[HistoricalDataSection] Scatter click: selectedMetrics array:", selectedMetrics);
+      console.log("[HistoricalDataSection] Scatter click: payloadPoint (clickedData):", payloadPoint);
+      
       let metricKeyFromPayload: MetricKey | undefined = undefined;
 
-      // Log the received rechartsClickProps for inspection
-      console.log("[HistoricalDataSection] Scatter click: rechartsClickProps object: ", rechartsClickProps);
-      console.log("[HistoricalDataSection] Scatter click: selectedMetrics array: ", selectedMetrics);
-
-
+      // Strategy 1: Try rechartsClickProps.dataKey
       if (rechartsClickProps && typeof rechartsClickProps.dataKey === 'string') {
           metricKeyFromPayload = rechartsClickProps.dataKey.replace(/_avg$/, '') as MetricKey;
-          console.log(`[HistoricalDataSection] MetricKey from rechartsClickProps.dataKey ('${rechartsClickProps.dataKey}'): ${metricKeyFromPayload}`);
+          console.log(`[HistoricalDataSection] Strategy 1 (dataKey): Derived metricKey '${metricKeyFromPayload}' from dataKey '${rechartsClickProps.dataKey}'`);
       } else {
-          console.log("[HistoricalDataSection] rechartsClickProps.dataKey is not a string or not present.");
+          console.log(`[HistoricalDataSection] Strategy 1 (dataKey): FAILED. rechartsClickProps.dataKey is not a string or not present. Value:`, rechartsClickProps?.dataKey);
       }
-      
+
+      // Strategy 2: Try rechartsClickProps.name (if Strategy 1 failed)
       if (!metricKeyFromPayload && rechartsClickProps && typeof rechartsClickProps.name === 'string') {
-          const foundMetric = Object.entries(METRIC_CONFIGS).find(([key, conf]) => conf.name === rechartsClickProps.name || `${conf.name} (Avg)` === rechartsClickProps.name);
+          const metricNameFromProps = rechartsClickProps.name;
+          console.log(`[HistoricalDataSection] Strategy 2 (name): Attempting to find metric by rechartsClickProps.name: '${metricNameFromProps}'`);
+          const foundMetric = Object.entries(METRIC_CONFIGS).find(([cfgKey, conf]) => 
+              conf.name === metricNameFromProps || `${conf.name} (Avg)` === metricNameFromProps
+          );
           if (foundMetric) {
-            metricKeyFromPayload = foundMetric[0] as MetricKey;
-            console.log(`[HistoricalDataSection] MetricKey from rechartsClickProps.name ('${rechartsClickProps.name}'): ${metricKeyFromPayload}`);
+              metricKeyFromPayload = foundMetric[0] as MetricKey;
+              console.log(`[HistoricalDataSection] Strategy 2 (name): Derived metricKey '${metricKeyFromPayload}' from name '${metricNameFromProps}'`);
           } else {
-            console.log(`[HistoricalDataSection] Could not find metric by name ('${rechartsClickProps.name}') in METRIC_CONFIGS.`);
+              console.log(`[HistoricalDataSection] Strategy 2 (name): FAILED. Could not match name '${metricNameFromProps}' to any metric config.`);
           }
       } else if (!metricKeyFromPayload) {
-          console.log("[HistoricalDataSection] rechartsClickProps.name is not a string or not present (or metricKey already found).");
+          console.log(`[HistoricalDataSection] Strategy 2 (name): SKIPPED or FAILED. rechartsClickProps.name is not a string or not present. Value:`, rechartsClickProps?.name);
       }
 
+      // Strategy 3: Fallback for single selected numeric metric (if previous strategies failed)
       if (!metricKeyFromPayload) {
-        const numericSelectedMetrics = selectedMetrics.filter(m => !METRIC_CONFIGS[m].isString);
-        console.log("[HistoricalDataSection] Numeric selected metrics:", numericSelectedMetrics);
-        if (numericSelectedMetrics.length === 1 && payloadPoint.hasOwnProperty(`${numericSelectedMetrics[0]}_avg`)) {
-          metricKeyFromPayload = numericSelectedMetrics[0];
-          console.log(`[HistoricalDataSection] Using single selected numeric metric as fallback: ${metricKeyFromPayload}`);
-        } else {
-            console.log("[HistoricalDataSection] Fallback to single selected metric not applicable or key not in payloadPoint.");
-        }
+          console.log("[HistoricalDataSection] Strategy 3 (single selected): Attempting fallback.");
+          const numericSelectedMetrics = selectedMetrics.filter(m => !METRIC_CONFIGS[m].isString);
+          console.log("[HistoricalDataSection] Strategy 3: Numeric selected metrics:", numericSelectedMetrics);
+          if (numericSelectedMetrics.length === 1 && payloadPoint.hasOwnProperty(`${numericSelectedMetrics[0]}_avg`)) {
+              metricKeyFromPayload = numericSelectedMetrics[0];
+              console.log(`[HistoricalDataSection] Strategy 3: Derived metricKey '${metricKeyFromPayload}' using single selected numeric metric.`);
+          } else {
+              console.log("[HistoricalDataSection] Strategy 3: FAILED. Not a single numeric metric or key not in payloadPoint.");
+          }
       }
-      
+
+      // Strategy 4: Fallback to infer from unique _avg key in payloadPoint (if previous strategies failed)
       if (!metricKeyFromPayload) {
-          console.log("[HistoricalDataSection] Attempting to infer metricKey from payloadPoint's unique _avg key.");
+          console.log("[HistoricalDataSection] Strategy 4 (unique _avg key): Attempting fallback.");
           const numericKeysInPayload = Object.keys(payloadPoint).filter(k => k.endsWith('_avg'));
-          console.log("[HistoricalDataSection] Numeric keys in payloadPoint ending with _avg:", numericKeysInPayload);
+          console.log("[HistoricalDataSection] Strategy 4: Numeric keys in payloadPoint ending with _avg:", numericKeysInPayload);
           if (numericKeysInPayload.length === 1) {
               metricKeyFromPayload = numericKeysInPayload[0].replace('_avg', '') as MetricKey;
-              console.log(`[HistoricalDataSection] Inferred metricKey from payloadPoint's unique _avg key: ${metricKeyFromPayload}`);
+              console.log(`[HistoricalDataSection] Strategy 4: Derived metricKey '${metricKeyFromPayload}' from unique _avg key in payloadPoint.`);
           } else {
-               console.log("[HistoricalDataSection] Could not infer from unique _avg key in payloadPoint. Number of _avg keys:", numericKeysInPayload.length);
+              console.log("[HistoricalDataSection] Strategy 4: FAILED. Could not infer from unique _avg key. Number of _avg keys:", numericKeysInPayload.length);
           }
       }
 
       if (!metricKeyFromPayload) {
-          console.error("[HistoricalDataSection] Cannot reliably infer metricKey for modal. Aborting modal open.");
+          console.error("[HistoricalDataSection] All strategies FAILED. Cannot reliably infer metricKey for modal. Aborting modal open.");
           return;
       }
 
@@ -600,3 +603,4 @@ export default HistoricalDataSection;
     
 
     
+

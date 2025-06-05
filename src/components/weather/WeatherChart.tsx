@@ -115,7 +115,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
         timestampDisplay: point.timestampDisplay || formatTimestampToDdMmHhMmUTC(point.timestamp || Date.now()),
         tooltipTimestampFull: point.tooltipTimestampFull || (isAggregated && point.aggregationPeriod ? point.timestampDisplay : formatTimestampToFullUTC(point.timestamp || Date.now())),
     }));
-    console.log('[WeatherChart] Formatted Data (first 3):', result.slice(0,3));
+    // console.log('[WeatherChart] Formatted Data (first 3):', result.slice(0,3));
     return result;
   }, [chartInputData, isAggregated]);
 
@@ -341,31 +341,52 @@ const WeatherChart: FC<WeatherChartProps> = ({
   };
 
 
-  const handleScatterPointClick = (scatterPointProps: any, _scatterDOMEvent: React.MouseEvent<SVGElement>) => {
-    // The second argument from Recharts <Scatter /> onClick is the index, not the DOM event for individual points.
-    // The DOM event is available on scatterPointProps.event if needed, but usually scatterPointProps is enough.
-    console.log('[WeatherChart] Scatter Point Clicked. Props from Recharts:', scatterPointProps);
-    if (scatterPointProps && scatterPointProps.payload) {
-      console.log('[WeatherChart] Calling onPointClick with scatter point payload and Recharts props.');
-      // Pass scatterPointProps as the second argument, as it contains dataKey, name etc.
+  const handleScatterPointClick = (scatterPointProps: any, index: number) => {
+    console.log('[WeatherChart] Scatter Point Clicked. Index:', index);
+    console.log('[WeatherChart] Full scatterPointProps from Recharts:', scatterPointProps);
+    if (scatterPointProps) {
+      console.log('[WeatherChart] Keys available on scatterPointProps:', Object.keys(scatterPointProps));
+      if (scatterPointProps.payload) {
+        console.log('[WeatherChart] Scatter point payload:', scatterPointProps.payload);
+      }
+      // Important: We pass scatterPointProps itself as the second argument, as it contains
+      // properties like 'dataKey', 'name', 'fill', 'stroke', etc., which might be needed
+      // by the parent to determine which specific metric series was clicked.
       onPointClick?.(scatterPointProps.payload, scatterPointProps);
     } else {
-      console.warn('[WeatherChart] Scatter point click did not have expected payload in props.');
-      onPointClick?.(null, scatterPointProps); // Pass scatterPointProps even if payload is missing
+      console.warn('[WeatherChart] scatterPointProps was null or undefined.');
+      onPointClick?.(null, null);
     }
   };
 
+
   const handleLineBarChartClick = (rechartsEvent: any) => {
-    // This handler is for Line and Bar charts' chart-level onClick.
-    console.log('[WeatherChart] Line/Bar Chart Click. Event from Recharts:', rechartsEvent);
-    if (rechartsEvent && rechartsEvent.activePayload && rechartsEvent.activePayload.length > 0) {
-      console.log('[WeatherChart] Line/Bar - Active Payload FOUND. Calling onPointClick.');
+    if (!rechartsEvent) {
+      console.log('[WeatherChart] Line/Bar Chart Click: Event from Recharts is null/undefined. Calling onPointClick with nulls.');
+      onPointClick?.(null, null);
+      return;
+    }
+    
+    let eventDataString = 'Could not stringify event';
+    try {
+        eventDataString = JSON.stringify(rechartsEvent, (key, value) => {
+            if (typeof value === 'function') return '[Function]';
+            if (value instanceof Element) return '[DOM Element]';
+            if (key === 'target' && value instanceof EventTarget) return '[EventTarget]'; 
+            return value;
+        }, 2);
+    } catch (e) { /* ignore stringify errors for complex objects */ }
+
+    console.log('[WeatherChart] Line/Bar Chart Click. Full Event Data (Sanitized):', eventDataString);
+
+    if (rechartsEvent.activePayload && rechartsEvent.activePayload.length > 0) {
+      console.log('[WeatherChart] Line/Bar - Active Payload FOUND:', rechartsEvent.activePayload);
       onPointClick?.(rechartsEvent.activePayload[0].payload, rechartsEvent);
-    } else if (rechartsEvent && (rechartsEvent.chartX || rechartsEvent.xValue)) {
+    } else if (rechartsEvent.chartX || rechartsEvent.xValue) { 
       console.log('[WeatherChart] Line/Bar - Click on chart area (empty space). Calling onPointClick with nulls.');
       onPointClick?.(null, null);
     } else {
-      console.log('[WeatherChart] Line/Bar - Generic chart click, no specific active payload. Calling onPointClick with nulls.');
+      console.log('[WeatherChart] Line/Bar - Generic chart click, no specific active payload or chart coordinates. Calling onPointClick with nulls.');
       onPointClick?.(null, null);
     }
   };
@@ -409,7 +430,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
             shape="circle"
             animationDuration={300}
             {...(isAggregated && stdDevDataKey ? { zAxisId: zAxisUniqueId } : {})}
-            onClick={handleScatterPointClick} // Use the specific handler for scatter points
+            onClick={handleScatterPointClick} 
           />
         );
         return elements;
@@ -788,3 +809,4 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
 export default WeatherChart;
     
+
