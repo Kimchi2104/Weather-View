@@ -19,7 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { WeatherDataPoint, MetricConfig, MetricKey, DetailModalData as DetailModalDataType } from '@/types/weather';
 import { formatTimestampToFullUTC } from '@/lib/utils';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, AreaChart, Area, ReferenceLine, ReferenceArea, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ReferenceArea, ResponsiveContainer } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle as ModalCardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -40,6 +40,8 @@ interface DetailedDistributionModalProps {
   onClose: () => void;
   data: DetailModalDataType | null;
 }
+
+const FIXED_CHART_HEIGHT = 300; // Kept for ResponsiveContainer height
 
 const getMetricValueFromPoint = (point: WeatherDataPoint, metricKey: MetricKey, metricConfig?: MetricConfig): number | string | undefined => {
   if (!point || metricKey === undefined) return undefined;
@@ -88,7 +90,7 @@ const calculateBoxPlotStats = (arr: number[]): { min: number; q1: number; median
 
 const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen, onClose, data }) => {
   const [selectedDistributionChart, setSelectedDistributionChart] = useState<'histogram' | 'violin'>('histogram');
-  const { theme: currentSystemTheme, resolvedTheme } = useTheme();
+  const { systemTheme, theme, resolvedTheme, setTheme } = useTheme();
   const [isExporting, setIsExporting] = useState(false);
   const [exportThemeOption, setExportThemeOption] = useState<ExportThemeOption>('current');
 
@@ -218,28 +220,28 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
   }, [boxPlotStats]);
 
   const canShowDistributionPlots = numericValuesForDistribution && numericValuesForDistribution.length > 0;
-  const CHART_HEIGHT = 350; 
-  const FIXED_CHART_HEIGHT = CHART_HEIGHT - 50; 
+  
+  const currentActualTheme = resolvedTheme || systemTheme || 'light';
 
 
   useEffect(() => {
     if (isOpen && data) {
-      console.log('[DetailedDistributionModal] Rendering. isOpen:', isOpen);
-      console.log('[DetailedDistributionModal] Data props:', {
-        metricKey: data.metricKey,
-        metricName: data.metricConfig.name,
-        aggregationLabel: data.aggregationLabel,
-        stats: data.stats,
-        rawPointsCount: data.rawPoints.length,
-      });
-      console.log('[DetailedDistributionModal] numericValuesForDistribution (count, sample):', 
-        numericValuesForDistribution?.length, 
-        numericValuesForDistribution?.slice(0,5)
-      );
-      console.log('[DetailedDistributionModal] histogramData:', histogramData);
-      console.log('[DetailedDistributionModal] boxPlotStats:', boxPlotStats);
-      console.log('[DetailedDistributionModal] violinPlotDataForArea:', violinPlotDataForArea);
-      console.log('[DetailedDistributionModal] canShowDistributionPlots:', canShowDistributionPlots);
+      // console.log('[DetailedDistributionModal] Rendering. isOpen:', isOpen);
+      // console.log('[DetailedDistributionModal] Data props:', {
+      //   metricKey: data.metricKey,
+      //   metricName: data.metricConfig.name,
+      //   aggregationLabel: data.aggregationLabel,
+      //   stats: data.stats,
+      //   rawPointsCount: data.rawPoints.length,
+      // });
+      // console.log('[DetailedDistributionModal] numericValuesForDistribution (count, sample):', 
+      //   numericValuesForDistribution?.length, 
+      //   numericValuesForDistribution?.slice(0,5)
+      // );
+      // console.log('[DetailedDistributionModal] histogramData:', histogramData);
+      // console.log('[DetailedDistributionModal] boxPlotStats:', boxPlotStats);
+      // console.log('[DetailedDistributionModal] violinPlotDataForArea:', violinPlotDataForArea);
+      // console.log('[DetailedDistributionModal] canShowDistributionPlots:', canShowDistributionPlots);
     }
   }, [isOpen, data, numericValuesForDistribution, histogramData, boxPlotStats, violinPlotDataForArea, canShowDistributionPlots]);
 
@@ -250,29 +252,23 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
   const { metricKey, metricConfig, aggregationLabel, stats, rawPoints } = data;
 
   const violinPrimaryColor = metricConfig.color || 'hsl(var(--primary))';
-  
   let primaryHslValuesString = "210 75% 50%"; 
-  const colorVariable = violinPrimaryColor.match(/hsl\(var\((--[\w-]+)\)\)/);
+  const colorVariableMatch = violinPrimaryColor.match(/hsl\(var\((--[\w-]+)\)\)/);
 
-  if (colorVariable && colorVariable[1]) {
-    const knownChartHslStrings: Record<string, string> = {
-      '--chart-1': "210 75% 50%",
-      '--chart-2': "180 60% 50%",
-      '--chart-3': "30 80% 55%",
-      '--chart-4': "280 65% 60%",
-      '--chart-5': "340 75% 55%",
-      '--primary': "210 75% 50%",
-      '--accent': "180 60% 50%",
-    };
-    primaryHslValuesString = knownChartHslStrings[colorVariable[1]] || primaryHslValuesString;
+  if (colorVariableMatch && colorVariableMatch[1]) {
+    const cssVarName = colorVariableMatch[1];
+    const rootStyle = getComputedStyle(document.documentElement);
+    const hslStringFromVar = rootStyle.getPropertyValue(cssVarName)?.trim();
+    if (hslStringFromVar) {
+      primaryHslValuesString = hslStringFromVar;
+    }
   }
   
   const [h, s, lBase] = primaryHslValuesString.split(' ').map(v => parseFloat(v.replace('%','')));
-  const dynamicViolinFillColor = `hsla(${h}, ${s}%, ${lBase * 0.8}%, 0.3)`; 
-
+  const dynamicViolinFillColor = `hsla(${h}, ${s}%, ${lBase * (currentActualTheme === 'dark' ? 0.4 : 0.8)}%, 0.3)`; 
 
   const boxPlotStrokeColor = 'hsl(var(--foreground))'; 
-  const boxPlotFillColor = `hsla(${h}, ${s}%, ${lBase * 0.5}%, 0.2)`; 
+  const boxPlotFillColor = `hsla(${h}, ${s}%, ${lBase * (currentActualTheme === 'dark' ? 0.2 : 0.5)}%, 0.2)`; 
   const boxPlotElementsWidth = 0.3; 
   const whiskerCapWidth = boxPlotElementsWidth / 2;
 
@@ -283,8 +279,7 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
     const chartElementToCapture = chartRefToUse.current.querySelector('.recharts-wrapper') || chartRefToUse.current;
     setIsExporting(true);
 
-    const actualCurrentTheme = resolvedTheme || currentSystemTheme || 'light';
-    const targetExportTheme = exportThemeOption === 'current' ? actualCurrentTheme : exportThemeOption;
+    const targetExportTheme = exportThemeOption === 'current' ? currentActualTheme : exportThemeOption;
 
     const htmlElement = document.documentElement;
     const originalHtmlClasses = htmlElement.className;
@@ -294,7 +289,6 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
     } else if (targetExportTheme === 'dark') {
       htmlElement.classList.add('dark');
     }
-    // Wait for theme change to apply
     await new Promise(resolve => setTimeout(resolve, 150));
 
 
@@ -302,7 +296,7 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
       const canvas = await html2canvas(chartElementToCapture as HTMLElement, {
         scale: 2,
         useCORS: true,
-        backgroundColor: targetExportTheme === 'dark' ? 'hsl(210 20% 10%)' : 'hsl(0 0% 100%)', // Modal background
+        backgroundColor: targetExportTheme === 'dark' ? 'hsl(210 20% 10%)' : 'hsl(0 0% 100%)', 
       });
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
       const filenamePrefix = `${metricConfig.name.toLowerCase().replace(/\s/g, '_')}_${chartTypeToExport}`;
@@ -324,7 +318,6 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
       console.error('Error exporting modal chart:', error);
     } finally {
       htmlElement.className = originalHtmlClasses;
-      // Ensure DOM is updated before setting isExporting to false
       await new Promise(resolve => setTimeout(resolve, 50));
       setIsExporting(false);
     }
@@ -403,16 +396,20 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                                         <Laptop className="mr-2 h-3.5 w-3.5" /> Current View Theme
                                     </div>
                                     </SelectItem>
-                                    <SelectItem value="light" className="text-xs">
-                                    <div className="flex items-center">
-                                        <Sun className="mr-2 h-3.5 w-3.5" /> Light Theme
-                                    </div>
-                                    </SelectItem>
-                                    <SelectItem value="dark" className="text-xs">
-                                    <div className="flex items-center">
-                                        <Moon className="mr-2 h-3.5 w-3.5" /> Dark Theme
-                                    </div>
-                                    </SelectItem>
+                                    {currentActualTheme === 'light' && (
+                                      <SelectItem value="dark" className="text-xs">
+                                        <div className="flex items-center">
+                                            <Moon className="mr-2 h-3.5 w-3.5" /> Dark Theme
+                                        </div>
+                                      </SelectItem>
+                                    )}
+                                    {currentActualTheme === 'dark' && (
+                                      <SelectItem value="light" className="text-xs">
+                                        <div className="flex items-center">
+                                            <Sun className="mr-2 h-3.5 w-3.5" /> Light Theme
+                                        </div>
+                                      </SelectItem>
+                                    )}
                                 </SelectContent>
                                 </Select>
                             </div>
@@ -440,7 +437,7 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                            <div ref={histogramChartRef} className="w-full bg-card">
                             {(() => {
                               const showHistogram = canShowDistributionPlots && histogramData && histogramData.length > 0;
-                              console.log('[DetailedDistributionModal] Show Histogram condition:', showHistogram);
+                              // console.log('[DetailedDistributionModal] Show Histogram condition:', showHistogram);
                               if (showHistogram) {
                                 return (
                                   <ResponsiveContainer width="100%" height={FIXED_CHART_HEIGHT}>
@@ -461,11 +458,11 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                                   </ResponsiveContainer>
                                 );
                               } else {
-                                console.log('[DetailedDistributionModal] Histogram not shown. Details:', {
-                                  canShowDistributionPlots,
-                                  histogramDataLength: histogramData?.length,
-                                  isString: data?.metricConfig?.isString,
-                                });
+                                // console.log('[DetailedDistributionModal] Histogram not shown. Details:', {
+                                //   canShowDistributionPlots,
+                                //   histogramDataLength: histogramData?.length,
+                                //   isString: data?.metricConfig?.isString,
+                                // });
                                 return (
                                   <div className="flex items-center justify-center h-full text-muted-foreground text-sm" style={{height: `${FIXED_CHART_HEIGHT}px`}}>
                                       {metricConfig.isString ? "Histogram not applicable for textual data." : "Not enough data or variation for histogram."}
@@ -479,11 +476,11 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                           <div ref={violinPlotChartRef} className="w-full bg-card">
                            {(() => {
                               const showViolin = canShowDistributionPlots && violinPlotDataForArea && violinPlotDataForArea.length > 0 && boxPlotStats;
-                              const currentShowViolinLog = `[DetailedDistributionModal] Show Violin condition (boolean): ${!!showViolin}`;
-                              if (console.log && (console.log as any).lastLog !== currentShowViolinLog) {
-                                console.log(currentShowViolinLog);
-                                (console.log as any).lastLog = currentShowViolinLog;
-                              }
+                              // const currentShowViolinLog = `[DetailedDistributionModal] Show Violin condition (boolean): ${!!showViolin}`;
+                              // if (console.log && (console.log as any).lastLog !== currentShowViolinLog) {
+                              //   console.log(currentShowViolinLog);
+                              //   (console.log as any).lastLog = currentShowViolinLog;
+                              // }
                               
                               if (showViolin) {
                                 return (
@@ -529,8 +526,8 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                                             itemSorter={(item) => item.name === 'densityRight' ? 1 : -1} 
                                             cursor={{ stroke: 'hsl(var(--accent))', strokeDasharray: '3 3' }}
                                         />
-                                        <Area type="monotone" dataKey="densityRight" strokeWidth={1} stroke={violinPrimaryColor} fill={dynamicViolinFillColor} fillOpacity={0.7} baseValue={0} name="Density (Right)" />
-                                        <Area type="monotone" dataKey="densityLeft" strokeWidth={1} stroke={violinPrimaryColor} fill={dynamicViolinFillColor} fillOpacity={0.7} baseValue={0} name="Density (Left)" />
+                                        <Area type="monotone" dataKey="densityRight" baseValue={0} strokeWidth={1} stroke={violinPrimaryColor} fill={dynamicViolinFillColor} fillOpacity={0.7} name="Density (Right)" />
+                                        <Area type="monotone" dataKey="densityLeft" baseValue={0} strokeWidth={1} stroke={violinPrimaryColor} fill={dynamicViolinFillColor} fillOpacity={0.7} name="Density (Left)" />
                                         
                                         {/* Inner Box Plot Elements */}
                                         {boxPlotStats && (
@@ -593,13 +590,13 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                                   </ResponsiveContainer>
                                 );
                               } else {
-                                console.log('[DetailedDistributionModal] Violin Plot not shown. Details:', {
-                                  canShowDistributionPlots,
-                                  violinPlotDataForAreaExists: !!violinPlotDataForArea,
-                                  violinPlotDataLength: violinPlotDataForArea?.length,
-                                  boxPlotStatsExists: !!boxPlotStats,
-                                  isString: data?.metricConfig?.isString,
-                                });
+                                // console.log('[DetailedDistributionModal] Violin Plot not shown. Details:', {
+                                //   canShowDistributionPlots,
+                                //   violinPlotDataForAreaExists: !!violinPlotDataForArea,
+                                //   violinPlotDataLength: violinPlotDataForArea?.length,
+                                //   boxPlotStatsExists: !!boxPlotStats,
+                                //   isString: data?.metricConfig?.isString,
+                                // });
                                  return (
                                   <div className="flex items-center justify-center h-full text-muted-foreground text-sm" style={{height: `${FIXED_CHART_HEIGHT}px`}}>
                                       {metricConfig.isString ? "Violin plot not applicable for textual data." : "Not enough data or variation for violin plot."}
@@ -660,4 +657,6 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
 };
 
 export default DetailedDistributionModal;
+    
+
     
