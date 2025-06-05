@@ -8,7 +8,7 @@ import DateRangePicker from './DateRangePicker';
 import DataSelector from './DataSelector';
 import type { DateRange } from 'react-day-picker';
 import { subDays, format, getISOWeek, getYear, startOfHour, endOfHour, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
-import type { WeatherDataPoint, MetricKey, MetricConfig, RawFirebaseDataPoint, AggregatedDataPoint, DetailModalData as DetailModalDataTypeFromType } from '@/types/weather'; // Import DetailModalData type
+import type { WeatherDataPoint, MetricKey, MetricConfig, RawFirebaseDataPoint, AggregatedDataPoint, DetailModalData as DetailModalDataTypeFromType } from '@/types/weather';
 import { database } from '@/lib/firebase';
 import { ref, get, type DataSnapshot } from "firebase/database";
 import { Label as ShadcnLabel } from '@/components/ui/label';
@@ -161,7 +161,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
       setDisplayedData([]);
     }
   }, [dateRange, allFetchedData, filterDataByDateRange, startTime, endTime, isLoading]);
-  
+
   const handleChartTypeChange = (newChartType: ChartType) => {
     setSelectedChartType(newChartType);
     if (newChartType === 'bar' && aggregationType === 'raw') {
@@ -170,7 +170,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
      if (newChartType !== 'scatter' && aggregationType === 'raw') {
     } else if (newChartType === 'scatter' && aggregationType === 'raw') {
     } else if (newChartType === 'scatter' && aggregationType !== 'raw') {
-    } else if (aggregationType === 'raw') { 
+    } else if (aggregationType === 'raw') {
         setAggregationType('daily');
     }
   };
@@ -206,12 +206,12 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
         }
         groupedData[key].push(point);
       });
-      
+
       const aggregatedResult: AggregatedDataPoint[] = Object.entries(groupedData).map(([groupKey, pointsInGroup]) => {
         const firstPointDate = new Date(pointsInGroup[0].timestamp);
         const aggregatedPoint: AggregatedDataPoint = {
-          timestamp: firstPointDate.getTime(), 
-          timestampDisplay: '', 
+          timestamp: firstPointDate.getTime(),
+          timestampDisplay: '',
           aggregationPeriod: currentAggregationPeriod,
         };
 
@@ -224,10 +224,10 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
         } else if (currentAggregationPeriod === 'monthly') {
           aggregatedPoint.timestampDisplay = format(startOfMonth(firstPointDate), 'MMM yyyy');
         }
-        
+
         selectedMetrics.forEach(metricKey => {
           const config = METRIC_CONFIGS[metricKey];
-          if (config && !config.isString) { 
+          if (config && !config.isString) {
             const values = pointsInGroup.map(p => p[metricKey] as number).filter(v => typeof v === 'number' && isFinite(v));
             if (values.length > 0) {
               const average = values.reduce((sum, val) => sum + val, 0) / values.length;
@@ -239,33 +239,33 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
               if (selectedChartType === 'line' || selectedChartType === 'bar') {
                   aggregatedPoint[metricKey] = average;
               }
-            } else { 
-              (aggregatedPoint as any)[`${metricKey}_avg`] = null; 
+            } else {
+              (aggregatedPoint as any)[`${metricKey}_avg`] = null;
               (aggregatedPoint as any)[`${metricKey}_min`] = null;
               (aggregatedPoint as any)[`${metricKey}_max`] = null;
-              (aggregatedPoint as any)[`${metricKey}_stdDev`] = 0;    
+              (aggregatedPoint as any)[`${metricKey}_stdDev`] = 0;
               (aggregatedPoint as any)[`${metricKey}_count`] = 0;
               if (selectedChartType === 'line' || selectedChartType === 'bar') {
                    aggregatedPoint[metricKey] = null;
               }
             }
-          } else if (config && config.isString) { 
+          } else if (config && config.isString) {
              const firstValue = pointsInGroup[0]?.[metricKey];
-             aggregatedPoint[metricKey] = firstValue; 
+             aggregatedPoint[metricKey] = firstValue;
              if (selectedChartType === 'scatter' && isActuallyAggregated) {
-                (aggregatedPoint as any)[`${metricKey}_avg`] = null; 
+                (aggregatedPoint as any)[`${metricKey}_avg`] = null;
                 (aggregatedPoint as any)[`${metricKey}_min`] = null;
                 (aggregatedPoint as any)[`${metricKey}_max`] = null;
-                (aggregatedPoint as any)[`${metricKey}_stdDev`] = 0; 
+                (aggregatedPoint as any)[`${metricKey}_stdDev`] = 0;
                 (aggregatedPoint as any)[`${metricKey}_count`] = pointsInGroup.length;
              }
           }
         });
         return aggregatedPoint;
-      }).sort((a, b) => a.timestamp - b.timestamp); 
+      }).sort((a, b) => a.timestamp - b.timestamp);
       return aggregatedResult;
     }
-    
+
     return displayedData.map(point => ({
         ...point,
         timestampDisplay: formatTimestampToDdMmHhMmUTC(point.timestamp),
@@ -284,7 +284,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
         const values = chartData.map(p => {
           return (p as any)[metricKey] as number;
         }).filter(v => typeof v === 'number' && isFinite(v));
-        
+
         if (values.length > 0) {
           result[metricKey] = {
             minValue: Math.min(...values),
@@ -302,23 +302,27 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
     if (onChartPointClickForAI && ((selectedChartType === 'line' && !isActuallyAggregated) || (selectedChartType === 'scatter' && !isActuallyAggregated))) {
         if (clickedData && ('rawTimestampString' in clickedData || ('timestamp' in clickedData && !isActuallyAggregated && !('aggregationPeriod' in clickedData)))) {
            onChartPointClickForAI(clickedData as WeatherDataPoint);
-           return; // Important: Return if handled by AI forecast
+           return;
         }
     }
 
     // Handle aggregated scatter point click for detail modal
     if (selectedChartType === 'scatter' && isActuallyAggregated && event && event.activePayload && event.activePayload.length > 0) {
-      const activeItem = event.activePayload[0]; 
-      const payloadPoint = activeItem.payload as AggregatedDataPoint; 
-      
-      let metricKey = activeItem.dataKey as MetricKey; // This will be something like 'temperature_avg'
-      
-      // Extract the base metric key (e.g., 'temperature' from 'temperature_avg')
-      const baseMetricKey = metricKey.replace('_avg', '').replace('_min', '').replace('_max', '').replace('_stdDev', '').replace('_count', '') as MetricKey;
+      const activeItem = event.activePayload[0];
+      const payloadPoint = activeItem.payload as AggregatedDataPoint;
 
+      let metricKeyFromPayload = activeItem.dataKey as MetricKey;
+      const baseMetricKey = metricKeyFromPayload.replace(/_avg|_min|_max|_stdDev|_count$/, '') as MetricKey;
       const metricConfig = METRIC_CONFIGS[baseMetricKey];
 
-      if (!metricConfig || metricConfig.isString) return;
+      if (!metricConfig) {
+        console.error(`[HistoricalDataSection] onClick: No metricConfig for baseMetricKey: ${baseMetricKey}. Modal will not open.`);
+        return;
+      }
+      if (metricConfig.isString) {
+        console.log(`[HistoricalDataSection] onClick: Metric ${baseMetricKey} is string. No detail modal. Modal will not open.`);
+        return;
+      }
 
       let startOfPeriod: Date;
       let endOfPeriod: Date;
@@ -334,7 +338,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           endOfPeriod = endOfDay(pointDate);
           break;
         case 'weekly':
-          startOfPeriod = startOfWeek(pointDate, { weekStartsOn: 1 }); 
+          startOfPeriod = startOfWeek(pointDate, { weekStartsOn: 1 });
           endOfPeriod = endOfWeek(pointDate, { weekStartsOn: 1 });
           break;
         case 'monthly':
@@ -342,18 +346,23 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           endOfPeriod = endOfMonth(pointDate);
           break;
         default:
-          console.error("Unknown aggregation period for modal:", payloadPoint.aggregationPeriod);
-          return; 
+          console.error("[HistoricalDataSection] Unknown aggregation period for modal:", payloadPoint.aggregationPeriod);
+          return;
       }
 
-      const rawPointsForAggregate = allFetchedData.filter(p => 
+      const rawPointsForAggregate = allFetchedData.filter(p =>
         p.timestamp >= startOfPeriod.getTime() && p.timestamp <= endOfPeriod.getTime()
       );
-      
+
+      if (rawPointsForAggregate.length === 0) {
+        console.warn(`[HistoricalDataSection] onClick: No raw points for aggregate ${payloadPoint.timestampDisplay} of ${baseMetricKey}. Modal will not open.`);
+        return;
+      }
+
       const aggregationFullLabel = `${payloadPoint.aggregationPeriod?.charAt(0).toUpperCase() + payloadPoint.aggregationPeriod!.slice(1)} - ${payloadPoint.timestampDisplay}`;
 
       const modalDataPayload: DetailModalDataTypeFromType = {
-        metricKey: baseMetricKey, // Use the base metric key
+        metricKey: baseMetricKey,
         metricConfig,
         aggregationLabel: aggregationFullLabel,
         stats: {
@@ -365,15 +374,23 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
         },
         rawPoints: rawPointsForAggregate,
       };
-      console.log('[HistoricalDataSection] Preparing to open detail modal with data:', modalDataPayload);
+
+      console.log('[HistoricalDataSection] Preparing to open detail modal with data (BEFORE SETTING STATE):', JSON.parse(JSON.stringify(modalDataPayload)));
+      if (!modalDataPayload.metricKey || !modalDataPayload.metricConfig || !modalDataPayload.rawPoints || modalDataPayload.rawPoints.length === 0) {
+          console.error("[HistoricalDataSection] CRITICAL: modalDataPayload is incomplete before setting state!", modalDataPayload);
+          // Optionally, prevent setting state if it's critically incomplete
+          // return; // This might be too aggressive if some parts are optional, but good for debugging
+      }
+
+
       setDetailModalData(modalDataPayload);
       setIsDetailModalOpen(true);
       console.log('[HistoricalDataSection] setIsDetailModalOpen called with true.');
-      return; // Explicitly return after handling modal open
+      return;
     }
   };
 
-  console.log(`[HistoricalDataSection] Rendering. isDetailModalOpen: ${isDetailModalOpen}, detailModalData exists: ${!!detailModalData}`);
+  console.log(`[HistoricalDataSection] RENDERING MODAL CHECK - isOpen: ${isDetailModalOpen}, detailModalData (exists?): ${!!detailModalData}`);
 
   return (
     <>
@@ -438,8 +455,8 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
             {isAggregationApplicable && (
               <div>
                 <ShadcnLabel htmlFor="aggregation-type-select" className="text-sm font-medium text-muted-foreground mb-1 block">Aggregation:</ShadcnLabel>
-                <Select 
-                  value={aggregationType} 
+                <Select
+                  value={aggregationType}
                   onValueChange={(value) => setAggregationType(value as ChartAggregationMode)}
                   disabled={(selectedChartType === 'bar' && aggregationType === 'raw')}
                 >
@@ -488,11 +505,17 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           />
         </div>
       </section>
-      <DetailedDistributionModal 
-        isOpen={isDetailModalOpen}
-        onClose={() => setIsDetailModalOpen(false)}
-        data={detailModalData}
-      />
+      {isDetailModalOpen && detailModalData && (
+          <DetailedDistributionModal
+            isOpen={true}
+            onClose={() => {
+              console.log('[HistoricalDataSection] Closing modal.');
+              setIsDetailModalOpen(false);
+              setDetailModalData(null);
+            }}
+            data={detailModalData}
+          />
+       )}
     </>
   );
 };

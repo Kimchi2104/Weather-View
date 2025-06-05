@@ -19,7 +19,6 @@ import { formatTimestampToFullUTC } from '@/lib/utils';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle as ModalCardTitle } from '@/components/ui/card';
 
-// DetailModalData interface is now imported from types/weather
 
 interface DetailedDistributionModalProps {
   isOpen: boolean;
@@ -29,7 +28,7 @@ interface DetailedDistributionModalProps {
 
 const getMetricValueFromPoint = (point: WeatherDataPoint, metricKey: MetricKey, metricConfig?: MetricConfig): number | string | undefined => {
   if (!point || metricKey === undefined) return undefined;
-  
+
   const value = point[metricKey];
 
   if (metricConfig?.isString) {
@@ -44,14 +43,13 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
   console.log(`[DetailedDistributionModal] Component rendered. isOpen: ${isOpen}, data exists: ${!!data}`);
 
   const histogramData = useMemo(() => {
-    console.log('[HistogramCalc] Entered useMemo. Data available:', !!data, 'MetricKey:', data?.metricKey, 'Config available:', !!data?.metricConfig, 'RawPoints available:', !!data?.rawPoints);
-
+    console.log('[HistogramCalc] Entered useMemo. Data prop reference:', data);
     if (!data || !data.rawPoints || !data.metricKey || !data.metricConfig) {
-      console.log('[HistogramCalc] Bailing early: Essential data (data object, rawPoints, metricKey, or metricConfig) is missing.');
+      console.log('[HistogramCalc] Bailing early: Essential data (data object, rawPoints, metricKey, or metricConfig) is missing. Data:', data ? JSON.stringify(Object.keys(data)) : String(data));
       return null;
     }
-    
-    console.log(`[HistogramCalc] Processing for Metric: ${data.metricKey}, IsString: ${data.metricConfig.isString}`);
+
+    console.log(`[HistogramCalc] Processing for Metric: ${data.metricKey}, IsString: ${data.metricConfig.isString}, Raw points count: ${data.rawPoints.length}`);
 
     if (data.metricConfig.isString) {
       console.log('[HistogramCalc] Bailing: Metric is string type.');
@@ -66,8 +64,8 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
     const values = data.rawPoints
       .map(point => getMetricValueFromPoint(point, data.metricKey, data.metricConfig))
       .filter((v): v is number => typeof v === 'number' && isFinite(v));
-    
-    console.log(`[HistogramCalc] Extracted ${values.length} numeric values for histogram:`, values.slice(0, 10)); // Log first 10
+
+    console.log(`[HistogramCalc] Extracted ${values.length} numeric values for histogram:`, values.slice(0, 10));
 
     if (values.length < 2) {
       console.log('[HistogramCalc] Bailing: Not enough numeric values for histogram (need at least 2).');
@@ -113,13 +111,13 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
     });
     console.log('[HistogramCalc] Final bins for histogram:', bins);
     return bins.filter(bin => bin.count > 0 || bins.length ===1);
-  }, [data?.rawPoints, data?.metricKey, data?.metricConfig]); // More specific dependencies
+  }, [data]);
 
 
   useEffect(() => {
     console.log(`[DetailedDistributionModal] useEffect triggered. isOpen: ${isOpen}`);
     if (isOpen && data) {
-      console.log(`[DetailedDistributionModal] Modal is open. Current data:`, JSON.parse(JSON.stringify(data)));
+      console.log(`[DetailedDistributionModal] Modal is open. Current data:`, data ? JSON.parse(JSON.stringify(data)) : 'null or undefined');
       console.log('[DetailedDistributionModal] Memoized histogramData (at effect run):', histogramData);
     }
   }, [isOpen, data, histogramData]);
@@ -170,7 +168,7 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                     )}
                 </CardContent>
             </Card>
-            
+
             {showHistogramCard ? (
                  <Card>
                     <CardHeader className="pb-2 pt-4">
@@ -226,8 +224,8 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                         {formatTimestampToFullUTC(point.timestamp)}
                       </TableCell>
                       <TableCell className="text-right font-mono text-xs">
-                        { metricConfig.isString 
-                          ? (getMetricValueFromPoint(point, metricKey, metricConfig) as string || 'N/A') 
+                        { metricConfig.isString
+                          ? (getMetricValueFromPoint(point, metricKey, metricConfig) as string || 'N/A')
                           : (getMetricValueFromPoint(point, metricKey, metricConfig) as number | undefined)?.toFixed(metricConfig.unit === 'ppm' ? 0 : 2) ?? 'N/A'
                         }
                       </TableCell>
