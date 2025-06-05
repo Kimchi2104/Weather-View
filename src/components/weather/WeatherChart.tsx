@@ -395,7 +395,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
            console.warn("[WeatherChart] Violin plot selected, but no numeric metrics available or selected.");
            return null;
       }
-      return numericMetricsForScatterOrViolin.map(metricKey => {
+      return numericMetricsForScatterOrViolin.flatMap(metricKey => {
           const metricConfig = METRIC_CONFIGS[metricKey];
           if (!metricConfig) return null;
           const metricSpecificFlatData = violinChartProcessedData.flatData.filter(d => d.metricKey === metricKey);
@@ -574,7 +574,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
     xAxisIntervalProp = isAggregated ? "preserveStartEnd" : (formattedData.length > 20 ? Math.floor(formattedData.length / (formattedData.length > 0 ? Math.min(10, formattedData.length) : 5)) : 0);
   }
   
-  const chartDynamicKey = `${chartType}-${selectedMetrics.join('-')}-${JSON.stringify(yAxisDomain)}-${isAggregated}-${currentChartData.length}-${showMinMaxLines}`;
+  const chartDynamicKey = `${chartType}-${currentXAxisId || 'defaultX'}-${selectedMetrics.join('-')}-${JSON.stringify(yAxisDomain)}-${isAggregated}-${currentChartData.length}-${showMinMaxLines}`;
   
   const tooltipLabelFormatter = (label: string | number, payload: any[] | undefined) => {
     if (chartType === 'violin') {
@@ -727,7 +727,41 @@ const WeatherChart: FC<WeatherChartProps> = ({
     );
   };
 
-  const renderChart = () => (
+  const metricsAvailableForCurrentChartType = useMemo(() => {
+    if (chartType === 'violin' || chartType === 'scatter') {
+      return selectedMetrics.filter(key => {
+        const config = METRIC_CONFIGS[key];
+        return config && !config.isString;
+      });
+    }
+    // For line and bar charts, allow all selected metrics initially.
+    // renderChartSpecificElements will filter out string metrics for actual rendering.
+    return selectedMetrics;
+  }, [selectedMetrics, METRIC_CONFIGS, chartType]);
+
+  const renderChart = () => {
+    console.log(`[WeatherChart] renderChart: chartType='${chartType}', currentXAxisId='${currentXAxisId || 'undefined'}', yAxisId='${yAxisId || 'undefined'}'`);
+    if (isLoading || !currentChartData || currentChartData.length === 0 || (metricsAvailableForCurrentChartType.length === 0 && selectedMetrics.length > 0) ) {
+      return (
+        <Card className="shadow-lg h-full">
+          <CardHeader className="pb-3">
+            <Skeleton className="h-6 w-1/2 mb-2" />
+            <Skeleton className="h-4 w-1/3" />
+          </CardHeader>
+          <CardContent className="p-4 pt-0 h-[450px] flex items-center justify-center">
+            <p className="text-muted-foreground">
+              {isLoading ? "Loading chart data..." :
+                (metricsAvailableForCurrentChartType.length === 0 && selectedMetrics.length > 0) ?
+                `Please select numeric metrics for the ${chartType} chart.` :
+                "No data available for the selected criteria or metrics."
+              }
+            </p>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    return (
     <ChartComponent
       key={chartDynamicKey}
       data={currentChartData} 
@@ -778,8 +812,8 @@ const WeatherChart: FC<WeatherChartProps> = ({
         align="center"
         verticalAlign="top"
         formatter={(value, entry: any, index) => {
-          const rechartsName = entry.name as string; 
-          if (typeof rechartsName !== 'string') { // Guard against undefined name
+          const rechartsName = entry.name as string | undefined; 
+          if (typeof rechartsName !== 'string') { 
             return value; 
           }
 
@@ -860,54 +894,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
         })
       }
     </ChartComponent>
-  );
-
-
-  if (isLoading) {
-    return (
-      <Card className="shadow-lg">
-        <CardHeader className="pb-3">
-          <Skeleton className="h-6 w-1/2 mb-2" />
-          <Skeleton className="h-4 w-1/3" />
-        </CardHeader>
-        <CardContent className="p-4 pt-0">
-          <Skeleton className="h-[450px] w-full" />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const dataForCurrentChart = chartType === 'violin' ? violinChartProcessedData.flatData : formattedData;
-  const metricsAvailableForCurrentChartType = chartType === 'violin' || chartType === 'scatter' 
-    ? numericMetricsForScatterOrViolin 
-    : selectedMetrics.filter(key => !METRIC_CONFIGS[key]?.isString);
-
-
-  if (!dataForCurrentChart || dataForCurrentChart.length === 0 || metricsAvailableForCurrentChartType.length === 0) {
-    return (
-      <Card className="shadow-lg">
-        <CardHeader className="pb-3">
-          <CardTitle className="font-headline">Historical Data Trends</CardTitle>
-          <CardDescription>
-            Displaying {chartType.charAt(0).toUpperCase() + chartType.slice(1)} Chart
-            {(chartType !== 'scatter' || (chartType === 'scatter' && isAggregated)) && (chartType !== 'violin') && (isAggregated && chartInputData.length > 0 ? ` (Aggregated Data - ${chartInputData[0]?.timestampDisplay ? (chartInputData[0] as AggregatedDataPoint).aggregationPeriod : 'N/A'})` : ` (Raw Data)`)}.
-            {chartType === 'violin' && isAggregated && chartInputData.length > 0 && ` (Aggregated Data - ${chartInputData[0]?.timestampDisplay ? (chartInputData[0] as AggregatedDataPoint).aggregationPeriod : 'N/A'})`}
-            {(((chartType === 'line' && !isAggregated)) || (chartType === 'scatter' && !isAggregated)) && " Point clicks can populate AI forecast."}
-            {chartType === 'scatter' && isAggregated && numericMetricsForScatterOrViolin.length > 0 && " Bubble size indicates data spread (standard deviation)."}
-            {chartType === 'violin' && " Jittered dots show raw data distribution for each period."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-4 pt-0 h-[450px] flex items-center justify-center">
-          <p className="text-muted-foreground">
-            {(chartType === 'scatter' || chartType === 'violin') && metricsAvailableForCurrentChartType.length === 0 && selectedMetrics.length > 0
-              ? `Please select numeric metrics for the ${chartType} chart.`
-              : "No data available for the selected criteria or metrics."
-            }
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
+  )};
   
   return (
     <Card className="shadow-lg">
@@ -935,7 +922,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
         <div className="flex justify-center items-center pt-2 space-x-4">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="default" disabled={isExporting || !dataForCurrentChart || dataForCurrentChart.length === 0} className="min-w-[150px]">
+              <Button variant="default" disabled={isExporting || !currentChartData || currentChartData.length === 0 || (isLoading && currentChartData.length === 0)} className="min-w-[150px]">
                 {isExporting ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
