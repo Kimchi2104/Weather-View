@@ -10,20 +10,20 @@ export interface WeatherDataPoint {
   aqiPpm: number; // Air Quality Index from MQ135, in PPM, from rawData.mq135PPM
   pressure?: number; // hPa
   // Allow dynamic metric keys for aggregated data if needed
-  [key: string]: any; 
+  [key: string]: any;
 }
 
 // Represents the raw data structure from Firebase before transformation
 export interface RawFirebaseDataPoint {
-  airQuality?: string; 
+  airQuality?: string;
   humidity?: number;
   lux?: number;
-  mq135PPM?: number; 
-  pressure?: number; 
+  mq135PPM?: number;
+  pressure?: number;
   rainAnalog?: number;
-  rainStatus?: string; 
+  rainStatus?: string;
   temperature?: number;
-  timestamp?: string; 
+  timestamp?: string;
   [key: string]: any;
 }
 
@@ -45,18 +45,19 @@ export interface MetricConfig {
   color: string;
   healthyMin?: number;
   healthyMax?: number;
-  isString?: boolean; 
+  isString?: boolean;
 }
 
 export interface AggregatedDataPoint extends WeatherDataPoint {
   timestampDisplay: string;
   aggregationPeriod: 'hourly' | 'daily' | 'weekly' | 'monthly';
+  rawPointsInGroup?: WeatherDataPoint[]; // Added for violin plots
 }
 
-// Moved DetailModalData here for global type usage if needed, 
+// Moved DetailModalData here for global type usage if needed,
 // though it's primarily used by DetailedDistributionModal and set by HistoricalDataSection.
 export interface DetailModalData {
-  metricKey: MetricKey; 
+  metricKey: MetricKey;
   metricConfig: MetricConfig;
   aggregationLabel: string;
   stats: {
@@ -68,3 +69,6 @@ export interface DetailModalData {
   };
   rawPoints: WeatherDataPoint[];
 }
+
+// ChartType used in HistoricalDataSection and WeatherChart
+export type ChartType = 'line' | 'bar' | 'scatter' | 'violin';
