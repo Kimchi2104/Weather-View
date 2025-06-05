@@ -80,7 +80,7 @@ interface WeatherChartProps {
   metricConfigs: Record<MetricKey, MetricConfig>;
   isLoading: boolean;
   onPointClick?: (pointPayload: WeatherDataPoint | AggregatedDataPoint | null, rechartsClickProps: any | null) => void;
-  chartType: ChartType;
+  chartType: ChartType; // Still includes 'violin' for internal logic if directly passed, but not user-selectable for main chart
   isAggregated?: boolean;
   showMinMaxLines?: boolean;
   minMaxReferenceData?: Record<string, { minValue: number; maxValue: number }>;
@@ -104,9 +104,12 @@ const WeatherChart: FC<WeatherChartProps> = ({
   const { theme: currentSystemTheme, resolvedTheme } = useTheme();
   const [exportThemeOption, setExportThemeOption] = useState<ExportThemeOption>('current');
 
+  const [currentXAxisId, setCurrentXAxisId] = useState<string | undefined>(undefined);
+  const [currentYAxisId, setCurrentYAxisId] = useState<string | undefined>(undefined);
+
 
   const formattedData = useMemo(() => {
-    if (!chartInputData || chartType === 'violin') {
+    if (!chartInputData || chartType === 'violin') { // Violin plot uses its own processed data
       return [];
     }
     const result = chartInputData.map(point => ({
@@ -119,7 +122,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
   }, [chartInputData, isAggregated, chartType]);
 
 
-  const violinChartProcessedData = useMemo(() => {
+  const violinChartProcessedData = useMemo(() => { // This is for the main chart if 'violin' were selected (now unused for main chart)
     if (chartType !== 'violin' || !chartInputData || !isAggregated) return { flatData: [], categoryMap: new Map(), categories: [] };
 
     const flatData: Array<{
@@ -147,7 +150,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
             const value = rawPoint[metricKey];
             if (typeof value === 'number' && isFinite(value)) {
               flatData.push({
-                xNumeric: currentXNumericBase + (Math.random() - 0.5) * 0.7,
+                xNumeric: currentXNumericBase + (Math.random() - 0.5) * 0.7, // Jitter
                 yValue: value,
                 metricName: metricConfig.name,
                 metricKey: metricKey,
@@ -164,8 +167,8 @@ const WeatherChart: FC<WeatherChartProps> = ({
   }, [chartInputData, selectedMetrics, METRIC_CONFIGS, chartType, isAggregated]);
 
 
-  const numericMetricsForScatterOrViolin = useMemo(() => {
-    if (chartType === 'scatter' || chartType === 'violin') {
+  const numericMetricsForScatter = useMemo(() => { // Renamed for clarity, used by main scatter
+    if (chartType === 'scatter') {
       return selectedMetrics.filter(key => {
         const config = METRIC_CONFIGS[key];
         return config && !config.isString;
@@ -178,18 +181,19 @@ const WeatherChart: FC<WeatherChartProps> = ({
   const yAxisDomain = useMemo(() => {
     let dataValues: number[] = [];
 
-    if (chartType === 'violin') {
+    // This logic is mainly for the main chart view, not the modal's violin plot
+    if (chartType === 'violin') { // Though violin is removed from main, keep logic if type is passed directly
         dataValues = violinChartProcessedData.flatData.map(p => p.yValue);
     } else {
-        const metricsToConsiderForDomain = numericMetricsForScatterOrViolin.length > 0 && chartType === 'scatter'
-            ? numericMetricsForScatterOrViolin
+        const metricsToConsiderForDomain = numericMetricsForScatter.length > 0 && chartType === 'scatter'
+            ? numericMetricsForScatter
             : selectedMetrics.filter(key => !METRIC_CONFIGS[key]?.isString);
 
         dataValues = metricsToConsiderForDomain.flatMap(metricKey =>
             formattedData.map(p => {
                 let value;
                 if (chartType === 'scatter' && isAggregated) {
-                  value = p[metricKey + '_avg' as keyof typeof p] as number;
+                  value = p[metricKey + '_avg' as keyof typeof p]as number;
                 } else {
                   value = p[metricKey as keyof typeof p] as number;
                 }
@@ -197,18 +201,19 @@ const WeatherChart: FC<WeatherChartProps> = ({
             }).filter(v => v !== undefined) as number[]
         );
     }
-
-    let effectiveMin = dataValues.length > 0 ? Math.min(...dataValues) : 0;
-    let effectiveMax = dataValues.length > 0 ? Math.max(...dataValues) : 10;
-
+    
+    // If after all that, dataValues is empty, and we have no reference data, set a default domain.
     if (dataValues.length === 0 && (!minMaxReferenceData || Object.keys(minMaxReferenceData).length === 0)) {
-      effectiveMin = 0;
-      effectiveMax = 10;
+        return [0, 10] as [number | 'auto', number | 'auto'];
     }
 
-    if (showMinMaxLines && chartType === 'line') {
+
+    let effectiveMin = dataValues.length > 0 ? Math.min(...dataValues) : (minMaxReferenceData ? Infinity : 0);
+    let effectiveMax = dataValues.length > 0 ? Math.max(...dataValues) : (minMaxReferenceData ? -Infinity : 10);
+
+
+    if (showMinMaxLines && chartType === 'line' && minMaxReferenceData) {
         selectedMetrics.forEach(metricKey => {
-            if (!minMaxReferenceData) return;
             const metricMinMax = minMaxReferenceData[metricKey];
             if (metricMinMax && typeof metricMinMax.minValue === 'number' && isFinite(metricMinMax.minValue)) {
                 effectiveMin = Math.min(effectiveMin, metricMinMax.minValue);
@@ -218,12 +223,19 @@ const WeatherChart: FC<WeatherChartProps> = ({
             }
         });
     }
+    
+    // If still at initial placeholder values after considering reference data, use default.
+    if (effectiveMin === Infinity || effectiveMax === -Infinity) {
+      effectiveMin = 0;
+      effectiveMax = 10;
+    }
+
 
     const paddedMin = getPaddedMinYDomain(effectiveMin, effectiveMax);
     const paddedMax = getPaddedMaxYDomain(effectiveMax, effectiveMin);
-
+    
     return [paddedMin, paddedMax] as [number | 'auto', number | 'auto'];
-  }, [formattedData, violinChartProcessedData, selectedMetrics, numericMetricsForScatterOrViolin, showMinMaxLines, minMaxReferenceData, chartType, isAggregated, METRIC_CONFIGS]);
+  }, [formattedData, violinChartProcessedData, selectedMetrics, numericMetricsForScatter, showMinMaxLines, minMaxReferenceData, chartType, isAggregated, METRIC_CONFIGS]);
 
 
   const metricsWithMinMaxLines = useMemo(() => {
@@ -254,7 +266,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
         };
          config[`${key}_stdDev`] = {
           label: `${metricConf.name} (Std. Dev)`,
-          icon: undefined,
+          icon: undefined, // No specific icon for std dev itself in legend
           color: metricConf.color,
         };
          config[`${key}_count`] = {
@@ -335,6 +347,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
   const handleScatterPointClick = (scatterPointProps: any, index: number, event: React.MouseEvent<SVGElement>, explicitMetricKey: MetricKey) => {
     console.log('[WeatherChart] Scatter Point Clicked. Index:', index, "Explicit MetricKey:", explicitMetricKey);
     if (scatterPointProps && onPointClick) {
+       console.log('[WeatherChart] Full scatterPointProps from Recharts (JSON):', JSON.stringify(scatterPointProps, null, 2));
       onPointClick(scatterPointProps.payload, { ...scatterPointProps, explicitMetricKey: explicitMetricKey });
     }
   };
@@ -357,24 +370,25 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
   const renderChartSpecificElements = () => {
     console.log('[WeatherChart] renderChartSpecificElements called. chartType:', chartType);
-    if (chartType === 'violin') {
-        console.log('[WeatherChart] Rendering VIOLIN elements.');
-        if (numericMetricsForScatterOrViolin.length === 0) {
-             console.warn("[WeatherChart] Violin plot selected, but no numeric metrics available or selected.");
+    
+    if (chartType === 'violin') { // This case is for the main chart 'violin' type (now unused from UI)
+        console.log('[WeatherChart] Rendering VIOLIN (main chart type - currently unused) elements.');
+        if (numericMetricsForScatter.length === 0) { // Use numericMetricsForScatter here
+             console.warn("[WeatherChart] Main Violin plot selected, but no numeric metrics available or selected.");
              return null;
         }
-        return numericMetricsForScatterOrViolin.flatMap(metricKey => {
+        return numericMetricsForScatter.flatMap(metricKey => {
             const metricConfig = METRIC_CONFIGS[metricKey];
             if (!metricConfig) return null;
             const metricSpecificFlatData = violinChartProcessedData.flatData.filter(d => d.metricKey === metricKey);
             return (
                 <Scatter
-                    key={`violin-scatter-${metricKey}`}
+                    key={`main-violin-scatter-${metricKey}`}
                     name={metricConfig.name}
                     data={metricSpecificFlatData}
                     dataKey="yValue"
-                    xAxisId="violinXNumeric"
-                    yAxisId="violinY"
+                    xAxisId="violinXNumeric" // Assuming these are defined for main violin
+                    yAxisId="violinY"       // Assuming these are defined for main violin
                     fill={metricConfig.color}
                     shape="circle"
                     strokeWidth={0}
@@ -385,13 +399,14 @@ const WeatherChart: FC<WeatherChartProps> = ({
         });
     } else if (chartType === 'scatter') {
       console.log('[WeatherChart] Rendering SCATTER elements.');
-      if (numericMetricsForScatterOrViolin.length === 0) return null;
+      if (numericMetricsForScatter.length === 0) return null;
       const elements: JSX.Element[] = [];
-      numericMetricsForScatterOrViolin.forEach((key) => {
+      numericMetricsForScatter.forEach((key) => {
         const metricConfig = METRIC_CONFIGS[key];
         if (!metricConfig || metricConfig.isString) return;
 
         const yDataKey = isAggregated ? `${key}_avg` : key;
+        const baseMetricKey = key; // This is 'temperature', 'humidity' etc.
         const stdDevDataKey = isAggregated ? `${key}_stdDev` : undefined;
         const zAxisUniqueId = `z-${key}`;
 
@@ -409,13 +424,13 @@ const WeatherChart: FC<WeatherChartProps> = ({
         elements.push(
           <Scatter
             key={`scatter-${key}`}
-            name={yDataKey}
+            name={yDataKey} 
             dataKey={yDataKey}
             fill={metricConfig.color || '#8884d8'}
             shape="circle"
             animationDuration={300}
             {...(isAggregated && stdDevDataKey ? { zAxisId: zAxisUniqueId } : {})}
-            onClick={(props, index, event) => handleScatterPointClick(props, index, event as React.MouseEvent<SVGElement>, key)}
+            onClick={(props, index, event) => handleScatterPointClick(props, index, event as React.MouseEvent<SVGElement>, baseMetricKey)}
           />
         );
       });
@@ -467,37 +482,40 @@ const WeatherChart: FC<WeatherChartProps> = ({
   };
 
 
-  let ChartComponent: React.ComponentType<any> = LineChart;
-  let currentChartDataForRender: any[] = formattedData;
-  let currentXAxisId: string | undefined = undefined;
-  let currentYAxisId: string | undefined = undefined;
+  useEffect(() => { // Effect to set axis IDs based on chart type
+    if (chartType === 'violin') { // This is for the main chart if 'violin' were selected (now unused)
+      setCurrentXAxisId("violinXNumeric");
+      setCurrentYAxisId("violinY");
+    } else {
+      setCurrentXAxisId(undefined);
+      setCurrentYAxisId(undefined);
+    }
+  }, [chartType]);
 
 
-  if (chartType === 'bar') ChartComponent = BarChart;
-  else if (chartType === 'scatter') ChartComponent = ScatterChart;
-  else if (chartType === 'violin') {
-    ChartComponent = ScatterChart;
-    currentChartDataForRender = violinChartProcessedData.flatData;
-    currentXAxisId = "violinXNumeric";
-    currentYAxisId = "violinY";
-  }
-
-  const chartDynamicKey = `${chartType}-${currentXAxisId || 'defaultX'}-${selectedMetrics.join('-')}-${JSON.stringify(yAxisDomain)}-${isAggregated}-${currentChartDataForRender.length}-${showMinMaxLines}`;
+  const chartDynamicKey = `${chartType}-${currentXAxisId || 'defaultX'}-${selectedMetrics.join('-')}-${JSON.stringify(yAxisDomain)}-${isAggregated}-${(chartInputData || []).length}-${showMinMaxLines}`;
 
   const tooltipLabelFormatter = (label: string | number, payload: any[] | undefined) => {
-    if (chartType === 'violin') {
+     // For main chart violin (unused)
+    if (chartType === 'violin' && currentXAxisId === "violinXNumeric") {
         if (payload && payload.length > 0 && payload[0].payload.categoryName) {
             return payload[0].payload.categoryName;
         }
         return '';
     }
-    if (chartType === 'scatter' && !isAggregated) return null;
-    if (chartType === 'scatter' && isAggregated) {
+    // For scatter, label might be the x-axis value directly if not categorical (raw scatter)
+    // Or it's the timestampDisplay for aggregated scatter.
+    if (chartType === 'scatter') {
       if (payload && payload.length > 0 && payload[0].payload.timestampDisplay) {
-        return payload[0].payload.timestampDisplay;
+        return payload[0].payload.timestampDisplay; // For aggregated scatter
       }
-      return String(label);
+       if (payload && payload.length > 0 && payload[0].payload.tooltipTimestampFull) {
+        return payload[0].payload.tooltipTimestampFull; // For raw scatter
+      }
+      return String(label); // Fallback for raw scatter's X-axis value (timestamp number)
     }
+
+    // For line and bar charts
     if (payload && payload.length > 0 && payload[0].payload.tooltipTimestampFull) {
       return payload[0].payload.tooltipTimestampFull;
     }
@@ -507,8 +525,9 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
  const tooltipFormatter = (value: any, nameFromRecharts: string, entry: any): React.ReactNode | [string, string] | null => {
     const dataKey = entry.dataKey as string;
-
-    if (chartType === 'violin' && entry.payload) {
+    
+    // Tooltip for main chart violin (unused)
+    if (chartType === 'violin' && currentXAxisId === "violinXNumeric" && entry.payload) {
         const { metricName, yValue, originalRawPoint, categoryName } = entry.payload;
         const config = METRIC_CONFIGS[entry.payload.metricKey as MetricKey];
         const displayValue = typeof yValue === 'number' && isFinite(yValue)
@@ -526,20 +545,20 @@ const WeatherChart: FC<WeatherChartProps> = ({
                 React.createElement('div', null, React.createElement('strong', null, 'Time:'), ` ${fullTimestamp}`)
             )
         );
-        return [tooltipContent, null];
+        return [tooltipContent, null]; // Recharts expects [value, name] or ReactNode
     }
 
-
+    // General tooltip formatting, excluding non-displayable keys
     if (typeof nameFromRecharts === 'string' && nameFromRecharts.toLowerCase().includes("timestamp")) return null;
     if (typeof dataKey === 'string') {
         const lowerDataKey = dataKey.toLowerCase();
         if (lowerDataKey === 'timestamp' ||
             lowerDataKey === 'timestampdisplay' ||
             lowerDataKey === 'tooltiptimestampfull' ||
-            lowerDataKey.includes("stddev") ||
+            lowerDataKey.includes("stddev") || // Will be handled by custom scatter tooltip
             lowerDataKey.includes("count") ||
             lowerDataKey.includes("aggregationperiod") ||
-            lowerDataKey === 'xnumeric'
+            lowerDataKey === 'xnumeric' // For violin x-axis
             ) {
             return null;
         }
@@ -573,6 +592,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
     }
     const unitString = (typeof value === 'number' && isFinite(value) && config?.unit) ? ` ${config.unit}` : '';
 
+    // Special handling for scatter to show std dev and count if aggregated
     if (chartType === 'scatter' && isAggregated && config && !config.isString && entry.payload) {
       let tooltipHtml = `<div style="color: ${config.color || 'inherit'};"><strong>${displayName}:</strong> ${displayValue}${unitString}`;
       const stdDevValue = entry.payload[`${originalMetricKeyForConfig}_stdDev`];
@@ -601,7 +621,8 @@ const WeatherChart: FC<WeatherChartProps> = ({
         const name = typeof pldItem.name === 'string' ? pldItem.name.toLowerCase() : '';
         const dataKey = typeof pldItem.dataKey === 'string' ? pldItem.dataKey.toLowerCase() : '';
 
-        if (chartType === 'violin' && pldItem.payload && pldItem.payload.originalRawPoint) {
+        // For main chart violin (unused from UI)
+        if (chartType === 'violin' && currentXAxisId === "violinXNumeric" && pldItem.payload && pldItem.payload.originalRawPoint) {
             return true;
         }
 
@@ -609,18 +630,24 @@ const WeatherChart: FC<WeatherChartProps> = ({
             dataKey === 'timestamp' ||
             dataKey === 'timestampdisplay' ||
             dataKey === 'tooltiptimestampfull' ||
-            name.includes("std dev") ||
-            dataKey.includes("stddev") ||
+            name.includes("std dev") || // Allow for custom rendering below
+            dataKey.includes("stddev") || // Allow for custom rendering below
             dataKey.includes("count") ||
             dataKey.includes("aggregationperiod") ||
             dataKey === 'xnumeric'
            ) {
+          // Allow std dev to pass through for scatter chart's custom formatter
+          if (chartType === 'scatter' && (name.includes("std dev") || dataKey.includes("stddev"))) {
+            // This means the ZAxis item itself, which we don't want in the tooltip directly
+            // The formatter handles combining avg with std dev for scatter.
+            return false; 
+          }
           return false;
         }
         return true;
       });
 
-    if (filteredPayload.length === 0 && chartType !== 'violin') {
+    if (filteredPayload.length === 0 && !(chartType === 'violin' && currentXAxisId === "violinXNumeric")) {
       return null;
     }
 
@@ -630,13 +657,14 @@ const WeatherChart: FC<WeatherChartProps> = ({
         payload={filteredPayload}
         formatter={tooltipFormatter}
         labelFormatter={tooltipLabelFormatter}
-        hideIndicator={(chartType === 'scatter' && isAggregated) || chartType === 'violin'}
+        hideIndicator={(chartType === 'scatter' && isAggregated) || (chartType === 'violin' && currentXAxisId === "violinXNumeric")}
       />
     );
   };
 
   const metricsAvailableForCurrentChartType = useMemo(() => {
-    if (chartType === 'violin' || chartType === 'scatter') {
+    // Main chart violin logic is effectively unused from UI, but keep for prop consistency
+    if (chartType === 'violin' || chartType === 'scatter') { 
       return selectedMetrics.filter(key => {
         const config = METRIC_CONFIGS[key];
         return config && !config.isString;
@@ -647,7 +675,92 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
   const renderChart = () => {
     console.log('[WeatherChart] FINAL RENDER PARAMS. chartType:', chartType, "currentXAxisId:", currentXAxisId);
-    if (isLoading || !currentChartDataForRender || (Array.isArray(currentChartDataForRender) && currentChartDataForRender.length === 0) || (metricsAvailableForCurrentChartType.length === 0 && selectedMetrics.length > 0)) {
+    
+    let ChartComponentToRender: React.ComponentType<any> = LineChart;
+    let currentChartDataForRender: any[] = formattedData;
+    
+    const xAxisProps: any = {
+      stroke: "#888888",
+      tick: { fill: "hsl(var(--foreground))", fontSize: 11 },
+    };
+    const yAxisProps: any = {
+      stroke: "#888888",
+      tick: { fill: "hsl(var(--foreground))", fontSize: 12 },
+      tickFormatter: yAxisTickFormatter,
+      domain: yAxisDomain,
+      allowDecimals: true,
+      type: "number" as const,
+      scale: "linear" as const,
+      allowDataOverflow: chartType !== 'bar',
+    };
+
+    if (chartType === 'violin') { // This block is for the main chart violin (unused from UI)
+      ChartComponentToRender = ScatterChart;
+      currentChartDataForRender = violinChartProcessedData.flatData;
+      if (currentXAxisId) xAxisProps.xAxisId = currentXAxisId;
+      if (currentYAxisId) yAxisProps.yAxisId = currentYAxisId;
+      
+      xAxisProps.dataKey = "xNumeric";
+      xAxisProps.type = "number";
+      xAxisProps.domain = [-0.5, violinChartProcessedData.categories.length - 0.5];
+      xAxisProps.ticks = Array.from(Array(violinChartProcessedData.categoryMap.size).keys());
+      xAxisProps.tickFormatter = (value: number) => violinChartProcessedData.categories[Math.round(value)] || '';
+      xAxisProps.angle = -45;
+      xAxisProps.textAnchor = "end";
+      xAxisProps.dy = 10;
+      xAxisProps.height = 70;
+      xAxisProps.minTickGap = 1;
+      xAxisProps.interval = 0;
+      
+      yAxisProps.dataKey="yValue"; // For violin Y-axis scaling
+    } else if (chartType === 'scatter') {
+      ChartComponentToRender = ScatterChart;
+      if (!isAggregated) { // Raw scatter
+        xAxisProps.dataKey = "timestamp";
+        xAxisProps.type = "number";
+        xAxisProps.domain = ['dataMin', 'dataMax'];
+        xAxisProps.tickFormatter = (value: number) => formatTimestampToDdMmHhMmUTC(value);
+        xAxisProps.scale = "time";
+        xAxisProps.angle = -45;
+        xAxisProps.textAnchor = "end";
+        xAxisProps.dy = 10;
+        xAxisProps.height = 70;
+        xAxisProps.minTickGap = 20;
+        xAxisProps.interval = currentChartDataForRender.length > 15 ? Math.floor(currentChartDataForRender.length / 10) : 0;
+      } else { // Aggregated scatter
+        xAxisProps.dataKey = "timestampDisplay";
+        xAxisProps.type = "category";
+        xAxisProps.angle = -45;
+        xAxisProps.textAnchor = "end";
+        xAxisProps.dy = 10;
+        xAxisProps.height = 70;
+        xAxisProps.minTickGap = 5;
+        xAxisProps.interval = "preserveStartEnd";
+      }
+    } else if (chartType === 'bar') {
+      ChartComponentToRender = BarChart;
+      xAxisProps.dataKey = "timestampDisplay";
+      xAxisProps.type = "category";
+      xAxisProps.angle = 0;
+      xAxisProps.textAnchor = "middle";
+      xAxisProps.dy = 0;
+      xAxisProps.height = 30;
+      xAxisProps.minTickGap = 5;
+      xAxisProps.interval = isAggregated ? "preserveStartEnd" : (currentChartDataForRender.length > 20 ? Math.floor(currentChartDataForRender.length / (currentChartDataForRender.length > 0 ? Math.min(10, currentChartDataForRender.length) : 5)) : 0);
+    } else { // Line chart (default)
+      ChartComponentToRender = LineChart;
+      xAxisProps.dataKey = "timestampDisplay";
+      xAxisProps.type = "category";
+      xAxisProps.angle = (chartType === 'line' && !isAggregated) ? -45 : 0;
+      xAxisProps.textAnchor = (chartType === 'line' && !isAggregated) ? "end" : "middle";
+      xAxisProps.dy = (chartType === 'line' && !isAggregated) ? 10 : 0;
+      xAxisProps.height = (chartType === 'line' && !isAggregated) ? 70 : 30;
+      xAxisProps.minTickGap = ((chartType === 'line') && !isAggregated) ? 10 : 5;
+      xAxisProps.interval = isAggregated ? "preserveStartEnd" : (currentChartDataForRender.length > 20 ? Math.floor(currentChartDataForRender.length / (currentChartDataForRender.length > 0 ? Math.min(10, currentChartDataForRender.length) : 5)) : 0);
+    }
+
+    // Fallback for empty data or metrics for current chart type
+     if (isLoading || !currentChartDataForRender || currentChartDataForRender.length === 0 || (metricsAvailableForCurrentChartType.length === 0 && selectedMetrics.length > 0)) {
       return (
         <Card className="shadow-lg h-full">
           <CardHeader className="pb-3">
@@ -667,136 +780,9 @@ const WeatherChart: FC<WeatherChartProps> = ({
       );
     }
 
-    // Define XAxis props
-    let xAxisDataKey: string = "timestampDisplay";
-    let xAxisType: "category" | "number" = "category";
-    let xAxisDomainVal: any = undefined;
-    let xAxisTickFormatterFunc: ((value: any, index: number) => string) | undefined = undefined;
-    let xAxisScale: "auto" | "time" | "linear" | "point" | "pow" | "sqrt" | "log" | "identity" | "band" = "auto";
-    let xAxisAngleProp = 0;
-    let xAxisTextAnchorProp: "start" | "middle" | "end" = "middle";
-    let xAxisDyProp = 0;
-    let xAxisHeightProp = 30;
-    let xAxisMinTickGapProp = 5;
-    let xAxisIntervalProp: number | "preserveStart" | "preserveEnd" | "preserveStartEnd" = 0;
 
-
-    if (chartType === 'violin') {
-      xAxisDataKey = "xNumeric";
-      xAxisType = "number";
-      xAxisDomainVal = [-0.5, violinChartProcessedData.categories.length - 0.5] as [number, number];
-      xAxisTickFormatterFunc = (value: number) => violinChartProcessedData.categories[Math.round(value)] || '';
-      xAxisAngleProp = -45;
-      xAxisTextAnchorProp = "end";
-      xAxisDyProp = 10;
-      xAxisHeightProp = 70;
-      xAxisMinTickGapProp = 1;
-      xAxisIntervalProp = 0;
-    } else if (chartType === 'scatter' && !isAggregated) {
-      xAxisDataKey = "timestamp";
-      xAxisType = "number";
-      xAxisDomainVal = ['dataMin', 'dataMax'] as [number | 'auto', number | 'auto'];
-      xAxisTickFormatterFunc = (value: number) => formatTimestampToDdMmHhMmUTC(value);
-      xAxisScale = "time";
-      xAxisAngleProp = -45;
-      xAxisTextAnchorProp = "end";
-      xAxisDyProp = 10;
-      xAxisHeightProp = 70;
-      xAxisMinTickGapProp = 20;
-      xAxisIntervalProp = currentChartDataForRender.length > 15 ? Math.floor(currentChartDataForRender.length / 10) : 0;
-    } else if (chartType === 'scatter' && isAggregated) {
-       xAxisDataKey = "timestampDisplay";
-       xAxisType = "category";
-       xAxisAngleProp = -45;
-       xAxisTextAnchorProp = "end";
-       xAxisDyProp = 10;
-       xAxisHeightProp = 70;
-       xAxisMinTickGapProp = 5;
-       xAxisIntervalProp = "preserveStartEnd";
-    } else { // Default for Line and Bar
-      xAxisDataKey = "timestampDisplay";
-      xAxisType = "category";
-      xAxisAngleProp = (chartType === 'line' && !isAggregated) ? -45 : 0;
-      xAxisTextAnchorProp = (chartType === 'line' && !isAggregated) ? "end" : "middle";
-      xAxisDyProp = (chartType === 'line' && !isAggregated) ? 10 : 0;
-      xAxisHeightProp = (chartType === 'line' && !isAggregated) ? 70 : 30;
-      xAxisMinTickGapProp = ((chartType === 'line') && !isAggregated) ? 10 : 5;
-      xAxisIntervalProp = isAggregated ? "preserveStartEnd" : (currentChartDataForRender.length > 20 ? Math.floor(currentChartDataForRender.length / (currentChartDataForRender.length > 0 ? Math.min(10, currentChartDataForRender.length) : 5)) : 0);
-    }
-
-    const xAxisBaseProps = {
-      dataKey: xAxisDataKey,
-      type: xAxisType,
-      domain: xAxisDomainVal,
-      scale: xAxisScale,
-      tickFormatter: xAxisTickFormatterFunc,
-      stroke: "#888888",
-      tick: { fill: "hsl(var(--foreground))", fontSize: 11 },
-      height: xAxisHeightProp,
-      interval: xAxisIntervalProp,
-      angle: xAxisAngleProp,
-      textAnchor: xAxisTextAnchorProp,
-      dy: xAxisDyProp,
-      minTickGap: xAxisMinTickGapProp,
-    };
-    const xAxisProps = currentXAxisId !== undefined ? { ...xAxisBaseProps, xAxisId: currentXAxisId } : xAxisBaseProps;
-    if (chartType === 'violin') { // Specific for violin XAxis ticks
-        (xAxisProps as any).ticks = Array.from(Array(violinChartProcessedData.categoryMap.size).keys());
-    }
-
-
-    const yAxisBaseProps = {
-      stroke: "#888888",
-      tick: { fill: "hsl(var(--foreground))", fontSize: 12 },
-      tickFormatter: yAxisTickFormatter,
-      domain: yAxisDomain,
-      allowDecimals: true,
-      type: "number",
-      scale: "linear" as const, // Explicitly type "linear"
-      allowDataOverflow: chartType !== 'bar',
-    };
-    const yAxisProps = { ...yAxisBaseProps };
-    if (currentYAxisId !== undefined) {
-      (yAxisProps as any).yAxisId = currentYAxisId;
-    }
-    if (chartType === 'violin') {
-        (yAxisProps as any).dataKey="yValue";
-    }
-
-
-    if (chartType === 'violin') {
-      return (
-        <ScatterChart
-          key={chartDynamicKey}
-          data={currentChartDataForRender}
-          {...commonCartesianProps}
-        >
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-          <XAxis {...xAxisProps} />
-          <YAxis {...yAxisProps} />
-          <Tooltip
-            content={renderCustomTooltipContent}
-            wrapperStyle={{ outline: "none" }}
-            cursor={false}
-            animationDuration={150}
-            animationEasing="ease-out"
-          />
-          <Legend
-            wrapperStyle={{ paddingTop: '0px', paddingBottom: '20px' }}
-            iconSize={14}
-            layout="horizontal"
-            align="center"
-            verticalAlign="top"
-            formatter={(value, entry: any) => METRIC_CONFIGS[entry.payload.metricKey as MetricKey]?.name || value}
-          />
-          {renderChartSpecificElements()}
-        </ScatterChart>
-      );
-    }
-
-    // For Line, Bar, Scatter (non-violin)
     return (
-    <ChartComponent
+    <ChartComponentToRender
       key={chartDynamicKey}
       data={currentChartDataForRender}
       onClick={chartType === 'line' || chartType === 'bar' ? handleLineBarChartClick : undefined}
@@ -828,8 +814,9 @@ const WeatherChart: FC<WeatherChartProps> = ({
           if (isAggregated && rechartsName.endsWith('_avg')) {
             originalKey = rechartsName.substring(0, rechartsName.length - 4);
           } else if (isAggregated && rechartsName.endsWith('_stdDev')) {
-             if (chartType === 'scatter' && numericMetricsForScatterOrViolin.includes(originalKey.replace('_stdDev','') as MetricKey) ) {
-                 return null; // Hide std dev from legend for scatter if its related metric is shown
+             // For scatter charts, the ZAxis (stdDev) shouldn't appear as a separate legend item if its base metric is shown
+             if (chartType === 'scatter' && numericMetricsForScatter.includes(originalKey.replace('_stdDev','') as MetricKey) ) {
+                 return null; 
              }
           }
 
@@ -844,16 +831,14 @@ const WeatherChart: FC<WeatherChartProps> = ({
           const metricMinMax = minMaxReferenceData[metricKey];
           const metricConfig = METRIC_CONFIGS[metricKey];
 
-          if (!metricMinMax || !metricConfig || metricConfig.isString) {
+          if (!metricMinMax || !metricConfig || metricConfig.isString || 
+              typeof metricMinMax.minValue !== 'number' || !isFinite(metricMinMax.minValue) ||
+              typeof metricMinMax.maxValue !== 'number' || !isFinite(metricMinMax.maxValue)
+          ) {
             return [];
           }
 
           const { minValue, maxValue } = metricMinMax;
-
-          if (typeof minValue !== 'number' || !isFinite(minValue) || typeof maxValue !== 'number' || !isFinite(maxValue)) {
-              return [];
-          }
-
           const orderIndex = metricsWithMinMaxLines.indexOf(metricKey);
           const activeOrderIndex = orderIndex !== -1 ? orderIndex : 0;
 
@@ -863,13 +848,13 @@ const WeatherChart: FC<WeatherChartProps> = ({
           return [
             <ReferenceLine
               key={`min-line-${metricKey}`}
-              y={Number(minValue)}
+              y={minValue}
               stroke={metricConfig.color}
               strokeDasharray="2 2"
               strokeOpacity={0.7}
               strokeWidth={1}
               label={{
-                value: `Min: ${Number(minValue).toFixed(isAggregated ? 1 : (metricConfig.unit === 'ppm' ? 0 : 2))}${metricConfig.unit || ''}`,
+                value: `Min: ${minValue.toFixed(isAggregated ? 1 : (metricConfig.unit === 'ppm' ? 0 : 2))}${metricConfig.unit || ''}`,
                 position: "right",
                 textAnchor: "end",
                 dx: -5,
@@ -880,13 +865,13 @@ const WeatherChart: FC<WeatherChartProps> = ({
             />,
             <ReferenceLine
               key={`max-line-${metricKey}`}
-              y={Number(maxValue)}
+              y={maxValue}
               stroke={metricConfig.color}
               strokeDasharray="2 2"
               strokeOpacity={0.7}
               strokeWidth={1}
               label={{
-                value: `Max: ${Number(maxValue).toFixed(isAggregated ? 1 : (metricConfig.unit === 'ppm' ? 0 : 2))}${metricConfig.unit || ''}`,
+                value: `Max: ${maxValue.toFixed(isAggregated ? 1 : (metricConfig.unit === 'ppm' ? 0 : 2))}${metricConfig.unit || ''}`,
                 position: "right",
                 textAnchor: "end",
                 dx: -5,
@@ -898,7 +883,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
           ];
         })
       }
-    </ChartComponent>
+    </ChartComponentToRender>
   )};
 
   return (
@@ -909,10 +894,9 @@ const WeatherChart: FC<WeatherChartProps> = ({
            <CardDescription>
             Displaying {chartType.charAt(0).toUpperCase() + chartType.slice(1)} Chart
             {(chartType !== 'scatter' || (chartType === 'scatter' && isAggregated)) && (chartType !== 'violin') && (isAggregated && chartInputData.length > 0 ? ` (Aggregated Data - ${chartInputData[0]?.timestampDisplay ? (chartInputData[0] as AggregatedDataPoint).aggregationPeriod : 'N/A'})` : ` (Raw Data)`)}.
-            {chartType === 'violin' && isAggregated && chartInputData.length > 0 && ` (Aggregated Data - ${chartInputData[0]?.timestampDisplay ? (chartInputData[0] as AggregatedDataPoint).aggregationPeriod : 'N/A'})`}
+            {/* Violin description removed for main chart */}
             {(((chartType === 'line' && !isAggregated)) || (chartType === 'scatter' && !isAggregated)) && " Point clicks can populate AI forecast."}
-            {chartType === 'scatter' && isAggregated && numericMetricsForScatterOrViolin.length > 0 && " Bubble size indicates data spread (standard deviation)."}
-            {chartType === 'violin' && " Jittered dots show raw data distribution for each period."}
+            {chartType === 'scatter' && isAggregated && numericMetricsForScatter.length > 0 && " Bubble size indicates data spread (standard deviation)."}
           </CardDescription>
         </div>
       </CardHeader>

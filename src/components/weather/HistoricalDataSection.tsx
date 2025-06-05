@@ -166,9 +166,6 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
     if (newChartType === 'bar' && aggregationType === 'raw') {
       setAggregationType('daily');
     }
-    if (newChartType === 'violin' && aggregationType === 'raw') {
-      setAggregationType('daily'); // Violin plots typically need aggregation
-    }
      if (newChartType !== 'scatter' && newChartType !== 'violin' && aggregationType === 'raw') {
         setAggregationType('daily');
     } else if (newChartType === 'scatter' && aggregationType === 'raw') {
@@ -176,7 +173,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
     }
   };
 
-  const isAggregationApplicable = selectedChartType === 'line' || selectedChartType === 'bar' || selectedChartType === 'scatter' || selectedChartType === 'violin';
+  const isAggregationApplicable = selectedChartType === 'line' || selectedChartType === 'bar' || selectedChartType === 'scatter'; // Violin removed from main chart
   const isActuallyAggregated = isAggregationApplicable && aggregationType !== 'raw';
 
   const chartData = useMemo(() => {
@@ -212,8 +209,8 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           timestamp: firstPointDate.getTime(),
           timestampDisplay: '',
           aggregationPeriod: currentAggregationPeriod,
-          // Conditionally include rawPointsInGroup for violin or if needed by other aggregated scatter/modal logic
-          rawPointsInGroup: (selectedChartType === 'violin' || (selectedChartType === 'scatter' && isActuallyAggregated)) ? pointsInGroup : undefined,
+          // Conditionally include rawPointsInGroup for scatter (if aggregated) as modal will need it
+          rawPointsInGroup: (selectedChartType === 'scatter' && isActuallyAggregated) ? pointsInGroup : undefined,
         };
 
         if (currentAggregationPeriod === 'hourly') {
@@ -238,8 +235,6 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
               (aggregatedPoint as any)[`${metricKey}_stdDev`] = calculateStandardDeviation(values);
               (aggregatedPoint as any)[`${metricKey}_count`] = values.length;
               if (selectedChartType === 'line' || selectedChartType === 'bar' || (selectedChartType === 'scatter' && isActuallyAggregated)) {
-                  // For violin, the main `metricKey` value on AggregatedDataPoint isn't directly used for plotting dots,
-                  // but might be used for a median line or other representation later. For now, set it to average like others.
                   aggregatedPoint[metricKey] = average;
               }
             } else {
@@ -256,7 +251,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
              const firstValue = pointsInGroup[0]?.[metricKey];
              aggregatedPoint[metricKey] = firstValue;
              if (selectedChartType === 'scatter' && isActuallyAggregated) {
-                (aggregatedPoint as any)[`${metricKey}_avg`] = null; // Or mode, or count
+                (aggregatedPoint as any)[`${metricKey}_avg`] = null; 
                 (aggregatedPoint as any)[`${metricKey}_min`] = null;
                 (aggregatedPoint as any)[`${metricKey}_max`] = null;
                 (aggregatedPoint as any)[`${metricKey}_stdDev`] = 0;
@@ -341,7 +336,6 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
       console.log("[HistoricalDataSection] Scatter click: selectedMetrics array:", selectedMetrics);
       console.log("[HistoricalDataSection] Scatter click: payloadPoint (clickedData from chart - first arg):", payloadPoint);
 
-
       console.log("[HistoricalDataSection] Strategy 1 (explicitMetricKey from rechartsClickProps): Attempting...");
       if (rechartsClickProps && rechartsClickProps.explicitMetricKey) {
         metricKeyFromPayload = rechartsClickProps.explicitMetricKey as MetricKey;
@@ -362,23 +356,10 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
         console.error(`[HistoricalDataSection] No metricConfig for baseMetricKey: ${baseMetricKey}. Modal will not open.`);
         return;
       }
-      if (metricConfig.isString && selectedChartType !== 'violin') { // Violin plots are for numeric, but modal handles string if somehow passed
-        console.log(`[HistoricalDataSection] Metric ${baseMetricKey} is string. No detail modal for non-violin scatter. Modal will not open.`);
+      if (metricConfig.isString) {
+        console.log(`[HistoricalDataSection] Metric ${baseMetricKey} is string. No detail modal for string data. Modal will not open.`);
         return;
       }
-      
-      // For violin plot clicks, we don't open the modal as the plot itself shows distribution.
-      // And AI clicks are handled separately if violin is raw (which it won't be).
-      if (selectedChartType === 'violin') {
-        console.log('[HistoricalDataSection] Violin plot point clicked. No modal action. AI click (if applicable) handled by raw data condition.');
-        if (onChartPointClickForAI && payloadPoint.rawPointsInGroup && payloadPoint.rawPointsInGroup.length > 0) {
-          // Potentially pass the first raw point for AI, or a summary. For now, let's pass the first.
-          // This might need refinement based on desired AI behavior for violin clicks.
-          onChartPointClickForAI(payloadPoint.rawPointsInGroup[0]);
-        }
-        return;
-      }
-
 
       let startOfPeriod: Date;
       let endOfPeriod: Date;
@@ -406,10 +387,8 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           return;
       }
       
-      // Use rawPointsInGroup if available on payloadPoint (for aggregated scatter that might have it)
-      // Otherwise, filter from allFetchedData as fallback.
       const rawPointsForAggregate = payloadPoint.rawPointsInGroup && payloadPoint.rawPointsInGroup.length > 0
-        ? payloadPoint.rawPointsInGroup.filter(p => typeof p[baseMetricKey] !== 'undefined') // Ensure metric exists if using pre-filtered
+        ? payloadPoint.rawPointsInGroup.filter(p => typeof p[baseMetricKey] !== 'undefined')
         : allFetchedData.filter(p =>
             p.timestamp >= startOfPeriod.getTime() && p.timestamp <= endOfPeriod.getTime() && typeof p[baseMetricKey] !== 'undefined'
           );
@@ -515,7 +494,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
                   <SelectItem value="line">Line Chart</SelectItem>
                   <SelectItem value="bar">Bar Chart</SelectItem>
                   <SelectItem value="scatter">Scatter Chart</SelectItem>
-                  <SelectItem value="violin">Violin Plot</SelectItem>
+                  {/* Violin Plot option removed from main chart selector */}
                 </SelectContent>
               </Select>
             </div>
@@ -525,7 +504,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
                 <Select
                   value={aggregationType}
                   onValueChange={(value) => setAggregationType(value as ChartAggregationMode)}
-                  disabled={(selectedChartType === 'bar' && aggregationType === 'raw') || (selectedChartType === 'violin' && aggregationType === 'raw')}
+                  disabled={(selectedChartType === 'bar' && aggregationType === 'raw')}
                 >
                   <SelectTrigger id="aggregation-type-select" className="w-full sm:w-auto sm:min-w-[150px]">
                     <SelectValue placeholder="Select aggregation" />
@@ -588,3 +567,4 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
 };
 
 export default HistoricalDataSection;
+
