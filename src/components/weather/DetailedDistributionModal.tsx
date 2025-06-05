@@ -3,7 +3,7 @@
 "use client";
 
 import type { FC } from 'react';
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -146,7 +146,7 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
 
     if (dataMin === dataMax) { 
         binWidth = 1; 
-         return [{ y: dataMin, densityLeft: -1, densityRight: 1 }]; 
+         return [{ y: dataMin, densityLeft: -1, densityRight: 1 }].sort((a, b) => a.y - b.y); 
     }
     if (binWidth <= 0) {
         return null; 
@@ -176,15 +176,17 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
     
     const maxCount = Math.max(...bins.map(b => b.count), 0);
     if (maxCount === 0 && values.length > 0) { 
-        return [{ y: boxPlotStats.median, densityLeft: -0.5, densityRight: 0.5 }];
+        return [{ y: boxPlotStats.median, densityLeft: -0.5, densityRight: 0.5 }].sort((a, b) => a.y - b.y);
     }
     if (maxCount === 0) return null;
 
-    return bins.map(bin => ({
+    const result = bins.map(bin => ({
       y: bin.yMid,
       densityLeft: - (bin.count / maxCount), 
       densityRight: (bin.count / maxCount),  
     }));
+
+    return result.sort((a, b) => a.y - b.y);
 
   }, [numericValuesForDistribution, data?.metricConfig, boxPlotStats]);
 
@@ -202,28 +204,26 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
   const FIXED_CHART_HEIGHT = CHART_HEIGHT - 50; 
 
 
-  // LOGGING START
-  console.log('[DetailedDistributionModal] Rendering. isOpen:', isOpen);
-  if (data) {
-    console.log('[DetailedDistributionModal] Data props:', {
-      metricKey: data.metricKey,
-      metricName: data.metricConfig.name,
-      aggregationLabel: data.aggregationLabel,
-      stats: data.stats,
-      rawPointsCount: data.rawPoints.length,
-    });
-    console.log('[DetailedDistributionModal] numericValuesForDistribution (count, sample):', 
-      numericValuesForDistribution?.length, 
-      numericValuesForDistribution?.slice(0,5)
-    );
-    console.log('[DetailedDistributionModal] histogramData:', histogramData);
-    console.log('[DetailedDistributionModal] boxPlotStats:', boxPlotStats);
-    console.log('[DetailedDistributionModal] violinPlotDataForArea:', violinPlotDataForArea);
-    console.log('[DetailedDistributionModal] canShowDistributionPlots:', canShowDistributionPlots);
-  } else {
-    console.log('[DetailedDistributionModal] Data prop is null or undefined.');
-  }
-  // LOGGING END
+  useEffect(() => {
+    if (isOpen && data) {
+      console.log('[DetailedDistributionModal] Rendering. isOpen:', isOpen);
+      console.log('[DetailedDistributionModal] Data props:', {
+        metricKey: data.metricKey,
+        metricName: data.metricConfig.name,
+        aggregationLabel: data.aggregationLabel,
+        stats: data.stats,
+        rawPointsCount: data.rawPoints.length,
+      });
+      console.log('[DetailedDistributionModal] numericValuesForDistribution (count, sample):', 
+        numericValuesForDistribution?.length, 
+        numericValuesForDistribution?.slice(0,5)
+      );
+      console.log('[DetailedDistributionModal] histogramData:', histogramData);
+      console.log('[DetailedDistributionModal] boxPlotStats:', boxPlotStats);
+      console.log('[DetailedDistributionModal] violinPlotDataForArea:', violinPlotDataForArea);
+      console.log('[DetailedDistributionModal] canShowDistributionPlots:', canShowDistributionPlots);
+    }
+  }, [isOpen, data, numericValuesForDistribution, histogramData, boxPlotStats, violinPlotDataForArea, canShowDistributionPlots]);
 
   if (!isOpen || !data) {
     return null;
@@ -233,16 +233,10 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
 
   const violinPrimaryColor = metricConfig.color || 'hsl(var(--primary))';
   
-  // Enhanced color derivation logic
-  let primaryHslValuesString = "210 75% 50%"; // Default for primary
+  let primaryHslValuesString = "210 75% 50%"; 
   const colorVariable = violinPrimaryColor.match(/hsl\(var\((--[\w-]+)\)\)/);
 
   if (colorVariable && colorVariable[1]) {
-    // Attempt to get the HSL string from CSS custom property
-    // This requires the :root or .dark definitions in globals.css to be like: --chart-1: 210 75% 50%;
-    // Or more directly: --chart-1-hsl-values: 210 75% 50%; (if we add these)
-    // For simplicity, we'll map known chart variables to their HSL strings directly here.
-    // This mapping should ideally align with your globals.css chart color definitions.
     const knownChartHslStrings: Record<string, string> = {
       '--chart-1': "210 75% 50%",
       '--chart-2': "180 60% 50%",
@@ -256,12 +250,12 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
   }
   
   const [h, s, lBase] = primaryHslValuesString.split(' ').map(v => parseFloat(v.replace('%','')));
-  const dynamicViolinFillColor = `hsla(${h}, ${s}%, ${lBase * 0.8}%, 0.3)`; // Lighten and make transparent
+  const dynamicViolinFillColor = `hsla(${h}, ${s}%, ${lBase * 0.8}%, 0.3)`; 
 
 
-  const boxPlotStrokeColor = 'hsl(var(--foreground))'; // For median, whiskers
-  const boxPlotFillColor = 'hsla(var(--foreground-hsl), 0.1)'; // For IQR box, assumes --foreground-hsl is defined or defaults appropriately
-  const boxPlotElementsWidth = 0.3; // Relative to density axis for IQR box width
+  const boxPlotStrokeColor = 'hsl(var(--foreground))'; 
+  const boxPlotFillColor = `hsla(${h}, ${s}%, ${lBase * 0.5}%, 0.2)`; // Slightly darker, more transparent version for box
+  const boxPlotElementsWidth = 0.3; 
   const whiskerCapWidth = boxPlotElementsWidth / 2;
 
 
@@ -325,7 +319,7 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                         <TabsContent value="histogram" className={`p-0 pr-4 pb-2 mt-0 flex items-center justify-center`}>
                             {(() => {
                               const showHistogram = canShowDistributionPlots && histogramData && histogramData.length > 0;
-                              console.log('[DetailedDistributionModal] Show Histogram condition:', showHistogram);
+                              // console.log('[DetailedDistributionModal] Show Histogram condition:', showHistogram);
                               if (showHistogram) {
                                 return (
                                   <BarChart 
@@ -346,11 +340,11 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                                   </BarChart>
                                 );
                               } else {
-                                console.log('[DetailedDistributionModal] Histogram not shown. Details:', {
-                                  canShowDistributionPlots,
-                                  histogramDataLength: histogramData?.length,
-                                  isString: data?.metricConfig?.isString,
-                                });
+                                // console.log('[DetailedDistributionModal] Histogram not shown. Details:', {
+                                //   canShowDistributionPlots,
+                                //   histogramDataLength: histogramData?.length,
+                                //   isString: data?.metricConfig?.isString,
+                                // });
                                 return (
                                   <div className="flex items-center justify-center h-full text-muted-foreground text-sm" style={{height: `${FIXED_CHART_HEIGHT}px`, width: `${FIXED_CHART_WIDTH}px`}}>
                                       {metricConfig.isString ? "Histogram not applicable for textual data." : "Not enough data or variation for histogram."}
@@ -362,7 +356,7 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                         <TabsContent value="violin" className={`p-0 pr-1 pb-2 mt-0 flex items-center justify-center`}>
                            {(() => {
                               const showViolin = canShowDistributionPlots && violinPlotDataForArea && violinPlotDataForArea.length > 0 && boxPlotStats;
-                              console.log('[DetailedDistributionModal] Show Violin condition (boolean):', !!showViolin);
+                              // console.log('[DetailedDistributionModal] Show Violin condition (boolean):', !!showViolin);
                               
                               if (showViolin) {
                                 return (
@@ -409,8 +403,8 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                                           itemSorter={(item) => item.name === 'densityRight' ? 1 : -1} 
                                           cursor={{ stroke: 'hsl(var(--accent))', strokeDasharray: '3 3' }}
                                       />
-                                      <Area type="monotone" dataKey="densityRight" strokeWidth={1.5} stroke={violinPrimaryColor} fill={dynamicViolinFillColor} fillOpacity={0.7} stackId="1" name="Density (Right)" />
-                                      <Area type="monotone" dataKey="densityLeft" strokeWidth={1.5} stroke={violinPrimaryColor} fill={dynamicViolinFillColor} fillOpacity={0.7} stackId="1" name="Density (Left)" />
+                                      <Area type="monotone" dataKey="densityRight" strokeWidth={1.5} stroke={violinPrimaryColor} fill={dynamicViolinFillColor} fillOpacity={0.7} baseValue={0} name="Density (Right)" />
+                                      <Area type="monotone" dataKey="densityLeft" strokeWidth={1.5} stroke={violinPrimaryColor} fill={dynamicViolinFillColor} fillOpacity={0.7} baseValue={0} name="Density (Left)" />
                                       
                                       {/* Inner Box Plot Elements */}
                                       {boxPlotStats && (
@@ -472,13 +466,13 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                                   </AreaChart>
                                 );
                               } else {
-                                console.log('[DetailedDistributionModal] Violin Plot not shown. Details:', {
-                                  canShowDistributionPlots,
-                                  violinPlotDataForAreaExists: !!violinPlotDataForArea,
-                                  violinPlotDataLength: violinPlotDataForArea?.length,
-                                  boxPlotStatsExists: !!boxPlotStats,
-                                  isString: data?.metricConfig?.isString,
-                                });
+                                // console.log('[DetailedDistributionModal] Violin Plot not shown. Details:', {
+                                //   canShowDistributionPlots,
+                                //   violinPlotDataForAreaExists: !!violinPlotDataForArea,
+                                //   violinPlotDataLength: violinPlotDataForArea?.length,
+                                //   boxPlotStatsExists: !!boxPlotStats,
+                                //   isString: data?.metricConfig?.isString,
+                                // });
                                  return (
                                   <div className="flex items-center justify-center h-full text-muted-foreground text-sm" style={{height: `${FIXED_CHART_HEIGHT}px`, width: `${FIXED_CHART_WIDTH}px`}}>
                                       {metricConfig.isString ? "Violin plot not applicable for textual data." : "Not enough data or variation for violin plot."}
