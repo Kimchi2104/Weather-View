@@ -51,6 +51,20 @@ export interface MetricConfig {
 export interface AggregatedDataPoint extends WeatherDataPoint {
   timestampDisplay: string;
   aggregationPeriod: 'hourly' | 'daily' | 'weekly' | 'monthly';
-  // Dynamic keys for aggregated values, e.g., temperature_avg, humidity_min, etc.
-  // These will be added dynamically during aggregation.
+}
+
+// Moved DetailModalData here for global type usage if needed, 
+// though it's primarily used by DetailedDistributionModal and set by HistoricalDataSection.
+export interface DetailModalData {
+  metricKey: MetricKey; 
+  metricConfig: MetricConfig;
+  aggregationLabel: string;
+  stats: {
+    avg?: number;
+    min?: number;
+    max?: number;
+    stdDev?: number;
+    count?: number;
+  };
+  rawPoints: WeatherDataPoint[];
 }

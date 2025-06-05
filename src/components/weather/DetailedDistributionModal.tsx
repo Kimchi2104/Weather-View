@@ -2,7 +2,7 @@
 "use client";
 
 import type { FC } from 'react';
-import React, { useMemo, useEffect } from 'react'; // Added useEffect
+import React, { useMemo, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -14,14 +14,14 @@ import {
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import type { WeatherDataPoint, MetricConfig, MetricKey } from '@/types/weather'; // Added MetricKey
+import type { WeatherDataPoint, MetricConfig, MetricKey } from '@/types/weather'; 
 import { formatTimestampToFullUTC } from '@/lib/utils';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'; // Removed Legend
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle as ModalCardTitle } from '@/components/ui/card';
 
 
 export interface DetailModalData {
-  metricKey: MetricKey; // Added metricKey
+  metricKey: MetricKey; 
   metricConfig: MetricConfig;
   aggregationLabel: string;
   stats: {
@@ -40,9 +40,8 @@ interface DetailedDistributionModalProps {
   data: DetailModalData | null;
 }
 
-// Helper to get the correct data key from a raw point based on metricConfig
 const getMetricValueFromPoint = (point: WeatherDataPoint, metricKey: MetricKey, metricConfig: MetricConfig): number | string | undefined => {
-  const value = point[metricKey]; // Direct access using the actual key
+  const value = point[metricKey];
 
   if (metricConfig.isString) {
     return typeof value === 'string' ? value : (value !== undefined && value !== null ? String(value) : undefined);
@@ -53,7 +52,8 @@ const getMetricValueFromPoint = (point: WeatherDataPoint, metricKey: MetricKey, 
 };
 
 const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen, onClose, data }) => {
-  
+  console.log(`[DetailedDistributionModal] Component rendered. isOpen: ${isOpen}, data exists: ${!!data}`);
+
   const histogramData = useMemo(() => {
     if (!data || !data.rawPoints || data.rawPoints.length === 0 || data.metricConfig.isString) {
       return null;
@@ -98,9 +98,10 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
   }, [data]);
 
   useEffect(() => {
-    if (isOpen && data) {
-      console.log('[DetailedDistributionModal] Modal Open. Data received:', JSON.parse(JSON.stringify(data)));
-      console.log('[DetailedDistributionModal] Calculated histogramData:', histogramData);
+    console.log(`[DetailedDistributionModal] useEffect triggered. isOpen: ${isOpen}`);
+    if (isOpen) {
+      console.log(`[DetailedDistributionModal] Modal is open. Current data:`, data ? JSON.parse(JSON.stringify(data)) : 'null or undefined');
+      console.log('[DetailedDistributionModal] Calculated histogramData (at effect run):', histogramData);
     }
   }, [isOpen, data, histogramData]);
 
@@ -233,5 +234,3 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
 };
 
 export default DetailedDistributionModal;
-
-    
