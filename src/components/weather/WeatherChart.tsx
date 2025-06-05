@@ -91,7 +91,7 @@ type ExportThemeOption = 'current' | 'light' | 'dark';
 const WeatherChart: FC<WeatherChartProps> = ({
   data: chartInputData,
   selectedMetrics,
-  metricConfigs: METRIC_CONFIGS, 
+  metricConfigs: METRIC_CONFIGS,
   isLoading,
   onPointClick,
   chartType,
@@ -115,7 +115,6 @@ const WeatherChart: FC<WeatherChartProps> = ({
         timestampDisplay: point.timestampDisplay || formatTimestampToDdMmHhMmUTC(point.timestamp || Date.now()),
         tooltipTimestampFull: point.tooltipTimestampFull || (isAggregated && point.aggregationPeriod ? point.timestampDisplay : formatTimestampToFullUTC(point.timestamp || Date.now())),
     }));
-    // console.log('[WeatherChart] Formatted Data (first 3):', result.slice(0,3));
     return result;
   }, [chartInputData, isAggregated]);
 
@@ -194,17 +193,17 @@ const WeatherChart: FC<WeatherChartProps> = ({
         color: metricConf.color,
       };
       if (isAggregated && !metricConf.isString) {
-        config[`${key}_avg`] = { 
+        config[`${key}_avg`] = {
           label: `${metricConf.name} (Avg)`,
           icon: metricConf.Icon,
           color: metricConf.color,
         };
-         config[`${key}_stdDev`] = { 
+         config[`${key}_stdDev`] = {
           label: `${metricConf.name} (Std. Dev)`,
-          icon: undefined, 
-          color: metricConf.color, 
+          icon: undefined,
+          color: metricConf.color,
         };
-         config[`${key}_count`] = { 
+         config[`${key}_count`] = {
             label: `${metricConf.name} (Count)`,
             icon: undefined,
             color: metricConf.color,
@@ -285,10 +284,10 @@ const WeatherChart: FC<WeatherChartProps> = ({
     if (typeof nameFromRecharts === 'string' && nameFromRecharts.toLowerCase().includes("timestamp")) return null;
     if (typeof dataKey === 'string') {
         const lowerDataKey = dataKey.toLowerCase();
-        if (lowerDataKey === 'timestamp' || 
-            lowerDataKey === 'timestampdisplay' || 
-            lowerDataKey === 'tooltiptimestampfull' || 
-            lowerDataKey.includes("stddev") || 
+        if (lowerDataKey === 'timestamp' ||
+            lowerDataKey === 'timestampdisplay' ||
+            lowerDataKey === 'tooltiptimestampfull' ||
+            lowerDataKey.includes("stddev") ||
             lowerDataKey.includes("count") ||
             lowerDataKey.includes("aggregationperiod")) {
             return null;
@@ -343,46 +342,44 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
   const handleScatterPointClick = (scatterPointProps: any, index: number) => {
     console.log('[WeatherChart] Scatter Point Clicked. Index:', index);
-    console.log('[WeatherChart] Full scatterPointProps from Recharts:', scatterPointProps);
+    // Log the full scatterPointProps object to inspect its structure
+    console.log('[WeatherChart] Full scatterPointProps from Recharts (raw):', scatterPointProps);
+    try {
+      console.log('[WeatherChart] Full scatterPointProps from Recharts (JSON):', JSON.stringify(scatterPointProps, null, 2));
+    } catch (e) {
+      console.warn('[WeatherChart] Could not stringify scatterPointProps:', e);
+    }
+
     if (scatterPointProps) {
       console.log('[WeatherChart] Keys available on scatterPointProps:', Object.keys(scatterPointProps));
       if (scatterPointProps.payload) {
         console.log('[WeatherChart] Scatter point payload:', scatterPointProps.payload);
       }
-      // Important: We pass scatterPointProps itself as the second argument, as it contains
-      // properties like 'dataKey', 'name', 'fill', 'stroke', etc., which might be needed
-      // by the parent to determine which specific metric series was clicked.
+      // Pass the entire scatterPointProps as the second argument (rechartsClickProps)
+      // as it contains Recharts context like dataKey, name, etc.
       onPointClick?.(scatterPointProps.payload, scatterPointProps);
     } else {
-      console.warn('[WeatherChart] scatterPointProps was null or undefined.');
+      console.warn('[WeatherChart] scatterPointProps was null or undefined for scatter click.');
       onPointClick?.(null, null);
     }
   };
 
-
   const handleLineBarChartClick = (rechartsEvent: any) => {
-    if (!rechartsEvent) {
-      console.log('[WeatherChart] Line/Bar Chart Click: Event from Recharts is null/undefined. Calling onPointClick with nulls.');
-      onPointClick?.(null, null);
-      return;
-    }
-    
     let eventDataString = 'Could not stringify event';
     try {
-        eventDataString = JSON.stringify(rechartsEvent, (key, value) => {
-            if (typeof value === 'function') return '[Function]';
-            if (value instanceof Element) return '[DOM Element]';
-            if (key === 'target' && value instanceof EventTarget) return '[EventTarget]'; 
-            return value;
-        }, 2);
-    } catch (e) { /* ignore stringify errors for complex objects */ }
-
+      eventDataString = JSON.stringify(rechartsEvent, (key, value) => {
+        if (typeof value === 'function') return '[Function]';
+        if (value instanceof Element) return '[DOM Element]';
+        if (key === 'target' && value instanceof EventTarget) return '[EventTarget]';
+        return value;
+      }, 2);
+    } catch (e) { /* ignore stringify errors */ }
     console.log('[WeatherChart] Line/Bar Chart Click. Full Event Data (Sanitized):', eventDataString);
 
-    if (rechartsEvent.activePayload && rechartsEvent.activePayload.length > 0) {
+    if (rechartsEvent && rechartsEvent.activePayload && rechartsEvent.activePayload.length > 0) {
       console.log('[WeatherChart] Line/Bar - Active Payload FOUND:', rechartsEvent.activePayload);
-      onPointClick?.(rechartsEvent.activePayload[0].payload, rechartsEvent);
-    } else if (rechartsEvent.chartX || rechartsEvent.xValue) { 
+      onPointClick?.(rechartsEvent.activePayload[0].payload, rechartsEvent.activePayload[0]); // Pass activePayload[0] as rechartsClickProps
+    } else if (rechartsEvent && (rechartsEvent.chartX || rechartsEvent.xValue)) {
       console.log('[WeatherChart] Line/Bar - Click on chart area (empty space). Calling onPointClick with nulls.');
       onPointClick?.(null, null);
     } else {
@@ -399,17 +396,17 @@ const WeatherChart: FC<WeatherChartProps> = ({
       }
       return numericMetricsForScatter.flatMap((key) => {
         const metricConfig = METRIC_CONFIGS[key];
-        if (!metricConfig || metricConfig.isString) { 
+        if (!metricConfig || metricConfig.isString) {
           return [];
         }
   
         const yDataKey = isAggregated ? `${key}_avg` : key;
         const stdDevDataKey = isAggregated ? `${key}_stdDev` : undefined;
-        const zAxisUniqueId = `z-${key}`; 
+        const zAxisUniqueId = `z-${key}`;
   
         const elements = [];
   
-        if (isAggregated && stdDevDataKey) { 
+        if (isAggregated && stdDevDataKey) {
           elements.push(
             <ZAxis
               key={`zaxis-${key}`}
@@ -424,13 +421,13 @@ const WeatherChart: FC<WeatherChartProps> = ({
         elements.push(
           <Scatter
             key={`scatter-${key}`}
-            name={chartConfigForShadcn[yDataKey]?.label || chartConfigForShadcn[key]?.label || metricConfig.name}
+            name={yDataKey} // Set name to yDataKey for programmatic parsing
             dataKey={yDataKey}
             fill={metricConfig.color || '#8884d8'}
             shape="circle"
             animationDuration={300}
             {...(isAggregated && stdDevDataKey ? { zAxisId: zAxisUniqueId } : {})}
-            onClick={handleScatterPointClick} 
+            onClick={handleScatterPointClick}
           />
         );
         return elements;
@@ -443,6 +440,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
       if (!metricConfig) return null;
 
       const color = metricConfig.color || '#8884d8';
+      // Use the raw key for the name prop if a label isn't found, for programmatic access
       const name = chartConfigForShadcn[key]?.label || metricConfig.name || key;
 
       switch (chartType) {
@@ -481,8 +479,8 @@ const WeatherChart: FC<WeatherChartProps> = ({
   const xAxisDataKey = chartType === 'scatter' ? "timestamp" : "timestampDisplay";
   const xAxisType = chartType === 'scatter' ? "number" : "category";
   
-  const xAxisTickFormatter = chartType === 'scatter' ? 
-    (value: number) => formatTimestampToDdMmHhMmUTC(value) : 
+  const xAxisTickFormatter = chartType === 'scatter' ?
+    (value: number) => formatTimestampToDdMmHhMmUTC(value) :
     undefined;
   const xAxisDomain = chartType === 'scatter' ? (['dataMin', 'dataMax'] as [number | 'auto', number | 'auto']) : undefined;
   const xAxisScale = chartType === 'scatter' ? "time" : "auto";
@@ -495,8 +493,8 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
   const xAxisMinTickGap = chartType === 'scatter' ? 20 : (((chartType === 'line') && !isAggregated) ? 10 : 5);
 
-  const xAxisInterval = chartType === 'scatter' ? 
-    (formattedData.length > 15 ? Math.floor(formattedData.length / 10) : 0) : 
+  const xAxisInterval = chartType === 'scatter' ?
+    (formattedData.length > 15 ? Math.floor(formattedData.length / 10) : 0) :
     (isAggregated ? "preserveStartEnd" : (formattedData.length > 20 ? Math.floor(formattedData.length / numTicks) : 0));
 
 
@@ -509,7 +507,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
   const chartDynamicKey = `${chartType}-${selectedMetrics.join('-')}-${JSON.stringify(yAxisDomain)}-${isAggregated}-${formattedData.length}-${showMinMaxLines}`;
   
   const scatterLabelFormatter = (label: string | number, payload: any[] | undefined) => {
-    if (chartType === 'scatter') return null; 
+    if (chartType === 'scatter') return null;
     if (payload && payload.length > 0 && payload[0].payload.tooltipTimestampFull) {
       return payload[0].payload.tooltipTimestampFull;
     }
@@ -525,11 +523,11 @@ const WeatherChart: FC<WeatherChartProps> = ({
         const name = typeof pldItem.name === 'string' ? pldItem.name.toLowerCase() : '';
         const dataKey = typeof pldItem.dataKey === 'string' ? pldItem.dataKey.toLowerCase() : '';
         
-        if (name.includes("timestamp") || 
-            dataKey === 'timestamp' || 
-            dataKey === 'timestampdisplay' || 
+        if (name.includes("timestamp") ||
+            dataKey === 'timestamp' ||
+            dataKey === 'timestampdisplay' ||
             dataKey === 'tooltiptimestampfull' ||
-            name.includes("std dev") || 
+            name.includes("std dev") ||
             dataKey.includes("stddev") ||
             dataKey.includes("count") ||
             dataKey.includes("aggregationperiod")
@@ -540,7 +538,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
       });
   
     if (filteredPayload.length === 0) {
-      return null; 
+      return null;
     }
     
     return (
@@ -583,7 +581,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
         tickFormatter={yAxisTickFormatter}
         domain={yAxisDomain}
         allowDecimals={true}
-        type="number" 
+        type="number"
         scale="linear"
         allowDataOverflow={chartType === 'line' || chartType === 'scatter'}
       />
@@ -601,21 +599,20 @@ const WeatherChart: FC<WeatherChartProps> = ({
         align="center"
         verticalAlign="top"
         formatter={(value, entry, index) => {
-          const dataKey = entry.dataKey as string;
-          let originalKey = dataKey;
-          if (isAggregated && dataKey.endsWith('_avg')) {
-            originalKey = dataKey.substring(0, dataKey.length - 4);
-          } else if (isAggregated && dataKey.endsWith('_stdDev')) {
+          // The 'value' here is the 'name' prop from the <Line />, <Bar />, or <Scatter /> component
+          const rechartsName = entry.name as string; // This should be the yDataKey like 'temperature_avg' for scatter
+          let originalKey = rechartsName;
+
+          if (isAggregated && rechartsName.endsWith('_avg')) {
+            originalKey = rechartsName.substring(0, rechartsName.length - 4);
+          } else if (isAggregated && rechartsName.endsWith('_stdDev')) {
              if (chartType === 'scatter' && numericMetricsForScatter.includes(originalKey.replace('_stdDev','') as MetricKey) ) {
-                 return null;
+                 return null; // Don't show std dev in legend for scatter
              }
           }
           
           const config = chartConfigForShadcn[originalKey as MetricKey];
-          if (config?.label) {
-            return isAggregated && dataKey.endsWith('_avg') ? `${config.label}` : config.label;
-          }
-          return value;
+          return config?.label || value; // Fallback to the original value (which might be label or key)
         }}
       />
       {renderChartSpecificElements()}
