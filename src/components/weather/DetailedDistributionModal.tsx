@@ -2,7 +2,7 @@
 "use client";
 
 import type { FC } from 'react';
-import { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react'; // Added useEffect
 import {
   Dialog,
   DialogContent,
@@ -14,13 +14,14 @@ import {
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import type { WeatherDataPoint, MetricConfig } from '@/types/weather';
+import type { WeatherDataPoint, MetricConfig, MetricKey } from '@/types/weather'; // Added MetricKey
 import { formatTimestampToFullUTC } from '@/lib/utils';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'; // Removed Legend
 import { Card, CardContent, CardHeader, CardTitle as ModalCardTitle } from '@/components/ui/card';
 
 
 export interface DetailModalData {
+  metricKey: MetricKey; // Added metricKey
   metricConfig: MetricConfig;
   aggregationLabel: string;
   stats: {
@@ -40,59 +41,38 @@ interface DetailedDistributionModalProps {
 }
 
 // Helper to get the correct data key from a raw point based on metricConfig
-const getMetricValueFromPoint = (point: WeatherDataPoint, metricConfig: MetricConfig): number | undefined => {
-  let value: any;
-  // Try common patterns for accessing the metric value
-  const potentialKeys: (keyof WeatherDataPoint | string)[] = [
-    metricConfig.name.toLowerCase().replace(/\s+/g, ''), // e.g., "temperature", "aqi(ppm)" -> "aqippm"
-    metricConfig.name.split(' ')[0].toLowerCase(), // e.g., "Temperature" -> "temperature"
-    // Add specific known mappings if needed
-    (metricConfig.name === 'AQI (ppm)' ? 'aqiPpm' : ''),
-    (metricConfig.name === 'Light Level' ? 'lux' : '')
-  ].filter(Boolean);
+const getMetricValueFromPoint = (point: WeatherDataPoint, metricKey: MetricKey, metricConfig: MetricConfig): number | string | undefined => {
+  const value = point[metricKey]; // Direct access using the actual key
 
-  for (const key of potentialKeys) {
-    if (key in point) {
-      value = point[key as keyof WeatherDataPoint];
-      break;
-    }
+  if (metricConfig.isString) {
+    return typeof value === 'string' ? value : (value !== undefined && value !== null ? String(value) : undefined);
+  } else {
+    const num = Number(value);
+    return isFinite(num) ? num : undefined;
   }
-  if (value === undefined && metricConfig.name === 'AQI (ppm)' && 'mq135PPM' in point) {
-     value = point['mq135PPM']; // Fallback for older data structure if direct aqiPpm is not there
-  }
-
-
-  if (typeof value === 'number' && isFinite(value)) {
-    return value;
-  }
-  return undefined;
 };
 
 const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen, onClose, data }) => {
-  if (!isOpen || !data) {
-    return null;
-  }
-
-  const { metricConfig, aggregationLabel, stats, rawPoints } = data;
-
+  
   const histogramData = useMemo(() => {
-    if (!rawPoints || rawPoints.length === 0 || metricConfig.isString) {
+    if (!data || !data.rawPoints || data.rawPoints.length === 0 || data.metricConfig.isString) {
       return null;
     }
 
-    const values = rawPoints.map(point => getMetricValueFromPoint(point, metricConfig))
-                           .filter((v): v is number => v !== undefined);
+    const values = data.rawPoints
+      .map(point => getMetricValueFromPoint(point, data.metricKey, data.metricConfig))
+      .filter((v): v is number => typeof v === 'number' && isFinite(v));
 
-    if (values.length < 2) return null; // Not enough data for meaningful histogram
+    if (values.length < 2) return null; 
 
     const dataMin = Math.min(...values);
     const dataMax = Math.max(...values);
 
-    if (dataMin === dataMax) { // All values are the same
-        return [{ range: `${dataMin.toFixed(2)} ${metricConfig.unit}`, count: values.length }];
+    if (dataMin === dataMax) { 
+        return [{ range: `${dataMin.toFixed(2)} ${data.metricConfig.unit}`, count: values.length, min: dataMin, max: dataMax }];
     }
 
-    const numBins = Math.min(10, Math.max(3, Math.floor(Math.sqrt(values.length)))); // Dynamic bins, min 3, max 10
+    const numBins = Math.min(10, Math.max(3, Math.floor(Math.sqrt(values.length))));
     const binWidth = (dataMax - dataMin) / numBins;
 
     const bins = Array(numBins).fill(0).map((_, i) => {
@@ -108,14 +88,28 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
 
     values.forEach(value => {
       for (let i = 0; i < bins.length; i++) {
-        if (value >= bins[i].min && (value < bins[i].max || (i === bins.length - 1 && value <= bins[i].max + 0.00001))) { // Include max in last bin
+        if (value >= bins[i].min && (value < bins[i].max || (i === bins.length - 1 && value <= bins[i].max + 0.00001))) { 
           bins[i].count++;
           break;
         }
       }
     });
-    return bins.filter(bin => bin.count > 0 || bins.length ===1); // Only show bins with data, or the single bin if all values are same
-  }, [rawPoints, metricConfig]);
+    return bins.filter(bin => bin.count > 0 || bins.length ===1); 
+  }, [data]);
+
+  useEffect(() => {
+    if (isOpen && data) {
+      console.log('[DetailedDistributionModal] Modal Open. Data received:', JSON.parse(JSON.stringify(data)));
+      console.log('[DetailedDistributionModal] Calculated histogramData:', histogramData);
+    }
+  }, [isOpen, data, histogramData]);
+
+
+  if (!isOpen || !data) {
+    return null;
+  }
+
+  const { metricKey, metricConfig, aggregationLabel, stats, rawPoints } = data;
 
 
   return (
@@ -212,8 +206,8 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                       </TableCell>
                       <TableCell className="text-right font-mono text-xs">
                         { metricConfig.isString 
-                          ? (getMetricValueFromPoint(point, metricConfig) as string || 'N/A') 
-                          : (getMetricValueFromPoint(point, metricConfig)?.toFixed(metricConfig.unit === 'ppm' ? 0 : 2) ?? 'N/A')
+                          ? (getMetricValueFromPoint(point, metricKey, metricConfig) as string || 'N/A') 
+                          : (getMetricValueFromPoint(point, metricKey, metricConfig) as number | undefined)?.toFixed(metricConfig.unit === 'ppm' ? 0 : 2) ?? 'N/A'
                         }
                       </TableCell>
                     </TableRow>
@@ -240,3 +234,4 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
 
 export default DetailedDistributionModal;
 
+    

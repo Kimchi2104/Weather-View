@@ -58,7 +58,7 @@ const calculateStandardDeviation = (values: number[]): number => {
   if (validValues.length <= 1) return 0;
 
   const mean = validValues.reduce((sum, val) => sum + val, 0) / validValues.length;
-  if (!isFinite(mean)) return 0;
+  if (!isFinite(mean)) return 0; // Should not happen if validValues are finite
 
   const variance = validValues.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / validValues.length;
   if (isNaN(variance) || !isFinite(variance)) return 0;
@@ -294,18 +294,25 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
     return result;
   }, [showMinMaxLines, chartData, selectedMetrics, selectedChartType]);
 
-  const handleDetailedChartClick = (clickedPoint: any, event: any) => {
+  const handleDetailedChartClick = (clickedData: any, event: any) => {
+    // Handle AI forecast point click
     if (onChartPointClickForAI && ((selectedChartType === 'line' && !isActuallyAggregated) || (selectedChartType === 'scatter' && !isActuallyAggregated))) {
-        if ('rawTimestampString' in clickedPoint || ('timestamp' in clickedPoint && !isActuallyAggregated && !('aggregationPeriod' in clickedPoint)) ) {
-           onChartPointClickForAI(clickedPoint as WeatherDataPoint);
-           return; // Don't open detail modal for AI forecast clicks
+        if ('rawTimestampString' in clickedData || ('timestamp' in clickedData && !isActuallyAggregated && !('aggregationPeriod' in clickedData)) ) {
+           onChartPointClickForAI(clickedData as WeatherDataPoint);
+           return; 
         }
     }
 
-    if (selectedChartType === 'scatter' && isActuallyAggregated && event.activePayload && event.activePayload.length > 0) {
-      const activeItem = event.activePayload[0]; // The scatter series item
-      const payloadPoint = activeItem.payload as AggregatedDataPoint; // The data point for this scatter bubble
-      const metricKey = activeItem.dataKey.replace('_avg', '') as MetricKey; // Get original metric key
+    // Handle aggregated scatter point click for detail modal
+    if (selectedChartType === 'scatter' && isActuallyAggregated && event && event.activePayload && event.activePayload.length > 0) {
+      const activeItem = event.activePayload[0]; 
+      const payloadPoint = activeItem.payload as AggregatedDataPoint; 
+      
+      let metricKey = activeItem.dataKey as MetricKey;
+      if (metricKey.endsWith('_avg')) {
+        metricKey = metricKey.substring(0, metricKey.length - 4) as MetricKey;
+      }
+      
       const metricConfig = METRIC_CONFIGS[metricKey];
 
       if (!metricConfig || metricConfig.isString) return;
@@ -324,7 +331,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           endOfPeriod = endOfDay(pointDate);
           break;
         case 'weekly':
-          startOfPeriod = startOfWeek(pointDate, { weekStartsOn: 1 }); // Assuming ISO week
+          startOfPeriod = startOfWeek(pointDate, { weekStartsOn: 1 }); 
           endOfPeriod = endOfWeek(pointDate, { weekStartsOn: 1 });
           break;
         case 'monthly':
@@ -342,6 +349,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
       const aggregationFullLabel = `${payloadPoint.aggregationPeriod?.charAt(0).toUpperCase() + payloadPoint.aggregationPeriod!.slice(1)} - ${payloadPoint.timestampDisplay}`;
 
       setDetailModalData({
+        metricKey: metricKey,
         metricConfig,
         aggregationLabel: aggregationFullLabel,
         stats: {
@@ -481,3 +489,5 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
 };
 
 export default HistoricalDataSection;
+
+    
