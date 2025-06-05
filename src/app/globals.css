@@ -79,6 +79,7 @@ body {
   }
 
   .aura-glass {
+    /* Default gradient, can be overridden by JS via inline style on <html> */
     --aura-gradient: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%);
 
     /* Base page colors when Aura Glass is active */
@@ -256,3 +257,34 @@ body {
   }
 }
 
+/* Custom styles for HTML color input picker */
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+input[type="color"]::-webkit-color-swatch {
+  border: none;
+  border-radius: 0.375rem; /* equivalent to rounded-md */
+}
+input[type="color"]::-moz-color-swatch {
+  border: none;
+  border-radius: 0.375rem;
+}
+
+/* Ensure consistent height for color input text field */
+.aura-glass input[type="color"] + input[type="text"] {
+    border-left: none;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+.dark input[type="color"] + input[type="text"] {
+   border-left: none;
+   border-top-left-radius: 0;
+   border-bottom-left-radius: 0;
+}
+
+input[type="color"] + input[type="text"] {
+   border-left: none;
+   border-top-left-radius: 0;
+   border-bottom-left-radius: 0;
+}
