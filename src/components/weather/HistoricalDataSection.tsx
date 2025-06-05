@@ -196,7 +196,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
         } else if (currentAggregationPeriod === 'weekly') {
           const weekYear = getYear(pointDate);
           const weekNumber = getISOWeek(pointDate);
-          key = `${weekYear}-W${String(weekNumber).padStart(2, '0')}`;
+          key = \`\${weekYear}-W\${String(weekNumber).padStart(2, '0')}\`;
         } else if (currentAggregationPeriod === 'monthly') {
           key = format(pointDate, 'yyyy-MM');
         }
@@ -220,7 +220,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
         } else if (currentAggregationPeriod === 'daily') {
           aggregatedPoint.timestampDisplay = format(startOfDay(firstPointDate), 'MMM dd, yyyy');
         } else if (currentAggregationPeriod === 'weekly') {
-           aggregatedPoint.timestampDisplay = `W${getISOWeek(firstPointDate)}, ${getYear(firstPointDate)}`;
+           aggregatedPoint.timestampDisplay = \`W\${getISOWeek(firstPointDate)}, \${getYear(firstPointDate)}\`;
         } else if (currentAggregationPeriod === 'monthly') {
           aggregatedPoint.timestampDisplay = format(startOfMonth(firstPointDate), 'MMM yyyy');
         }
@@ -231,20 +231,20 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
             const values = pointsInGroup.map(p => p[metricKey] as number).filter(v => typeof v === 'number' && isFinite(v));
             if (values.length > 0) {
               const average = values.reduce((sum, val) => sum + val, 0) / values.length;
-              (aggregatedPoint as any)[`${metricKey}_avg`] = average;
-              (aggregatedPoint as any)[`${metricKey}_min`] = Math.min(...values);
-              (aggregatedPoint as any)[`${metricKey}_max`] = Math.max(...values);
-              (aggregatedPoint as any)[`${metricKey}_stdDev`] = calculateStandardDeviation(values);
-              (aggregatedPoint as any)[`${metricKey}_count`] = values.length;
+              (aggregatedPoint as any)[\`\${metricKey}_avg\`] = average;
+              (aggregatedPoint as any)[\`\${metricKey}_min\`] = Math.min(...values);
+              (aggregatedPoint as any)[\`\${metricKey}_max\`] = Math.max(...values);
+              (aggregatedPoint as any)[\`\${metricKey}_stdDev\`] = calculateStandardDeviation(values);
+              (aggregatedPoint as any)[\`\${metricKey}_count\`] = values.length;
               if (selectedChartType === 'line' || selectedChartType === 'bar') {
                   aggregatedPoint[metricKey] = average;
               }
             } else {
-              (aggregatedPoint as any)[`${metricKey}_avg`] = null;
-              (aggregatedPoint as any)[`${metricKey}_min`] = null;
-              (aggregatedPoint as any)[`${metricKey}_max`] = null;
-              (aggregatedPoint as any)[`${metricKey}_stdDev`] = 0;
-              (aggregatedPoint as any)[`${metricKey}_count`] = 0;
+              (aggregatedPoint as any)[\`\${metricKey}_avg\`] = null;
+              (aggregatedPoint as any)[\`\${metricKey}_min\`] = null;
+              (aggregatedPoint as any)[\`\${metricKey}_max\`] = null;
+              (aggregatedPoint as any)[\`\${metricKey}_stdDev\`] = 0;
+              (aggregatedPoint as any)[\`\${metricKey}_count\`] = 0;
               if (selectedChartType === 'line' || selectedChartType === 'bar') {
                    aggregatedPoint[metricKey] = null;
               }
@@ -252,12 +252,12 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           } else if (config && config.isString) {
              const firstValue = pointsInGroup[0]?.[metricKey];
              aggregatedPoint[metricKey] = firstValue;
-             if (selectedChartType === 'scatter' && isActuallyAggregated) {
-                (aggregatedPoint as any)[`${metricKey}_avg`] = null;
-                (aggregatedPoint as any)[`${metricKey}_min`] = null;
-                (aggregatedPoint as any)[`${metricKey}_max`] = null;
-                (aggregatedPoint as any)[`${metricKey}_stdDev`] = 0;
-                (aggregatedPoint as any)[`${metricKey}_count`] = pointsInGroup.length;
+             if (selectedChartType === 'scatter' && isActuallyAggregated) { // ensure stats fields exist for scatter even for string data if needed by tooltip
+                (aggregatedPoint as any)[\`\${metricKey}_avg\`] = null;
+                (aggregatedPoint as any)[\`\${metricKey}_min\`] = null;
+                (aggregatedPoint as any)[\`\${metricKey}_max\`] = null;
+                (aggregatedPoint as any)[\`\${metricKey}_stdDev\`] = 0;
+                (aggregatedPoint as any)[\`\${metricKey}_count\`] = pointsInGroup.length;
              }
           }
         });
@@ -298,16 +298,34 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
 
 
   const handleDetailedChartClick = (clickedData: any, event: any) => {
+    console.log('[HistoricalDataSection] handleDetailedChartClick received:', { clickedData, event });
+    console.log(`[HistoricalDataSection] Current state: selectedChartType: ${selectedChartType}, isActuallyAggregated: ${isActuallyAggregated}`);
+    
+    if (event && event.activePayload) {
+        console.log('[HistoricalDataSection] Event activePayload:', event.activePayload);
+    }
+
+
     // Handle AI forecast point click first
     if (onChartPointClickForAI && ((selectedChartType === 'line' && !isActuallyAggregated) || (selectedChartType === 'scatter' && !isActuallyAggregated))) {
         if (clickedData && ('rawTimestampString' in clickedData || ('timestamp' in clickedData && !isActuallyAggregated && !('aggregationPeriod' in clickedData)))) {
+           console.log('[HistoricalDataSection] Handling AI forecast click with point:', clickedData);
            onChartPointClickForAI(clickedData as WeatherDataPoint);
            return;
         }
     }
+    
+    console.log('[HistoricalDataSection] Checking condition for modal:', 
+        `selectedChartType === 'scatter': ${selectedChartType === 'scatter'}`,
+        `isActuallyAggregated: ${isActuallyAggregated}`,
+        `!!event: ${!!event}`,
+        `event?.activePayload: ${!!event?.activePayload}`,
+        `event?.activePayload?.length > 0: ${event?.activePayload?.length > 0}`
+    );
 
     // Handle aggregated scatter point click for detail modal
     if (selectedChartType === 'scatter' && isActuallyAggregated && event && event.activePayload && event.activePayload.length > 0) {
+      console.log('[HistoricalDataSection] Aggregated scatter click DETECTED for modal.');
       const activeItem = event.activePayload[0];
       const payloadPoint = activeItem.payload as AggregatedDataPoint;
 
@@ -316,11 +334,11 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
       const metricConfig = METRIC_CONFIGS[baseMetricKey];
 
       if (!metricConfig) {
-        console.error(`[HistoricalDataSection] onClick: No metricConfig for baseMetricKey: ${baseMetricKey}. Modal will not open.`);
+        console.error(\`[HistoricalDataSection] onClick: No metricConfig for baseMetricKey: \${baseMetricKey}. Modal will not open.\`);
         return;
       }
       if (metricConfig.isString) {
-        console.log(`[HistoricalDataSection] onClick: Metric ${baseMetricKey} is string. No detail modal. Modal will not open.`);
+        console.log(\`[HistoricalDataSection] onClick: Metric \${baseMetricKey} is string. No detail modal. Modal will not open.\`);
         return;
       }
 
@@ -338,7 +356,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           endOfPeriod = endOfDay(pointDate);
           break;
         case 'weekly':
-          startOfPeriod = startOfWeek(pointDate, { weekStartsOn: 1 });
+          startOfPeriod = startOfWeek(pointDate, { weekStartsOn: 1 }); // Assuming ISO week start (Monday)
           endOfPeriod = endOfWeek(pointDate, { weekStartsOn: 1 });
           break;
         case 'monthly':
@@ -355,22 +373,22 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
       );
 
       if (rawPointsForAggregate.length === 0) {
-        console.warn(`[HistoricalDataSection] onClick: No raw points for aggregate ${payloadPoint.timestampDisplay} of ${baseMetricKey}. Modal will not open.`);
+        console.warn(\`[HistoricalDataSection] onClick: No raw points for aggregate \${payloadPoint.timestampDisplay} of \${baseMetricKey}. Modal will not open.\`);
         return;
       }
 
-      const aggregationFullLabel = `${payloadPoint.aggregationPeriod?.charAt(0).toUpperCase() + payloadPoint.aggregationPeriod!.slice(1)} - ${payloadPoint.timestampDisplay}`;
+      const aggregationFullLabel = \`\${payloadPoint.aggregationPeriod?.charAt(0).toUpperCase() + payloadPoint.aggregationPeriod!.slice(1)} - \${payloadPoint.timestampDisplay}\`;
 
       const modalDataPayload: DetailModalDataTypeFromType = {
         metricKey: baseMetricKey,
         metricConfig,
         aggregationLabel: aggregationFullLabel,
         stats: {
-          avg: payloadPoint[`${baseMetricKey}_avg` as keyof AggregatedDataPoint] as number | undefined,
-          min: payloadPoint[`${baseMetricKey}_min` as keyof AggregatedDataPoint] as number | undefined,
-          max: payloadPoint[`${baseMetricKey}_max` as keyof AggregatedDataPoint] as number | undefined,
-          stdDev: payloadPoint[`${baseMetricKey}_stdDev` as keyof AggregatedDataPoint] as number | undefined,
-          count: payloadPoint[`${baseMetricKey}_count` as keyof AggregatedDataPoint] as number | undefined,
+          avg: payloadPoint[\`\${baseMetricKey}_avg\` as keyof AggregatedDataPoint] as number | undefined,
+          min: payloadPoint[\`\${baseMetricKey}_min\` as keyof AggregatedDataPoint] as number | undefined,
+          max: payloadPoint[\`\${baseMetricKey}_max\` as keyof AggregatedDataPoint] as number | undefined,
+          stdDev: payloadPoint[\`\${baseMetricKey}_stdDev\` as keyof AggregatedDataPoint] as number | undefined,
+          count: payloadPoint[\`\${baseMetricKey}_count\` as keyof AggregatedDataPoint] as number | undefined,
         },
         rawPoints: rawPointsForAggregate,
       };
@@ -378,19 +396,24 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
       console.log('[HistoricalDataSection] Preparing to open detail modal with data (BEFORE SETTING STATE):', JSON.parse(JSON.stringify(modalDataPayload)));
       if (!modalDataPayload.metricKey || !modalDataPayload.metricConfig || !modalDataPayload.rawPoints || modalDataPayload.rawPoints.length === 0) {
           console.error("[HistoricalDataSection] CRITICAL: modalDataPayload is incomplete before setting state!", modalDataPayload);
-          // Optionally, prevent setting state if it's critically incomplete
-          // return; // This might be too aggressive if some parts are optional, but good for debugging
+          return; 
       }
-
 
       setDetailModalData(modalDataPayload);
       setIsDetailModalOpen(true);
       console.log('[HistoricalDataSection] setIsDetailModalOpen called with true.');
       return;
+    } else if (event && event.chartX && event.chartY && (!event.activePayload || event.activePayload.length === 0) && onChartPointClickForAI) {
+        // This handles clicks on empty chart space for AI clearing
+        console.log('[HistoricalDataSection] Empty chart space click. Calling onChartPointClickForAI(null).');
+        onChartPointClickForAI(null);
+        return;
     }
+
+    console.log('[HistoricalDataSection] Click did not match conditions for AI or Modal.');
   };
 
-  console.log(`[HistoricalDataSection] RENDERING MODAL CHECK - isOpen: ${isDetailModalOpen}, detailModalData (exists?): ${!!detailModalData}`);
+  // console.log(\`[HistoricalDataSection] RENDERING MODAL CHECK - isOpen: \${isDetailModalOpen}, detailModalData exists: \${!!detailModalData}\`);
 
   return (
     <>
@@ -431,7 +454,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-              Data is fetched from Firebase path: `{firebaseDataPath}`. Time selection applies to the chosen date range.
+              Data is fetched from Firebase path: \`{firebaseDataPath}\`. Time selection applies to the chosen date range.
             </p>
           <DataSelector
             availableMetrics={HISTORICAL_AVAILABLE_METRICS}
@@ -509,7 +532,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           <DetailedDistributionModal
             isOpen={true}
             onClose={() => {
-              console.log('[HistoricalDataSection] Closing modal.');
+              // console.log('[HistoricalDataSection] Closing modal.');
               setIsDetailModalOpen(false);
               setDetailModalData(null);
             }}
