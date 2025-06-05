@@ -51,11 +51,9 @@ export interface MetricConfig {
 export interface AggregatedDataPoint extends WeatherDataPoint {
   timestampDisplay: string;
   aggregationPeriod: 'hourly' | 'daily' | 'weekly' | 'monthly';
-  rawPointsInGroup?: WeatherDataPoint[]; // Added for violin plots
+  rawPointsInGroup?: WeatherDataPoint[]; 
 }
 
-// Moved DetailModalData here for global type usage if needed,
-// though it's primarily used by DetailedDistributionModal and set by HistoricalDataSection.
 export interface DetailModalData {
   metricKey: MetricKey;
   metricConfig: MetricConfig;
@@ -71,4 +69,10 @@ export interface DetailModalData {
 }
 
 // ChartType used in HistoricalDataSection and WeatherChart
+// 'violin' is removed from main chart selection but modal might use scatter logic that was part of violin.
+// Keeping 'violin' in the type for now if WeatherChart itself still needs to handle it internally,
+// but it won't be user-selectable from the main dropdown.
 export type ChartType = 'line' | 'bar' | 'scatter' | 'violin';
+
+
+    

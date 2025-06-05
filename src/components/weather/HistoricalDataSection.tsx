@@ -166,14 +166,14 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
     if (newChartType === 'bar' && aggregationType === 'raw') {
       setAggregationType('daily');
     }
-     if (newChartType !== 'scatter' && newChartType !== 'violin' && aggregationType === 'raw') {
+     if (newChartType !== 'scatter' && aggregationType === 'raw') { // Violin removed
         setAggregationType('daily');
     } else if (newChartType === 'scatter' && aggregationType === 'raw') {
       // Scatter can be raw
     }
   };
 
-  const isAggregationApplicable = selectedChartType === 'line' || selectedChartType === 'bar' || selectedChartType === 'scatter'; // Violin removed from main chart
+  const isAggregationApplicable = selectedChartType === 'line' || selectedChartType === 'bar' || selectedChartType === 'scatter';
   const isActuallyAggregated = isAggregationApplicable && aggregationType !== 'raw';
 
   const chartData = useMemo(() => {
@@ -209,8 +209,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           timestamp: firstPointDate.getTime(),
           timestampDisplay: '',
           aggregationPeriod: currentAggregationPeriod,
-          // Conditionally include rawPointsInGroup for scatter (if aggregated) as modal will need it
-          rawPointsInGroup: (selectedChartType === 'scatter' && isActuallyAggregated) ? pointsInGroup : undefined,
+          rawPointsInGroup: pointsInGroup, // Always include raw points for potential modal use
         };
 
         if (currentAggregationPeriod === 'hourly') {
@@ -250,13 +249,12 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           } else if (config && config.isString) {
              const firstValue = pointsInGroup[0]?.[metricKey];
              aggregatedPoint[metricKey] = firstValue;
-             if (selectedChartType === 'scatter' && isActuallyAggregated) {
-                (aggregatedPoint as any)[`${metricKey}_avg`] = null; 
-                (aggregatedPoint as any)[`${metricKey}_min`] = null;
-                (aggregatedPoint as any)[`${metricKey}_max`] = null;
-                (aggregatedPoint as any)[`${metricKey}_stdDev`] = 0;
-                (aggregatedPoint as any)[`${metricKey}_count`] = pointsInGroup.length;
-             }
+             // For string types, stats are less relevant but count is useful
+            (aggregatedPoint as any)[`${metricKey}_avg`] = null; 
+            (aggregatedPoint as any)[`${metricKey}_min`] = null;
+            (aggregatedPoint as any)[`${metricKey}_max`] = null;
+            (aggregatedPoint as any)[`${metricKey}_stdDev`] = 0;
+            (aggregatedPoint as any)[`${metricKey}_count`] = pointsInGroup.length;
           }
         });
         return aggregatedPoint;
@@ -311,42 +309,20 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
       }
     }
    
-    // Logic for modal on scatter (aggregated) click
     if (selectedChartType === 'scatter' && isActuallyAggregated && clickedData && rechartsClickProps) {
       const payloadPoint = clickedData as AggregatedDataPoint;
       let metricKeyFromPayload: MetricKey | undefined = undefined;
 
-      console.log("[HistoricalDataSection] Scatter click: Full rechartsClickProps object (passed from WeatherChart as second arg):");
-       try {
-        console.log(JSON.stringify(rechartsClickProps, (key, value) => {
-            if (key === 'payload' && value && typeof value === 'object' && !Array.isArray(value)) return '{...payload_object...}';
-            if (key === 'payload' && Array.isArray(value)) return `[...array_of_length_${value.length}...]`;
-            if (typeof value === 'function') return '[Function]';
-            if (value instanceof Element) return '[DOM Element]';
-            if (value instanceof EventTarget) return '[EventTarget]';
-            if (typeof value === 'bigint') return value.toString() + 'n';
-            if (key === 'chartContainer' || key === 'viewBox' || key === 'offset') return '{...omitted_large_object...}';
-            if (value && typeof value === 'object' && Object.keys(value).length > 20) return '{...large_object_omitted...}';
-            return value;
-        }, 2));
-      } catch (e) {
-        console.warn("[HistoricalDataSection] Could not stringify full rechartsClickProps for logging:", e);
-        console.log(rechartsClickProps); // Log raw object if stringify fails
-      }
+      console.log("[HistoricalDataSection] Scatter click: Full rechartsClickProps object (passed from WeatherChart as second arg):", rechartsClickProps);
       console.log("[HistoricalDataSection] Scatter click: selectedMetrics array:", selectedMetrics);
       console.log("[HistoricalDataSection] Scatter click: payloadPoint (clickedData from chart - first arg):", payloadPoint);
 
-      console.log("[HistoricalDataSection] Strategy 1 (explicitMetricKey from rechartsClickProps): Attempting...");
       if (rechartsClickProps && rechartsClickProps.explicitMetricKey) {
         metricKeyFromPayload = rechartsClickProps.explicitMetricKey as MetricKey;
-        console.log(`[HistoricalDataSection] Strategy 1: DERIVED metricKey '${metricKeyFromPayload}' from explicitMetricKey.`);
+        console.log(`[HistoricalDataSection] Derived metricKey '${metricKeyFromPayload}' from explicitMetricKey.`);
       } else {
-        console.log("[HistoricalDataSection] Strategy 1: FAILED. explicitMetricKey not found in rechartsClickProps. Value:", rechartsClickProps?.explicitMetricKey);
-      }
-
-      if (!metricKeyFromPayload) {
-          console.error("[HistoricalDataSection] All strategies FAILED. Cannot reliably infer metricKey for modal. Aborting modal open.");
-          return;
+        console.error("[HistoricalDataSection] Cannot reliably infer metricKey for modal from explicitMetricKey. Aborting modal open.");
+        return;
       }
 
       const baseMetricKey = metricKeyFromPayload;
@@ -361,41 +337,10 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
         return;
       }
 
-      let startOfPeriod: Date;
-      let endOfPeriod: Date;
-      const pointDate = new Date(payloadPoint.timestamp);
+      const rawPointsForAggregate = payloadPoint.rawPointsInGroup;
 
-      switch (payloadPoint.aggregationPeriod) {
-        case 'hourly':
-          startOfPeriod = startOfHour(pointDate);
-          endOfPeriod = endOfHour(pointDate);
-          break;
-        case 'daily':
-          startOfPeriod = startOfDay(pointDate);
-          endOfPeriod = endOfDay(pointDate);
-          break;
-        case 'weekly':
-          startOfPeriod = startOfWeek(pointDate, { weekStartsOn: 1 });
-          endOfPeriod = endOfWeek(pointDate, { weekStartsOn: 1 });
-          break;
-        case 'monthly':
-          startOfPeriod = startOfMonth(pointDate);
-          endOfPeriod = endOfMonth(pointDate);
-          break;
-        default:
-          console.error("[HistoricalDataSection] Unknown aggregation period for modal:", payloadPoint.aggregationPeriod);
-          return;
-      }
-      
-      const rawPointsForAggregate = payloadPoint.rawPointsInGroup && payloadPoint.rawPointsInGroup.length > 0
-        ? payloadPoint.rawPointsInGroup.filter(p => typeof p[baseMetricKey] !== 'undefined')
-        : allFetchedData.filter(p =>
-            p.timestamp >= startOfPeriod.getTime() && p.timestamp <= endOfPeriod.getTime() && typeof p[baseMetricKey] !== 'undefined'
-          );
-
-
-      if (rawPointsForAggregate.length === 0) {
-        console.warn(`[HistoricalDataSection] No raw points for aggregate ${payloadPoint.timestampDisplay} of ${baseMetricKey}. Modal will not open.`);
+      if (!rawPointsForAggregate || rawPointsForAggregate.length === 0) {
+        console.warn(`[HistoricalDataSection] No raw points in payloadPoint.rawPointsInGroup for aggregate ${payloadPoint.timestampDisplay} of ${baseMetricKey}. Modal will not open.`);
         return;
       }
 
@@ -494,7 +439,6 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
                   <SelectItem value="line">Line Chart</SelectItem>
                   <SelectItem value="bar">Bar Chart</SelectItem>
                   <SelectItem value="scatter">Scatter Chart</SelectItem>
-                  {/* Violin Plot option removed from main chart selector */}
                 </SelectContent>
               </Select>
             </div>
@@ -568,3 +512,5 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
 
 export default HistoricalDataSection;
 
+
+    
