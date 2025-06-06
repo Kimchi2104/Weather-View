@@ -91,7 +91,7 @@ body {
     --card-alpha: 0.15;
     --card-blur-value: 10px;
     --card-border-rgb: 255, 255, 255;
-    --card-border-alpha: 0.2;
+    --card-border-alpha: 0.4; /* Updated from 0.2 */
 
     --card: 0 0% 100%;
     --card-foreground: 220 35% 25%;
@@ -176,7 +176,7 @@ body {
     -webkit-backdrop-filter: blur(var(--card-blur-value));
     backdrop-filter: blur(var(--card-blur-value));
     border: 1px solid rgba(var(--card-border-rgb), var(--card-border-alpha)) !important;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.5), 0 4px 20px rgba(0, 0, 0, 0.06); /* Updated box-shadow */
   }
 
   .aura-glass .bg-popover,
@@ -300,3 +300,6 @@ input[type="color"] + input[type="text"] {
    border-top-left-radius: 0;
    border-bottom-left-radius: 0;
 }
+
+
+    
