@@ -43,7 +43,7 @@ body {
     --sidebar-border: 210 20% 85%;
     --sidebar-ring: 210 75% 50%;
   }
-  .dark {
+  html.dark {
     --background: 210 20% 5%; /* Dark background */
     --foreground: 210 20% 95%; /* Light foreground */
     --card: 210 20% 10%;
@@ -78,13 +78,13 @@ body {
     --sidebar-ring: 210 75% 50%;
   }
 
-  .aura-glass {
+  html.aura-glass {
     /* Default gradient, can be overridden by JS via inline style on <html> */
     --aura-gradient: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%);
 
     /* Base page colors when Aura Glass is active */
-    --background: 0 0% 100%;
-    --foreground: 220 40% 20%;
+    --background: 0 0% 100%; /* Fallback, actual bg is gradient */
+    --foreground: 220 40% 20%; /* Default prose color for Aura: Dark text on potentially light gradient */
 
     /* Glassmorphic Card Styles */
     --card-rgb: 255, 255, 255;
@@ -93,8 +93,8 @@ body {
     --card-border-rgb: 255, 255, 255;
     --card-border-alpha: 0.4; /* Updated from 0.2 */
 
-    --card: 0 0% 100%;
-    --card-foreground: 220 35% 25%;
+    --card: 0 0% 100%; /* Fallback for card bg */
+    --card-foreground: hsl(var(--foreground)); /* Use prose color for card text */
 
     /* Glassmorphic Popover/Dropdown/Dialog Styles */
     --popover-rgb: 255, 255, 255;
@@ -103,17 +103,17 @@ body {
     --popover-border-rgb: 255, 255, 255;
     --popover-border-alpha: 0.25;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 35% 25%;
+    --popover: 0 0% 100%; /* Fallback for popover bg */
+    --popover-foreground: hsl(var(--foreground)); /* Use prose color for popover text */
 
-    --border: 220 20% 85%;
+    --border: 220 20% 85%; /* Border for non-glass elements in Aura theme */
 
     /* Input fields for Aura Glass */
     --input-rgb: 255, 255, 255;
     --input-alpha: 0.2;
     --input-border-rgb: 255, 255, 255;
     --input-border-alpha: 0.3;
-    --input: 0 0% 100%;
+    --input: 0 0% 100%; /* Fallback for input bg */
 
     /* UI Accent Colors */
     --primary: 230 80% 65%;
@@ -135,8 +135,21 @@ body {
     --chart-4: 280 70% 65%; /* Purple */
     --chart-5: 340 75% 60%; /* Pink/Rose */
 
-
     --radius: 0.75rem;
+
+    /* Prose color palettes for Aura Glass based on data-aura-prose attribute */
+    &[data-aura-prose="dark"] {
+      --foreground: 220 40% 15%; /* Darker text for light backgrounds */
+      --muted-foreground: 220 30% 40%;
+      --card-foreground: 220 40% 15%;
+      --popover-foreground: 220 40% 15%;
+    }
+    &[data-aura-prose="light"] {
+      --foreground: 0 0% 95%; /* Lighter text for dark backgrounds */
+      --muted-foreground: 0 0% 70%;
+      --card-foreground: 0 0% 95%;
+      --popover-foreground: 0 0% 95%;
+    }
   }
 }
 
@@ -157,15 +170,15 @@ body {
 
   html.dark body {
     background-image: none !important;
-    background-color: hsl(var(--background)) !important; /* Uses --background from .dark */
-    color: hsl(var(--foreground)) !important; /* Uses --foreground from .dark */
+    background-color: hsl(var(--background)) !important; /* Uses --background from html.dark */
+    color: hsl(var(--foreground)) !important; /* Uses --foreground from html.dark */
   }
 
   html.aura-glass body, body.aura-glass {
     background-image: var(--aura-gradient);
     background-attachment: fixed;
     background-size: cover;
-    color: hsl(var(--foreground)); /* Uses --foreground from .aura-glass scope */
+    color: hsl(var(--foreground)); /* Uses --foreground from html.aura-glass scope */
   }
 
   .aura-glass .bg-card,
@@ -192,11 +205,11 @@ body {
   .aura-glass .border-input {
     background-color: rgba(var(--input-rgb), var(--input-alpha)) !important;
     border-color: rgba(var(--input-border-rgb), var(--input-border-alpha)) !important;
-    color: hsl(var(--card-foreground)) !important;
+    color: hsl(var(--card-foreground)) !important; /* Changed to use card-foreground for consistency within Aura */
   }
   .aura-glass input::placeholder,
   .aura-glass textarea::placeholder {
-    color: hsl(var(--muted-foreground)) !important;
+    color: hsl(var(--muted-foreground)) !important; /* Uses muted-foreground from html.aura-glass */
     opacity: 0.6 !important;
   }
   .aura-glass .ring-ring {
@@ -239,18 +252,18 @@ body {
   }
 
   /* Footer styles for Aura Glass theme */
-  .aura-glass footer {
-    background-color: transparent !important; /* Ensure footer background is transparent */
-    color: hsl(var(--foreground) / 0.75) !important; /* Adjust main text color for readability */
+  html.aura-glass footer { /* Ensure high specificity for footer text colors */
+    background-color: transparent !important;
+    color: hsl(var(--foreground) / 0.85) !important; /* Adjusted for prose system */
   }
-  .aura-glass footer .text-muted-foreground {
-    color: hsl(var(--foreground) / 0.6) !important; /* Adjust muted text color */
+  html.aura-glass footer .text-muted-foreground {
+    color: hsl(var(--muted-foreground) / 0.8) !important; /* Adjusted for prose system */
   }
-  .aura-glass footer .border-border\/50 { /* Targeting border-border/50 specifically for footer's top border */
+  html.aura-glass footer .border-border\/50 { /* Targeting border-border/50 specifically for footer's top border */
     border-color: hsl(var(--border) / 0.3) !important;
   }
-   .aura-glass footer .text-foreground\/80 { /* Targeting the 'PROJECT CONTRIBUTIONS' title */
-    color: hsl(var(--foreground) / 0.9) !important;
+   html.aura-glass footer .text-foreground\/80 { /* Targeting the 'PROJECT CONTRIBUTIONS' title */
+    color: hsl(var(--foreground)) !important; /* Use primary prose foreground */
   }
 
 }
@@ -289,17 +302,15 @@ input[type="color"]::-moz-color-swatch {
     border-bottom-left-radius: 0;
 }
 
-.dark input[type="color"] + input[type="text"] {
+html.dark input[type="color"] + input[type="text"] { /* Changed from .dark to html.dark */
    border-left: none;
    border-top-left-radius: 0;
    border-bottom-left-radius: 0;
 }
 
+/* Default for light theme and other cases */
 input[type="color"] + input[type="text"] {
    border-left: none;
    border-top-left-radius: 0;
    border-bottom-left-radius: 0;
 }
-
-
-    
