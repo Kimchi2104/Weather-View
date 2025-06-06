@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { FC } from 'react';
@@ -428,7 +429,6 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
                   </div>
               </div>
             </div>
-            {/* The "Refresh All Data" button was here */}
           </div>
           <p className="text-xs text-muted-foreground">
               Data is fetched from Firebase path: `{firebaseDataPath}`. Time selection applies to the chosen date range.
@@ -504,14 +504,6 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
             minMaxReferenceData={minMaxReferenceData}
           />
         </div>
-         <div className="mt-4">
-            <Button 
-              className={`w-full ${hasMounted && isAuraGlassTheme ? 'text-white' : ''}`}
-              style={hasMounted && isAuraGlassTheme ? applyAuraGradient({}) : {}}
-            >
-               Export Chart
-            </Button>
-         </div>
       </section>
       {isDetailModalOpen && detailModalData && (
           <DetailedDistributionModal
@@ -529,3 +521,4 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
 };
 
 export default HistoricalDataSection;
+
