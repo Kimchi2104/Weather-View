@@ -14,7 +14,7 @@ export function cn(...inputs: ClassValue[]) {
  */
 export function parseCustomTimestamp(timestampStr: string | undefined): number | null {
   if (!timestampStr || typeof timestampStr !== 'string') {
-    console.warn(`[parseCustomTimestamp] Invalid input: timestampStr is undefined or not a string:`, timestampStr);
+    // console.warn(`[parseCustomTimestamp] Invalid input: timestampStr is undefined or not a string:`, timestampStr);
     return null;
   }
   // Assumes dd/MM/yyyy HH:mm:ss format, allows for d/M/yyyy or dd/MM/yyyy
@@ -58,11 +58,18 @@ export function transformRawDataToWeatherDataPoint(rawData: RawFirebaseDataPoint
     return null;
   }
 
+  // Check if rawData.timestamp is a valid string before calling parseCustomTimestamp
+  if (typeof rawData.timestamp !== 'string' || rawData.timestamp.trim() === '') {
+    // console.warn(`[transformRawDataToWeatherDataPoint] Skipping record (key: ${recordKey || 'N/A'}) due to invalid or empty timestamp string:`, rawData.timestamp);
+    return null;
+  }
+
   const numericalTimestamp = parseCustomTimestamp(rawData.timestamp);
   // console.log(`[transformRawDataToWeatherDataPoint] Parsed timestamp for (key: ${recordKey || 'N/A'}):`, numericalTimestamp, rawData.timestamp);
 
   if (numericalTimestamp === null) {
-    // console.warn(`[transformRawDataToWeatherDataPoint] Skipping record (key: ${recordKey || 'N/A'}) due to unparseable timestamp:`, rawData.timestamp);
+    // The parseCustomTimestamp function already logs an error if it fails to parse a valid string.
+    // console.warn(`[transformRawDataToWeatherDataPoint] Skipping record (key: ${recordKey || 'N/A'}) due to unparseable timestamp format after initial check:`, rawData.timestamp);
     return null;
   }
 

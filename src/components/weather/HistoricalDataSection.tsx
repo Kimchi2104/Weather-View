@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { FC } from 'react';
@@ -87,6 +86,11 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
 
   const { theme } = useTheme();
   const isAuraGlassTheme = theme === 'aura-glass';
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   const firebaseDataPath = 'devices/TGkMhLL4k4ZFBwgOyRVNKe5mTQq1/records/';
 
@@ -390,8 +394,8 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
     <>
       <section className="mb-8">
         <h2
-          className={`text-2xl font-headline font-semibold mb-4 ${isAuraGlassTheme ? '' : 'text-primary'}`}
-          style={isAuraGlassTheme ? applyAuraGradient({}) : {}}
+          className={`text-2xl font-headline font-semibold mb-4 `}
+          style={isAuraGlassTheme && hasMounted ? applyAuraGradient({}) : {}}
         >Historical Data Analysis</h2>
 
         <div className="bg-card p-4 sm:p-6 rounded-lg shadow-md space-y-6">
@@ -460,7 +464,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
                     <SelectValue placeholder="Select aggregation" />
                   </SelectTrigger>
                   <SelectContent>
-                    { (selectedChartType === 'line' || selectedChartType === 'scatter' ) && <SelectItem value="raw">Raw Data</SelectItem> }
+                    { (selectedChartType === 'line' || selectedChartType === 'scatter' ) && <SelectItem value="raw">Raw Data</SelectItem> }                    
                     <SelectItem value="hourly">Hourly</SelectItem>
                     <SelectItem value="daily">Daily</SelectItem>
                     <SelectItem value="weekly">Weekly</SelectItem>
@@ -501,7 +505,10 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           />
         </div>
          <div className="mt-4">
-            <Button className={`w-full ${isAuraGlassTheme ? 'text-white' : ''}`} style={isAuraGlassTheme ? applyAuraGradient({}) : {}}>
+            <Button 
+              className={`w-full ${hasMounted && isAuraGlassTheme ? 'text-white' : ''}`}
+              style={hasMounted && isAuraGlassTheme ? applyAuraGradient({}) : {}}
+            >
                Export Chart
             </Button>
          </div>

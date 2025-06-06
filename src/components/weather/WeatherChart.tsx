@@ -16,10 +16,13 @@ import { Download, FileImage, FileText, Loader2, Sun, Moon, Laptop } from 'lucid
 import { formatTimestampToDdMmHhMmUTC, formatTimestampToFullUTC } from '@/lib/utils';
 import { ChartTooltipContent, ChartContainer, type ChartConfig } from '@/components/ui/chart';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, ScatterChart, Scatter, ReferenceLine, ZAxis } from 'recharts';
+// ... other imports
+import { useToast } from "@/hooks/use-toast"; // Or the correct path to your use-toast hook
+// ... rest of your imports
 
 
-// Dynamically import html2canvas
-const html2canvas = dynamic(() => import('html2canvas'), { suspense: true });
+// Dynamically import html2canvas -- REMOVED next/dynamic for html2canvas
+// const html2canvas = dynamic(() => import('html2canvas'), { suspense: true });
 const Select = dynamic(() => import('@/components/ui/select').then(mod => mod.Select), { ssr: false });
 const SelectContent = dynamic(() => import('@/components/ui/select').then(mod => mod.SelectContent), { ssr: false });
 const SelectItem = dynamic(() => import('@/components/ui/select').then(mod => mod.SelectItem), { ssr: false });
@@ -76,6 +79,38 @@ const getPaddedMaxYDomain = (dataMax: number, dataMin: number): number => {
   return paddedMax;
 };
 
+// ... (after imports, before WeatherChart component)
+
+const getResolvedBackgroundColor = (theme: 'light' | 'dark' | 'aura-glass', chartElement: HTMLElement): string | null => {
+  if (theme === 'aura-glass') return null; // Transparent for aura
+
+  try {
+    if (chartElement && typeof getComputedStyle === 'function') {
+      const style = getComputedStyle(chartElement.parentElement || document.body);
+      const cardBg = style.getPropertyValue('--card').trim();
+      // Check if cardBg is a valid HSL string, otherwise use fallbacks.
+      // Basic check for hsl, can be more robust.
+      if (cardBg && cardBg.startsWith('hsl')) {
+        return cardBg;
+      }
+      console.warn("Computed --card background was not a valid HSL string:", cardBg, "Using fallback.");
+    }
+  } catch (e) {
+    console.warn("Could not compute --card background for export:", e);
+  }
+
+  // Fallback to explicit HSL colors matching common ShadCN themes
+  // Ensure these are the HSL values *without* the 'hsl()' wrapper, as html2canvas expects the direct value.
+  // However, html2canvas is generally fine with `hsl(value)` or `rgb(value)` strings.
+  // Let's use the full string for clarity and common usage with html2canvas.
+  return theme === 'dark' ? 'hsl(222.2 84% 4.9%)' : 'hsl(0 0% 100%)';
+};
+
+// const WeatherChart: FC<WeatherChartProps> = ({ ... }) => { ...
+
+
+// Should be around line 88
+type ExportThemeOption = 'current' | 'light' | 'dark' | 'aura-glass';
 
 interface WeatherChartProps {
   data: WeatherDataPoint[] | AggregatedDataPoint[];
@@ -89,7 +124,7 @@ interface WeatherChartProps {
   minMaxReferenceData?: Record<string, { minValue: number; maxValue: number }>;
 }
 
-type ExportThemeOption = 'current' | 'light' | 'dark';
+// type ExportThemeOption = 'current' | 'light' | 'dark'; // Defined higher up
 
 const WeatherChart: FC<WeatherChartProps> = ({
   data: chartInputData,
@@ -104,7 +139,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
 }) => {
   const chartRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
-  const { theme: currentSystemTheme, resolvedTheme } = useTheme();
+  const { theme: currentSystemTheme, resolvedTheme } = useTheme(); // theme property gives current theme (light, dark, system, aura-glass)
   const [exportThemeOption, setExportThemeOption] = useState<ExportThemeOption>('current');
 
 
@@ -225,54 +260,106 @@ const WeatherChart: FC<WeatherChartProps> = ({
   }, [METRIC_CONFIGS, isAggregated]);
 
 
+  // Inside your WeatherChart component:
+const { toast } = useToast(); // Add this line to get the toast function
+
+// ... other state and memoized values ...
+
   const exportChart = async (format: 'png' | 'jpeg' | 'pdf') => {
     if (!chartRef.current || isExporting) return;
 
     const chartElementToCapture = chartRef.current.querySelector('.recharts-wrapper') || chartRef.current;
+    if (!chartElementToCapture) {
+        console.error('Chart element to capture not found.');
+        toast({ title: "Export Failed", description: "Chart element not found.", variant: "destructive" });
+        return;
+    }
     setIsExporting(true);
 
-    const actualCurrentTheme = resolvedTheme || currentSystemTheme || 'light';
-    const targetExportTheme = exportThemeOption === 'current' ? actualCurrentTheme : exportThemeOption;
-
-    // Temporarily apply the target theme for export if it's different
     const htmlElement = document.documentElement;
+    const actualCurrentTheme = htmlElement.classList.contains('dark') ? 'dark' : 
+                               htmlElement.classList.contains('aura-glass') ? 'aura-glass' : 'light';
+                               
+    let targetExportTheme: ExportThemeOption = exportThemeOption === 'current' ? actualCurrentTheme : exportThemeOption;
+
     const originalHtmlClasses = htmlElement.className;
+    const originalBodyClasses = document.body.className;
+
+    // Apply target theme for export
+    htmlElement.className = ''; // Reset classes
+    document.body.className = ''; // Reset body classes
 
     if (targetExportTheme === 'light') {
-      htmlElement.classList.remove('dark');
-      htmlElement.classList.remove('aura-glass'); // Ensure aura-glass specific styles are off if exporting plain light
+      htmlElement.classList.add('light'); // Add your base 'light' class
+      document.body.classList.add('light');
     } else if (targetExportTheme === 'dark') {
-      htmlElement.classList.add('dark');
-      htmlElement.classList.remove('aura-glass'); // Ensure aura-glass specific styles are off if exporting plain dark
-    } else { // 'aura-glass' is the target
-        // If current theme is not already aura-glass, apply it temporarily
-        if (!htmlElement.classList.contains('aura-glass')) {
-            htmlElement.classList.add('aura-glass');
-        }
-         // If actual current (resolved) theme was dark but we are exporting aura, it might need dark context
-         if (actualCurrentTheme === 'dark') { 
-            htmlElement.classList.add('dark');
-        } else {
-            htmlElement.classList.remove('dark');
-        }
+      htmlElement.classList.add('dark'); // Add your base 'dark' class
+      document.body.classList.add('dark');
+    } else if (targetExportTheme === 'aura-glass') {
+      htmlElement.classList.add('aura-glass');
+      document.body.classList.add('aura-glass');
+      // If the original theme was dark or the system theme is dark, and we are exporting aura,
+      // ensure dark context is applied for aura styles that might depend on it.
+      if (originalHtmlClasses.includes('dark') || currentSystemTheme === 'dark') {
+          htmlElement.classList.add('dark');
+          document.body.classList.add('dark');
+      }
     }
+    
+    // Add a consistent root class if your Tailwind setup depends on it, e.g., for font loading.
+    // document.body.classList.add('font-sans', 'antialiased'); // Example
 
-
-    // Wait for styles to apply
-    await new Promise(resolve => setTimeout(resolve, 150)); // Small delay for styles to take effect
-
+    await new Promise(resolve => setTimeout(resolve, 300)); // Delay for styles
 
     try {
-      const canvas = await (await html2canvas)(chartElementToCapture as HTMLElement, {
-        scale: 2, // Higher resolution
+      const html2canvasModule = await import('html2canvas'); // Standard dynamic import
+      const actualHtml2Canvas = html2canvasModule.default; // Access default export
+
+      if (typeof actualHtml2Canvas !== 'function') {
+        console.error('html2canvas did not load correctly.', html2canvasModule);
+        throw new Error('html2canvas is not available or not a function.');
+      }
+      
+      const resolvedBgColor = getResolvedBackgroundColor(targetExportTheme, chartElementToCapture as HTMLElement);
+
+      const canvas = await actualHtml2Canvas(chartElementToCapture as HTMLElement, {
+        scale: 2,
         useCORS: true,
-        backgroundColor: targetExportTheme === 'dark' 
-            ? 'hsl(var(--card))' // Use card background for dark theme export
-            : (targetExportTheme === 'light' 
-                ? 'hsl(var(--card))' // Use card background for light theme export
-                : null), // For aura-glass, let transparency handle it
+        backgroundColor: resolvedBgColor,
+        logging: process.env.NODE_ENV === 'development', // More detailed logs from html2canvas
+        onclone: (documentClone) => {
+            // This onclone step is powerful. Re-apply classes to the cloned document's html and body.
+            // This helps ensure styles are correctly captured by html2canvas, especially for Tailwind.
+            const clonedHtmlElement = documentClone.documentElement;
+            const clonedBodyElement = documentClone.body;
+            clonedHtmlElement.className = ''; // Clear
+            clonedBodyElement.className = ''; // Clear
+
+            if (targetExportTheme === 'light') {
+              clonedHtmlElement.classList.add('light');
+              clonedBodyElement.classList.add('light');
+            } else if (targetExportTheme === 'dark') {
+              clonedHtmlElement.classList.add('dark');
+              clonedBodyElement.classList.add('dark');
+            } else if (targetExportTheme === 'aura-glass') {
+                clonedHtmlElement.classList.add('aura-glass');
+                clonedBodyElement.classList.add('aura-glass');
+                if (originalHtmlClasses.includes('dark') || currentSystemTheme === 'dark') {
+                    clonedHtmlElement.classList.add('dark');
+                    clonedBodyElement.classList.add('dark');
+                }
+            }
+            // clonedBodyElement.classList.add('font-sans', 'antialiased'); // Example if needed
+        }
       });
+
+      if (!(canvas instanceof HTMLCanvasElement)) {
+        console.error('Error exporting chart: html2canvas did not return a valid canvas element.', canvas);
+        throw new Error('Failed to produce canvas. Output from html2canvas was not a CanvasElement.');
+      }
+
       const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', format === 'jpeg' ? 0.9 : 1.0);
+      
       if (format === 'pdf') {
         const pdf = new jsPDF({
           orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
@@ -285,21 +372,22 @@ const WeatherChart: FC<WeatherChartProps> = ({
         const link = document.createElement('a');
         link.download = `weather-chart-${targetExportTheme}.${format}`;
         link.href = imgData;
+        document.body.appendChild(link);
         link.click();
+        document.body.removeChild(link);
       }
-    } catch (error) {
+      toast({ title: "Export Successful!", description: `Chart exported as ${format.toUpperCase()}.`, variant: "default" });
+
+    } catch (error: any) {
       console.error('Error exporting chart:', error);
+      toast({ title: "Export Failed", description: error.message || "Could not export chart.", variant: "destructive" });
     } finally {
-      // Restore original classes
-      htmlElement.className = originalHtmlClasses; 
-      
-      // If original was aura-glass and it was removed, add it back.
-      if (originalHtmlClasses.includes('aura-glass') && !htmlElement.classList.contains('aura-glass')) {
-          htmlElement.classList.add('aura-glass');
-      }
+      htmlElement.className = originalHtmlClasses;
+      document.body.className = originalBodyClasses;
       setIsExporting(false);
     }
   };
+
 
   const commonCartesianProps = {
     margin: { top: 0, right: 80, left: 30, bottom: 20 },
@@ -555,8 +643,8 @@ const WeatherChart: FC<WeatherChartProps> = ({
               dataKey={key} // For raw data, this is the direct metric key
               stroke={color}
               name={name}
-              strokeWidth={2}
-              dot={isAggregated ? { r: 3, fill: color, stroke: color, strokeWidth: 1 } : false}
+              strokeWidth={2} // Line thickness
+              dot={isAggregated ? { r: 3, fill: color, stroke: color, strokeWidth: 1 } : false} // Dots for aggregated, none for raw to avoid clutter
               connectNulls={false} // Do not connect across null/missing data points
               animationDuration={300}
             />
@@ -756,7 +844,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
               stroke={metricConfig.color} // Use metric's color
               strokeDasharray="2 2"
               strokeOpacity={0.7}
-              strokeWidth={1.5} // Made slightly thicker
+              strokeWidth={1.5} 
               label={{
                 value: `Min: ${minValue.toFixed(isAggregated ? 1 : (metricConfig.unit === 'ppm' ? 0 : 2))}${metricConfig.unit || ''}`,
                 position: "right", // Position relative to the line
@@ -773,7 +861,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
               stroke={metricConfig.color} // Use metric's color
               strokeDasharray="2 2"
               strokeOpacity={0.7}
-              strokeWidth={1.5} // Made slightly thicker
+              strokeWidth={1.5}
               label={{
                 value: `Max: ${maxValue.toFixed(isAggregated ? 1 : (metricConfig.unit === 'ppm' ? 0 : 2))}${metricConfig.unit || ''}`,
                 position: "right",
@@ -810,7 +898,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
         <ChartContainer
             ref={chartRef}
             config={chartConfigForShadcn} // Pass the generated chart config
-            className="w-full h-[550px] mx-auto overflow-hidden" // Removed bg-card from here
+            className="w-full h-[550px] mx-auto overflow-hidden" 
           >
           {/* Suspense fallback for dynamic imports if any part of renderChart is heavy or dynamic itself */}
           {/* <Suspense fallback={<Skeleton className="h-[450px] w-full]" />}> */}
@@ -888,3 +976,4 @@ const WeatherChart: FC<WeatherChartProps> = ({
 export default WeatherChart;
 
     
+

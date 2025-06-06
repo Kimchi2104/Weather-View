@@ -128,10 +128,10 @@ const ScatterChartComponent: FC<ScatterChartComponentProps> = ({
         isAvgKey = true;
       }
     }
-    originalMetricKeyForConfig = originalMetricKeyForConfig as MetricKey;
+    // originalMetricKeyForConfig = originalMetricKeyForConfig as MetricKey;
 
 
-    const config = METRIC_CONFIGS[originalMetricKeyForConfig];
+    const config = METRIC_CONFIGS[originalMetricKeyForConfig as MetricKey];
     const displayName = config?.name || (isAvgKey ? `${originalMetricKeyForConfig} (Avg)` : originalMetricKeyForConfig);
 
 
@@ -151,7 +151,7 @@ const ScatterChartComponent: FC<ScatterChartComponentProps> = ({
     const unitString = (typeof value === 'number' && isFinite(value) && config?.unit) ? ` ${config.unit}` : '';
 
     if (isAggregated && config && !config.isString && entry.payload) {
-      let tooltipHtml = `<div style=\"color: ${config.color || 'inherit'};\"><strong>${displayName}:</strong> ${displayValue}${unitString}`;
+      let tooltipHtml = `<div style="color: ${config.color || 'inherit'};"><strong>${displayName}:</strong> ${displayValue}${unitString}`;
       const stdDevValue = entry.payload[`${originalMetricKeyForConfig}_stdDev`];
       const countValue = entry.payload[`${originalMetricKeyForConfig}_count`];
 
@@ -300,6 +300,12 @@ const ScatterChartComponent: FC<ScatterChartComponentProps> = ({
           const zAxisUniqueId = `z-${key}`;
 
           if (isAggregated && stdDevDataKey) {
+            const zAxisLabel = chartConfigForShadcn[`${key}_stdDev`]?.label;
+            const zAxisName = typeof zAxisLabel === 'string' || typeof zAxisLabel === 'number' ? zAxisLabel : `${metricConfig.name} Std Dev`;
+            
+            const scatterLabel = chartConfigForShadcn[yDataKey]?.label;
+            const scatterName = typeof scatterLabel === 'string' ? scatterLabel : yDataKey;
+
             return (
               <React.Fragment key={`scatter-elements-${key}`}>
               <ZAxis
@@ -307,11 +313,11 @@ const ScatterChartComponent: FC<ScatterChartComponentProps> = ({
                 zAxisId={zAxisUniqueId}
                 dataKey={stdDevDataKey}
                 range={[MIN_BUBBLE_AREA, MAX_BUBBLE_AREA]}
-                name={chartConfigForShadcn[`${key}_stdDev`]?.label || `${metricConfig.name} Std Dev`}
+                name={zAxisName}
               />
                <Scatter
                   key={`scatter-${key}`}
-                  name={chartConfigForShadcn[yDataKey]?.label || yDataKey}
+                  name={scatterName}
                   dataKey={yDataKey}
                   fill={metricConfig.color || '#8884d8'}
                   shape="circle"
@@ -322,11 +328,14 @@ const ScatterChartComponent: FC<ScatterChartComponentProps> = ({
                </React.Fragment>
             );
           }
+          
+          const scatterLabelNoAgg = chartConfigForShadcn[yDataKey]?.label;
+          const scatterNameNoAgg = typeof scatterLabelNoAgg === 'string' ? scatterLabelNoAgg : yDataKey;
 
           return (
               <Scatter
                 key={`scatter-${key}`}
-                name={chartConfigForShadcn[yDataKey]?.label || yDataKey}
+                name={scatterNameNoAgg}
                 dataKey={yDataKey}
                 fill={metricConfig.color || '#8884d8'}
                 shape="circle"
