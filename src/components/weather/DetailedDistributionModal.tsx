@@ -613,7 +613,7 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
 
         <div className="flex-grow overflow-hidden mt-2">
           <h4 className="text-md font-semibold mb-2 text-muted-foreground">Contributing Raw Data Points ({rawPoints.length} points):</h4>
-          <ScrollArea className="h-[200px] border rounded-md"> 
+          <ScrollArea className="border rounded-md"> 
             <Table>
               <TableHeader className="sticky top-0 bg-background z-10">
                 <TableRow>
