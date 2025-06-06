@@ -150,10 +150,10 @@ body {
   }
 
   html.aura-glass body, body.aura-glass { 
-    background-image: var(--aura-gradient) !important;
-    background-attachment: fixed !important;
-    background-size: cover !important;
-    color: hsl(var(--foreground)) !important;
+    background-image: var(--aura-gradient); /* Removed !important */
+    background-attachment: fixed; /* Removed !important */
+    background-size: cover; /* Removed !important */
+    color: hsl(var(--foreground)); /* Removed !important, uses --foreground from .aura-glass scope */
   }
   
   .aura-glass .bg-card,
@@ -288,3 +288,4 @@ input[type="color"] + input[type="text"] {
    border-top-left-radius: 0;
    border-bottom-left-radius: 0;
 }
+
