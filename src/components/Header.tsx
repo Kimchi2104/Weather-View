@@ -5,7 +5,7 @@ import { useEffect, useRef, type FC } from 'react';
 import { Zap } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { useTheme } from 'next-themes';
-import { applyAuraGradient } from './AuraGradientCustomizer';
+// import { applyAuraVisuals } from './AuraGradientCustomizer'; // No longer needed here
 
 const Header: FC = () => {
   const { theme } = useTheme();

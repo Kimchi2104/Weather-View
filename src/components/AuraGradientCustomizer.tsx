@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input"; // Standard HTML input will be used for type="color"
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { RefreshCcw, Save } from 'lucide-react';
@@ -14,26 +14,69 @@ const DEFAULT_GRADIENT_COLORS = {
   color2: '#c2e9fb',
 };
 const GRADIENT_DIRECTION = '135deg';
+const LUMINANCE_THRESHOLD = 0.5; // Values > 0.5 are considered light backgrounds
 
-interface AuraGradientColors {
- color1: string;
-  color2: string;
-  color3?: string; // Make color3 optional
+// Helper function to convert hex to RGB
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result
+    ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16),
+      }
+    : null;
 }
 
-export function applyAuraGradient(colors: AuraGradientColors | null) {
+// Helper function to calculate perceived luminance (0-1 range)
+function calculateLuminance(r: number, g: number, b: number): number {
+  const a = [r, g, b].map((v) => {
+    v /= 255;
+    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  });
+  return a[0] * 0.2126 + a[1] * 0.7152 + a[2] * 0.0722;
+}
+
+function getAverageLuminance(hexColors: string[]): number {
+  let totalLuminance = 0;
+  let validColors = 0;
+  for (const hex of hexColors) {
+    if (!hex) continue;
+    const rgb = hexToRgb(hex);
+    if (rgb) {
+      totalLuminance += calculateLuminance(rgb.r, rgb.g, rgb.b);
+      validColors++;
+    }
+  }
+  return validColors > 0 ? totalLuminance / validColors : 0; // Default to 0 (dark) if no valid colors
+}
+
+export interface AuraGradientColors {
+ color1: string;
+  color2: string;
+  color3?: string;
+}
+
+export function applyAuraVisuals(colors: AuraGradientColors | null) {
+  const docElement = document.documentElement;
   if (colors && colors.color1 && colors.color2) {
     let gradientValue;
+    const activeColorsForLuminance: string[] = [colors.color1, colors.color2];
+
     if (colors.color3) {
+      activeColorsForLuminance.push(colors.color3);
       gradientValue = `linear-gradient(${GRADIENT_DIRECTION}, ${colors.color1}, ${colors.color2}, ${colors.color3})`;
     } else {
       gradientValue = `linear-gradient(${GRADIENT_DIRECTION}, ${colors.color1}, ${colors.color2})`;
     }
-    document.documentElement.style.setProperty('--aura-gradient', gradientValue);
+    docElement.style.setProperty('--aura-gradient', gradientValue);
+
+    const avgLuminance = getAverageLuminance(activeColorsForLuminance.filter(Boolean));
+    docElement.dataset.auraProse = avgLuminance > LUMINANCE_THRESHOLD ? 'dark' : 'light';
 
   } else {
-    // Reset to CSS-defined default by removing the inline style
-    document.documentElement.style.removeProperty('--aura-gradient');
+    docElement.style.removeProperty('--aura-gradient');
+    docElement.removeAttribute('data-aura-prose');
   }
 }
 
@@ -41,8 +84,8 @@ const AuraGradientCustomizer: React.FC = () => {
   const { toast } = useToast();
   const [color1, setColor1] = useState(DEFAULT_GRADIENT_COLORS.color1);
   const [color2, setColor2] = useState(DEFAULT_GRADIENT_COLORS.color2);
-  const [color3, setColor3] = useState<string | undefined>(undefined); // State for the optional third color
-  const [showColor3, setShowColor3] = useState(false); // State to control visibility of the third color picker
+  const [color3, setColor3] = useState<string | undefined>(undefined);
+  const [showColor3, setShowColor3] = useState(false);
 
   const [previewGradient, setPreviewGradient] = useState(
     `linear-gradient(${GRADIENT_DIRECTION}, ${DEFAULT_GRADIENT_COLORS.color1}, ${DEFAULT_GRADIENT_COLORS.color2})`
@@ -50,8 +93,7 @@ const AuraGradientCustomizer: React.FC = () => {
 
   const loadSavedColors = useCallback(() => {
     const savedColorsRaw = localStorage.getItem(AURA_GRADIENT_STORAGE_KEY);
-    if (savedColorsRaw && savedColorsRaw !== 'undefined') { // Check if savedColorsRaw is not null or "undefined" string
-
+    if (savedColorsRaw && savedColorsRaw !== 'undefined') {
       try {
         const savedColors = JSON.parse(savedColorsRaw) as AuraGradientColors;
         setColor1(savedColors.color1);
@@ -60,9 +102,10 @@ const AuraGradientCustomizer: React.FC = () => {
           setColor3(savedColors.color3);
           setShowColor3(true);
         }
+        // applyAuraVisuals(savedColors); // Apply visuals on load, ThemeProvider will also do this.
       } catch (e) {
         console.error("Failed to parse saved gradient colors", e);
-        localStorage.removeItem(AURA_GRADIENT_STORAGE_KEY); // Clear corrupted data
+        localStorage.removeItem(AURA_GRADIENT_STORAGE_KEY);
       }
     }
   }, []);
@@ -72,7 +115,7 @@ const AuraGradientCustomizer: React.FC = () => {
   }, [loadSavedColors]);
 
   useEffect(() => {
-    const gradientColors = [color1, color2, color3].filter(Boolean).join(', '); // Filter out undefined/null colors
+    const gradientColors = [color1, color2, color3].filter(Boolean).join(', ');
     setPreviewGradient(`linear-gradient(${GRADIENT_DIRECTION}, ${gradientColors})`);
   }, [color1, color2, color3]);
 
@@ -82,19 +125,24 @@ const AuraGradientCustomizer: React.FC = () => {
       newColors.color3 = color3;
     }
     localStorage.setItem(AURA_GRADIENT_STORAGE_KEY, JSON.stringify(newColors));
-    applyAuraGradient(newColors);
+    applyAuraVisuals(newColors);
     toast({
       title: "Aura Gradient Saved",
-      description: "Your custom background gradient has been applied.",
+      description: "Your custom background gradient and text colors have been applied.",
     });
   };
 
   const handleReset = () => {
-    localStorage.removeItem(AURA_GRADIENT_STORAGE_KEY); // Reset saved colors in localStorage
-    applyAuraGradient(null); // Reset to CSS default
-     toast({
+    localStorage.removeItem(AURA_GRADIENT_STORAGE_KEY);
+    applyAuraVisuals(null); 
+    // Reset local state to default for customizer UI
+    setColor1(DEFAULT_GRADIENT_COLORS.color1);
+    setColor2(DEFAULT_GRADIENT_COLORS.color2);
+    setColor3(undefined);
+    setShowColor3(false);
+    toast({
       title: "Aura Gradient Reset",
-      description: "Background gradient has been reset to default.",
+      description: "Background gradient and text colors have been reset to default.",
     });
   };
 
@@ -149,7 +197,7 @@ const AuraGradientCustomizer: React.FC = () => {
               <input
                 type="color"
                 id="auraColor3"
-                value={color3 || '#cccccc'} // Default to a light grey if color3 is undefined
+                value={color3 || '#cccccc'}
                 onChange={(e) => setColor3(e.target.value)}
                 className="w-10 h-10 p-0 border-none rounded-md cursor-pointer"
                 aria-label="Third gradient color"
@@ -178,8 +226,6 @@ const AuraGradientCustomizer: React.FC = () => {
           aria-label="Gradient preview"
         />
       </div>
-
-
 
       <div className="flex justify-end gap-3 pt-2">
         <Button variant="outline" onClick={handleReset} className="gap-1.5">
