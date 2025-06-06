@@ -174,14 +174,14 @@ body {
     color: hsl(var(--foreground)) !important; /* Uses --foreground from html.dark */
   }
 
-  html.aura-glass body, body.aura-glass {
+  html.aura-glass body {
     background-image: var(--aura-gradient);
     background-attachment: fixed;
     background-size: cover;
     color: hsl(var(--foreground)); /* Uses --foreground from html.aura-glass scope */
   }
 
-  .aura-glass .bg-card,
+  html.aura-glass .bg-card,
   html.aura-glass [data-radix-popper-content-wrapper] > div[role^="dialog"],
   html.aura-glass [data-radix-tooltip-content]
   {
@@ -192,7 +192,7 @@ body {
     box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.5), 0 4px 20px rgba(0, 0, 0, 0.06); /* Updated box-shadow */
   }
 
-  .aura-glass .bg-popover,
+  html.aura-glass .bg-popover,
   html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"]
   {
     background-color: rgba(var(--popover-rgb), var(--popover-alpha)) !important;
@@ -202,51 +202,51 @@ body {
     box-shadow: 0 6px 16px rgba(0,0,0,0.07);
   }
 
-  .aura-glass .border-input {
+  html.aura-glass .border-input {
     background-color: rgba(var(--input-rgb), var(--input-alpha)) !important;
     border-color: rgba(var(--input-border-rgb), var(--input-border-alpha)) !important;
     color: hsl(var(--card-foreground)) !important; /* Changed to use card-foreground for consistency within Aura */
   }
-  .aura-glass input::placeholder,
-  .aura-glass textarea::placeholder {
+  html.aura-glass input::placeholder,
+  html.aura-glass textarea::placeholder {
     color: hsl(var(--muted-foreground)) !important; /* Uses muted-foreground from html.aura-glass */
     opacity: 0.6 !important;
   }
-  .aura-glass .ring-ring {
+  html.aura-glass .ring-ring {
     --tw-ring-color: hsl(var(--ring) / 0.5) !important;
   }
 
   /* Chart adjustments for Aura Glass */
-  .aura-glass .recharts-cartesian-grid line {
+  html.aura-glass .recharts-cartesian-grid line {
      stroke: hsl(var(--card-foreground) / 0.15) !important;
   }
-  .aura-glass .recharts-cartesian-axis-tick-value {
+  html.aura-glass .recharts-cartesian-axis-tick-value {
     fill: hsl(var(--card-foreground) / 0.85) !important; /* Made axis ticks more visible */
   }
-  .aura-glass .recharts-legend-item text {
+  html.aura-glass .recharts-legend-item text {
     fill: hsl(var(--card-foreground) / 0.85) !important; /* Made legend text more visible */
   }
-  .aura-glass .recharts-tooltip-wrapper .bg-background {
+  html.aura-glass .recharts-tooltip-wrapper .bg-background {
     background-color: rgba(var(--popover-rgb), calc(var(--popover-alpha) + 0.4)) !important;
     -webkit-backdrop-filter: blur(var(--popover-blur-value));
     backdrop-filter: blur(var(--popover-blur-value));
     border: 1px solid rgba(var(--popover-border-rgb), calc(var(--popover-border-alpha) + 0.1)) !important;
     color: hsl(var(--popover-foreground)) !important;
   }
-  .aura-glass .recharts-tooltip-cursor {
+  html.aura-glass .recharts-tooltip-cursor {
     stroke: hsl(var(--accent) / 0.5) !important;
   }
-  .aura-glass .recharts-reference-line .recharts-reference-line-line {
+  html.aura-glass .recharts-reference-line .recharts-reference-line-line {
     stroke: hsl(var(--foreground) / 0.5) !important; /* Make reference lines visible */
   }
-  .aura-glass .recharts-reference-line .recharts-label text {
+  html.aura-glass .recharts-reference-line .recharts-label text {
     fill: hsl(var(--foreground) / 0.75) !important; /* Make reference line labels visible */
   }
-  .aura-glass .recharts-line .recharts-line-curve {
+  html.aura-glass .recharts-line .recharts-line-curve {
      /* Default stroke for lines if not overridden by component props, ensure it's visible */
     stroke-opacity: 0.85 !important;
   }
-   .aura-glass .recharts-line .recharts-line-dot circle {
+   html.aura-glass .recharts-line .recharts-line-dot circle {
     /* Default fill for dots if not overridden, ensure it's visible */
     fill-opacity: 0.85 !important;
   }
@@ -296,7 +296,7 @@ input[type="color"]::-moz-color-swatch {
 }
 
 /* Ensure consistent height for color input text field */
-.aura-glass input[type="color"] + input[type="text"] {
+html.aura-glass input[type="color"] + input[type="text"] {
     border-left: none;
     border-top-left-radius: 0;
     border-bottom-left-radius: 0;
@@ -314,3 +314,4 @@ input[type="color"] + input[type="text"] {
    border-top-left-radius: 0;
    border-bottom-left-radius: 0;
 }
+
