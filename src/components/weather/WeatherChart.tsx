@@ -15,7 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Download, FileImage, FileText, Loader2, Sun, Moon, Laptop } from 'lucide-react';
 import { formatTimestampToDdMmHhMmUTC, formatTimestampToFullUTC } from '@/lib/utils';
 import { ChartTooltipContent, ChartContainer, type ChartConfig } from '@/components/ui/chart';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, ScatterChart, Scatter, ReferenceLine, ZAxis } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, ScatterChart, Scatter, ReferenceLine, ZAxis, ReferenceArea } from 'recharts';
 // ... other imports
 import { useToast } from "@/hooks/use-toast"; // Or the correct path to your use-toast hook
 // ... rest of your imports
@@ -575,6 +575,37 @@ const { toast } = useToast(); // Add this line to get the toast function
     return selectedMetrics;
   }, [selectedMetrics, METRIC_CONFIGS, chartType]);
 
+  const sunriseSunsetBlocks = useMemo(() => {
+    if (!formattedData || formattedData.length === 0 || !selectedMetrics.includes('sunriseSunset')) {
+      return [];
+    }
+
+    const blocks: { x1: any; x2: any; type: "Sunrise" | "Sunset" }[] = [];
+    let currentBlock: { start: any; type: "Sunrise" | "Sunset" | null; startIndex: number } | null = null;
+
+    for (let i = 0; i < formattedData.length; i++) {
+      const point = formattedData[i];
+      const pointType = point.sunriseSunset as "Sunrise" | "Sunset";
+      const xValue = isAggregated ? point.timestampDisplay : point.timestamp;
+
+      if (currentBlock === null) {
+        currentBlock = { start: xValue, type: pointType, startIndex: i };
+      } else if (pointType !== currentBlock.type) {
+        // End previous block
+        const prevPointXValue = isAggregated ? formattedData[i - 1].timestampDisplay : formattedData[i - 1].timestamp;
+        blocks.push({ x1: currentBlock.start, x2: prevPointXValue, type: currentBlock.type as "Sunrise" | "Sunset" });
+        currentBlock = { start: xValue, type: pointType, startIndex: i };
+      }
+    }
+
+    // Add the last block
+    if (currentBlock && currentBlock.type) {
+      const lastPointXValue = isAggregated ? formattedData[formattedData.length - 1].timestampDisplay : formattedData[formattedData.length - 1].timestamp;
+      blocks.push({ x1: currentBlock.start, x2: lastPointXValue, type: currentBlock.type as "Sunrise" | "Sunset"});
+    }
+    return blocks;
+  }, [formattedData, isAggregated, selectedMetrics]);
+
 
   const renderChartSpecificElements = () => {
     
@@ -694,6 +725,7 @@ const { toast } = useToast(); // Add this line to get the toast function
         tick: { fill: "hsl(var(--foreground))", fontSize: 11 },
     };
     const yAxisProps: any = {
+        yAxisId: "left", // Ensure YAxis has an ID
         stroke: "hsl(var(--foreground))", // Ensure this uses a theme variable
         tick: { fill: "hsl(var(--foreground))", fontSize: 12 },
         tickFormatter: yAxisTickFormatter,
@@ -765,6 +797,25 @@ const { toast } = useToast(); // Add this line to get the toast function
       {...commonCartesianProps}
     >
       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+      {selectedMetrics.includes('sunriseSunset') && sunriseSunsetBlocks.map((block, index) => (
+        <ReferenceArea
+          key={`sunrise-sunset-block-${index}`}
+          x1={block.x1}
+          x2={block.x2}
+          yAxisId="left" // Associate with the main Y-axis
+          fill={block.type === "Sunrise" ? "hsla(50, 100%, 85%, 0.3)" : "hsla(220, 20%, 40%, 0.25)"}
+          stroke="none"
+          ifOverflow="hidden"
+          label={{
+            value: block.type === "Sunrise" ? "Day" : "Night",
+            position: "insideTopLeft",
+            fontSize: 10,
+            fill: "hsl(var(--muted-foreground))",
+            dx: 5,
+            dy: 5
+          }}
+        />
+      ))}
       <XAxis {...xAxisProps} />
       <YAxis {...yAxisProps} />
       <Tooltip
@@ -829,6 +880,7 @@ const { toast } = useToast(); // Add this line to get the toast function
 
           return [
             <ReferenceLine
+              yAxisId="left" // Ensure it's tied to the correct Y-axis
               key={`min-line-${metricKey}`}
               y={minValue}
               stroke={metricConfig.color} // Use metric's color
@@ -846,6 +898,7 @@ const { toast } = useToast(); // Add this line to get the toast function
               }}
             />,
             <ReferenceLine
+              yAxisId="left" // Ensure it's tied to the correct Y-axis
               key={`max-line-${metricKey}`}
               y={maxValue}
               stroke={metricConfig.color} // Use metric's color
