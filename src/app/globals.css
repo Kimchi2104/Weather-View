@@ -83,18 +83,18 @@ body {
     --aura-gradient: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%);
 
     /* Base page colors when Aura Glass is active */
-    --background: 0 0% 100%; /* Fallback, actual bg is gradient */
-    --foreground: 220 40% 20%; /* Default prose color for Aura: Dark text on potentially light gradient */
+    /* --background: 0 0% 100%; */ /* Fallback, actual bg is gradient - REMOVED as it's not used directly */
+    /* --foreground: 220 40% 20%; */ /* Default prose color for Aura: Dark text on potentially light gradient - MOVED INTO PROSE */
 
     /* Glassmorphic Card Styles */
     --card-rgb: 255, 255, 255;
     --card-alpha: 0.15;
     --card-blur-value: 10px;
     --card-border-rgb: 255, 255, 255;
-    --card-border-alpha: 0.4; /* Updated from 0.2 */
+    --card-border-alpha: 0.4;
 
-    --card: 0 0% 100%; /* Fallback for card bg */
-    --card-foreground: hsl(var(--foreground)); /* Use prose color for card text */
+    /* --card: 0 0% 100%; */ /* Fallback for card bg - REMOVED as card uses rgba */
+    /* --card-foreground: hsl(var(--foreground)); */ /* Use prose color for card text - Will use prose variable */
 
     /* Glassmorphic Popover/Dropdown/Dialog Styles */
     --popover-rgb: 255, 255, 255;
@@ -103,8 +103,8 @@ body {
     --popover-border-rgb: 255, 255, 255;
     --popover-border-alpha: 0.25;
 
-    --popover: 0 0% 100%; /* Fallback for popover bg */
-    --popover-foreground: hsl(var(--foreground)); /* Use prose color for popover text */
+    /* --popover: 0 0% 100%; */ /* Fallback for popover bg - REMOVED */
+    /* --popover-foreground: hsl(var(--foreground)); */ /* Use prose color for popover text - Will use prose variable */
 
     --border: 220 20% 85%; /* Border for non-glass elements in Aura theme */
 
@@ -113,7 +113,7 @@ body {
     --input-alpha: 0.2;
     --input-border-rgb: 255, 255, 255;
     --input-border-alpha: 0.3;
-    --input: 0 0% 100%; /* Fallback for input bg */
+    /* --input: 0 0% 100%; */ /* Fallback for input bg - REMOVED */
 
     /* UI Accent Colors */
     --primary: 230 80% 65%;
@@ -121,7 +121,7 @@ body {
     --secondary: 220 30% 90%;
     --secondary-foreground: 220 30% 30%;
     --muted: 220 20% 94%;
-    --muted-foreground: 220 25% 50%;
+    /* --muted-foreground: 220 25% 50%; */ /* Will use prose variable */
     --accent: 270 70% 70%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 70% 60%;
@@ -170,15 +170,15 @@ body {
 
   html.dark body {
     background-image: none !important;
-    background-color: hsl(var(--background)) !important; /* Uses --background from html.dark */
-    color: hsl(var(--foreground)) !important; /* Uses --foreground from html.dark */
+    background-color: #0a0e14 !important; /* HARDCODED dark background for testing: hsl(210 20% 5%) */
+    color: #f0f2f5 !important; /* HARDCODED light foreground for testing: hsl(210 20% 95%) */
   }
 
   html.aura-glass body {
     background-image: var(--aura-gradient);
     background-attachment: fixed;
     background-size: cover;
-    color: hsl(var(--foreground)); /* Uses --foreground from html.aura-glass scope */
+    color: hsl(var(--foreground)); /* Uses --foreground from html.aura-glass[data-aura-prose="..."] scope */
   }
 
   html.aura-glass .bg-card,
@@ -189,7 +189,7 @@ body {
     -webkit-backdrop-filter: blur(var(--card-blur-value));
     backdrop-filter: blur(var(--card-blur-value));
     border: 1px solid rgba(var(--card-border-rgb), var(--card-border-alpha)) !important;
-    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.5), 0 4px 20px rgba(0, 0, 0, 0.06); /* Updated box-shadow */
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.5), 0 4px 20px rgba(0, 0, 0, 0.06);
   }
 
   html.aura-glass .bg-popover,
@@ -205,11 +205,11 @@ body {
   html.aura-glass .border-input {
     background-color: rgba(var(--input-rgb), var(--input-alpha)) !important;
     border-color: rgba(var(--input-border-rgb), var(--input-border-alpha)) !important;
-    color: hsl(var(--card-foreground)) !important; /* Changed to use card-foreground for consistency within Aura */
+    color: hsl(var(--card-foreground)) !important; /* Uses card-foreground from html.aura-glass[data-aura-prose="..."] */
   }
   html.aura-glass input::placeholder,
   html.aura-glass textarea::placeholder {
-    color: hsl(var(--muted-foreground)) !important; /* Uses muted-foreground from html.aura-glass */
+    color: hsl(var(--muted-foreground)) !important; /* Uses muted-foreground from html.aura-glass[data-aura-prose="..."] */
     opacity: 0.6 !important;
   }
   html.aura-glass .ring-ring {
@@ -218,52 +218,50 @@ body {
 
   /* Chart adjustments for Aura Glass */
   html.aura-glass .recharts-cartesian-grid line {
-     stroke: hsl(var(--card-foreground) / 0.15) !important;
+     stroke: hsl(var(--card-foreground) / 0.15) !important; /* Uses card-foreground from html.aura-glass[data-aura-prose="..."] */
   }
   html.aura-glass .recharts-cartesian-axis-tick-value {
-    fill: hsl(var(--card-foreground) / 0.85) !important; /* Made axis ticks more visible */
+    fill: hsl(var(--card-foreground) / 0.85) !important; /* Uses card-foreground from html.aura-glass[data-aura-prose="..."] */
   }
   html.aura-glass .recharts-legend-item text {
-    fill: hsl(var(--card-foreground) / 0.85) !important; /* Made legend text more visible */
+    fill: hsl(var(--card-foreground) / 0.85) !important; /* Uses card-foreground from html.aura-glass[data-aura-prose="..."] */
   }
-  html.aura-glass .recharts-tooltip-wrapper .bg-background {
+  html.aura-glass .recharts-tooltip-wrapper .bg-background { /* This bg-background is a class name, not the var */
     background-color: rgba(var(--popover-rgb), calc(var(--popover-alpha) + 0.4)) !important;
     -webkit-backdrop-filter: blur(var(--popover-blur-value));
     backdrop-filter: blur(var(--popover-blur-value));
     border: 1px solid rgba(var(--popover-border-rgb), calc(var(--popover-border-alpha) + 0.1)) !important;
-    color: hsl(var(--popover-foreground)) !important;
+    color: hsl(var(--popover-foreground)) !important; /* Uses popover-foreground from html.aura-glass[data-aura-prose="..."] */
   }
   html.aura-glass .recharts-tooltip-cursor {
     stroke: hsl(var(--accent) / 0.5) !important;
   }
   html.aura-glass .recharts-reference-line .recharts-reference-line-line {
-    stroke: hsl(var(--foreground) / 0.5) !important; /* Make reference lines visible */
+    stroke: hsl(var(--foreground) / 0.5) !important; /* Uses foreground from html.aura-glass[data-aura-prose="..."] */
   }
   html.aura-glass .recharts-reference-line .recharts-label text {
-    fill: hsl(var(--foreground) / 0.75) !important; /* Make reference line labels visible */
+    fill: hsl(var(--foreground) / 0.75) !important; /* Uses foreground from html.aura-glass[data-aura-prose="..."] */
   }
   html.aura-glass .recharts-line .recharts-line-curve {
-     /* Default stroke for lines if not overridden by component props, ensure it's visible */
     stroke-opacity: 0.85 !important;
   }
    html.aura-glass .recharts-line .recharts-line-dot circle {
-    /* Default fill for dots if not overridden, ensure it's visible */
     fill-opacity: 0.85 !important;
   }
 
   /* Footer styles for Aura Glass theme */
-  html.aura-glass footer { /* Ensure high specificity for footer text colors */
+  html.aura-glass footer {
     background-color: transparent !important;
-    color: hsl(var(--foreground) / 0.85) !important; /* Adjusted for prose system */
+    color: hsl(var(--foreground) / 0.85) !important; /* Uses foreground from html.aura-glass[data-aura-prose="..."] */
   }
   html.aura-glass footer .text-muted-foreground {
-    color: hsl(var(--muted-foreground) / 0.8) !important; /* Adjusted for prose system */
+    color: hsl(var(--muted-foreground) / 0.8) !important; /* Uses muted-foreground from html.aura-glass[data-aura-prose="..."] */
   }
-  html.aura-glass footer .border-border\/50 { /* Targeting border-border/50 specifically for footer's top border */
+  html.aura-glass footer .border-border\/50 {
     border-color: hsl(var(--border) / 0.3) !important;
   }
-   html.aura-glass footer .text-foreground\/80 { /* Targeting the 'PROJECT CONTRIBUTIONS' title */
-    color: hsl(var(--foreground)) !important; /* Use primary prose foreground */
+   html.aura-glass footer .text-foreground\/80 {
+    color: hsl(var(--foreground)) !important; /* Uses foreground from html.aura-glass[data-aura-prose="..."] */
   }
 
 }
@@ -302,7 +300,7 @@ html.aura-glass input[type="color"] + input[type="text"] {
     border-bottom-left-radius: 0;
 }
 
-html.dark input[type="color"] + input[type="text"] { /* Changed from .dark to html.dark */
+html.dark input[type="color"] + input[type="text"] {
    border-left: none;
    border-top-left-radius: 0;
    border-bottom-left-radius: 0;
@@ -314,4 +312,4 @@ input[type="color"] + input[type="text"] {
    border-top-left-radius: 0;
    border-bottom-left-radius: 0;
 }
-
+    
