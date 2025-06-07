@@ -170,8 +170,8 @@ body {
 
   html.dark body {
     background-image: none !important;
-    background-color: #0a0e14 !important; /* HARDCODED dark background for testing: hsl(210 20% 5%) */
-    color: #f0f2f5 !important; /* HARDCODED light foreground for testing: hsl(210 20% 95%) */
+    background-color: #0a0e14 !important; /* HARDCODED dark background: hsl(210 20% 5%) */
+    color: #f0f2f5 !important; /* HARDCODED light foreground: hsl(210 20% 95%) */
   }
 
   html.aura-glass body {
@@ -179,6 +179,16 @@ body {
     background-attachment: fixed;
     background-size: cover;
     color: hsl(var(--foreground)); /* Uses --foreground from html.aura-glass[data-aura-prose="..."] scope */
+  }
+
+  html.aura-glass header {
+    background-color: transparent !important;
+    color: hsl(var(--foreground)) !important; /* Use prose-aware text color */
+    box-shadow: none !important; /* Remove shadow to blend better */
+  }
+
+  html.aura-glass header .text-accent { /* Targets the Zap icon specifically */
+    color: hsl(var(--accent)) !important; /* Use the Aura theme's accent color */
   }
 
   html.aura-glass .bg-card,
