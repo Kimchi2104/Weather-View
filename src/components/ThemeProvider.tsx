@@ -20,7 +20,7 @@ function applyAuraVisualsFromStorage() {
       applyAuraVisuals(null); // Reset if parsing fails
     }
   } else {
-    applyAuraVisuals(null); // Reset if no saved colors
+    applyAuraVisuals(null); // Reset if no saved colors, or apply default aura gradient if needed
   }
 }
 
@@ -28,13 +28,12 @@ function AppInitializerEffect() {
   const { theme, resolvedTheme } = useTheme();
 
   React.useEffect(() => {
-    const docElement = document.documentElement;
     if (theme === "aura-glass" || (theme === "system" && resolvedTheme === "aura-glass")) {
       applyAuraVisualsFromStorage();
     } else {
-      // If not Aura Glass, ensure no inline style overrides CSS and remove prose attribute
-      docElement.style.removeProperty('--aura-gradient');
-      docElement.removeAttribute('data-aura-prose');
+      // Explicitly call applyAuraVisuals(null) to ensure all Aura-specific things are reset.
+      // This function handles removing both the inline gradient style and the data-aura-prose attribute.
+      applyAuraVisuals(null);
     }
   }, [theme, resolvedTheme]);
 
