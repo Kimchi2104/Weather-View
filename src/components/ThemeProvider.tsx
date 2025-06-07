@@ -20,7 +20,7 @@ function applyAuraVisualsFromStorage() {
       applyAuraVisuals(null); // Reset if parsing fails
     }
   } else {
-    applyAuraVisuals(null); // Reset if no saved colors, or apply default aura gradient if needed
+    applyAuraVisuals(null); 
   }
 }
 
@@ -28,12 +28,25 @@ function AppInitializerEffect() {
   const { theme, resolvedTheme } = useTheme();
 
   React.useEffect(() => {
+    const docElement = document.documentElement;
     if (theme === "aura-glass" || (theme === "system" && resolvedTheme === "aura-glass")) {
       applyAuraVisualsFromStorage();
     } else {
       // Explicitly call applyAuraVisuals(null) to ensure all Aura-specific things are reset.
       // This function handles removing both the inline gradient style and the data-aura-prose attribute.
       applyAuraVisuals(null);
+
+      // Defensive cleanup:
+      // Ensure 'aura-glass' class is removed if next-themes didn't fully handle it
+      if (docElement.classList.contains('aura-glass')) {
+        docElement.classList.remove('aura-glass');
+        console.warn("[ThemeProvider] Defensively removed 'aura-glass' class.");
+      }
+      // Ensure 'data-aura-prose' is removed if applyAuraVisuals(null) somehow failed or was undone.
+      if (docElement.hasAttribute('data-aura-prose')) {
+        docElement.removeAttribute('data-aura-prose');
+        console.warn("[ThemeProvider] Defensively removed 'data-aura-prose' attribute.");
+      }
     }
   }, [theme, resolvedTheme]);
 
