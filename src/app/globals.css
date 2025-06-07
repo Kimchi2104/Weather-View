@@ -168,103 +168,104 @@ body {
     background-size: cover;
     color: hsl(var(--foreground)); /* Uses --foreground from html.aura-glass[data-aura-prose="..."] scope */
   }
+}
 
-  html.aura-glass header {
-    background-color: rgba(var(--card-rgb), 0.2) !important; /* Glass effect with 20% opacity */
-    -webkit-backdrop-filter: blur(var(--card-blur-value)); /* Use card's blur value */
-    backdrop-filter: blur(var(--card-blur-value));
-    border-bottom: 1px solid rgba(var(--card-border-rgb), 0.3) !important; /* Slightly more opaque border */
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important; /* Soft drop shadow */
-    color: hsl(var(--foreground)) !important; /* Use prose-aware text color */
-  }
+/* Component-specific overrides for Aura Glass Theme */
+/* These are placed AFTER @tailwind utilities and OUTSIDE any @layer to ensure they override Tailwind utilities */
+html.aura-glass header {
+  background-color: rgba(var(--card-rgb), 0.2) !important; /* Glass effect with 20% opacity */
+  -webkit-backdrop-filter: blur(var(--card-blur-value)); /* Use card's blur value */
+  backdrop-filter: blur(var(--card-blur-value));
+  border-bottom: 1px solid rgba(var(--card-border-rgb), 0.3) !important; /* Slightly more opaque border */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important; /* Soft drop shadow */
+  color: hsl(var(--foreground)) !important; /* Use prose-aware text color */
+}
 
-  html.aura-glass header .text-accent { /* Targets the Zap icon specifically */
-    color: hsl(var(--accent)) !important; /* Use the Aura theme's accent color */
-  }
+html.aura-glass header .text-accent { /* Targets the Zap icon specifically */
+  color: hsl(var(--accent)) !important; /* Use the Aura theme's accent color */
+}
 
-  html.aura-glass .bg-card,
-  html.aura-glass [data-radix-popper-content-wrapper] > div[role^="dialog"],
-  html.aura-glass [data-radix-tooltip-content]
-  {
-    background-color: rgba(var(--card-rgb), var(--card-alpha)) !important;
-    -webkit-backdrop-filter: blur(var(--card-blur-value));
-    backdrop-filter: blur(var(--card-blur-value));
-    border: 1px solid rgba(var(--card-border-rgb), var(--card-border-alpha)) !important;
-    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.5), 0 4px 20px rgba(0, 0, 0, 0.06);
-  }
+html.aura-glass .bg-card,
+html.aura-glass [data-radix-popper-content-wrapper] > div[role^="dialog"],
+html.aura-glass [data-radix-tooltip-content]
+{
+  background-color: rgba(var(--card-rgb), var(--card-alpha)) !important;
+  -webkit-backdrop-filter: blur(var(--card-blur-value));
+  backdrop-filter: blur(var(--card-blur-value));
+  border: 1px solid rgba(var(--card-border-rgb), var(--card-border-alpha)) !important;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.5), 0 4px 20px rgba(0, 0, 0, 0.06);
+}
 
-  html.aura-glass .bg-popover,
-  html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"]
-  {
-    background-color: rgba(var(--popover-rgb), var(--popover-alpha)) !important;
-    -webkit-backdrop-filter: blur(var(--popover-blur-value));
-    backdrop-filter: blur(var(--popover-blur-value));
-    border: 1px solid rgba(var(--popover-border-rgb), var(--popover-border-alpha)) !important;
-    box-shadow: 0 6px 16px rgba(0,0,0,0.07);
-  }
+html.aura-glass .bg-popover,
+html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"]
+{
+  background-color: rgba(var(--popover-rgb), var(--popover-alpha)) !important;
+  -webkit-backdrop-filter: blur(var(--popover-blur-value));
+  backdrop-filter: blur(var(--popover-blur-value));
+  border: 1px solid rgba(var(--popover-border-rgb), var(--popover-border-alpha)) !important;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.07);
+}
 
-  html.aura-glass .border-input {
-    background-color: rgba(var(--input-rgb), var(--input-alpha)) !important;
-    border-color: rgba(var(--input-border-rgb), var(--input-border-alpha)) !important;
-    color: hsl(var(--card-foreground)) !important; /* Uses card-foreground from html.aura-glass[data-aura-prose="..."] */
-  }
-  html.aura-glass input::placeholder,
-  html.aura-glass textarea::placeholder {
-    color: hsl(var(--muted-foreground)) !important; /* Uses muted-foreground from html.aura-glass[data-aura-prose="..."] */
-    opacity: 0.6 !important;
-  }
-  html.aura-glass .ring-ring {
-    --tw-ring-color: hsl(var(--ring) / 0.5) !important;
-  }
+html.aura-glass .border-input {
+  background-color: rgba(var(--input-rgb), var(--input-alpha)) !important;
+  border-color: rgba(var(--input-border-rgb), var(--input-border-alpha)) !important;
+  color: hsl(var(--card-foreground)) !important; /* Uses card-foreground from html.aura-glass[data-aura-prose="..."] */
+}
+html.aura-glass input::placeholder,
+html.aura-glass textarea::placeholder {
+  color: hsl(var(--muted-foreground)) !important; /* Uses muted-foreground from html.aura-glass[data-aura-prose="..."] */
+  opacity: 0.6 !important;
+}
+html.aura-glass .ring-ring {
+  --tw-ring-color: hsl(var(--ring) / 0.5) !important;
+}
 
-  /* Chart adjustments for Aura Glass */
-  html.aura-glass .recharts-cartesian-grid line {
-     stroke: hsl(var(--card-foreground) / 0.15) !important; /* Uses card-foreground from html.aura-glass[data-aura-prose="..."] */
-  }
-  html.aura-glass .recharts-cartesian-axis-tick-value {
-    fill: hsl(var(--card-foreground) / 0.85) !important; /* Uses card-foreground from html.aura-glass[data-aura-prose="..."] */
-  }
-  html.aura-glass .recharts-legend-item text {
-    fill: hsl(var(--card-foreground) / 0.85) !important; /* Uses card-foreground from html.aura-glass[data-aura-prose="..."] */
-  }
-  html.aura-glass .recharts-tooltip-wrapper .bg-background { /* This bg-background is a class name, not the var */
-    background-color: rgba(var(--popover-rgb), calc(var(--popover-alpha) + 0.4)) !important;
-    -webkit-backdrop-filter: blur(var(--popover-blur-value));
-    backdrop-filter: blur(var(--popover-blur-value));
-    border: 1px solid rgba(var(--popover-border-rgb), calc(var(--popover-border-alpha) + 0.1)) !important;
-    color: hsl(var(--popover-foreground)) !important; /* Uses popover-foreground from html.aura-glass[data-aura-prose="..."] */
-  }
-  html.aura-glass .recharts-tooltip-cursor {
-    stroke: hsl(var(--accent) / 0.5) !important;
-  }
-  html.aura-glass .recharts-reference-line .recharts-reference-line-line {
-    stroke: hsl(var(--foreground) / 0.5) !important; /* Uses foreground from html.aura-glass[data-aura-prose="..."] */
-  }
-  html.aura-glass .recharts-reference-line .recharts-label text {
-    fill: hsl(var(--foreground) / 0.75) !important; /* Uses foreground from html.aura-glass[data-aura-prose="..."] */
-  }
-  html.aura-glass .recharts-line .recharts-line-curve {
-    stroke-opacity: 0.85 !important;
-  }
-   html.aura-glass .recharts-line .recharts-line-dot circle {
-    fill-opacity: 0.85 !important;
-  }
+/* Chart adjustments for Aura Glass */
+html.aura-glass .recharts-cartesian-grid line {
+   stroke: hsl(var(--card-foreground) / 0.15) !important; /* Uses card-foreground from html.aura-glass[data-aura-prose="..."] */
+}
+html.aura-glass .recharts-cartesian-axis-tick-value {
+  fill: hsl(var(--card-foreground) / 0.85) !important; /* Uses card-foreground from html.aura-glass[data-aura-prose="..."] */
+}
+html.aura-glass .recharts-legend-item text {
+  fill: hsl(var(--card-foreground) / 0.85) !important; /* Uses card-foreground from html.aura-glass[data-aura-prose="..."] */
+}
+html.aura-glass .recharts-tooltip-wrapper .bg-background { /* This bg-background is a class name, not the var */
+  background-color: rgba(var(--popover-rgb), calc(var(--popover-alpha) + 0.4)) !important;
+  -webkit-backdrop-filter: blur(var(--popover-blur-value));
+  backdrop-filter: blur(var(--popover-blur-value));
+  border: 1px solid rgba(var(--popover-border-rgb), calc(var(--popover-border-alpha) + 0.1)) !important;
+  color: hsl(var(--popover-foreground)) !important; /* Uses popover-foreground from html.aura-glass[data-aura-prose="..."] */
+}
+html.aura-glass .recharts-tooltip-cursor {
+  stroke: hsl(var(--accent) / 0.5) !important;
+}
+html.aura-glass .recharts-reference-line .recharts-reference-line-line {
+  stroke: hsl(var(--foreground) / 0.5) !important; /* Uses foreground from html.aura-glass[data-aura-prose="..."] */
+}
+html.aura-glass .recharts-reference-line .recharts-label text {
+  fill: hsl(var(--foreground) / 0.75) !important; /* Uses foreground from html.aura-glass[data-aura-prose="..."] */
+}
+html.aura-glass .recharts-line .recharts-line-curve {
+  stroke-opacity: 0.85 !important;
+}
+ html.aura-glass .recharts-line .recharts-line-dot circle {
+  fill-opacity: 0.85 !important;
+}
 
-  /* Footer styles for Aura Glass theme */
-  html.aura-glass footer {
-    background-color: transparent !important;
-    color: hsl(var(--foreground) / 0.85) !important; /* Uses foreground from html.aura-glass[data-aura-prose="..."] */
-  }
-  html.aura-glass footer .text-muted-foreground {
-    color: hsl(var(--muted-foreground) / 0.8) !important; /* Uses muted-foreground from html.aura-glass[data-aura-prose="..."] */
-  }
-  html.aura-glass footer .border-border\/50 {
-    border-color: hsl(var(--border) / 0.3) !important;
-  }
-   html.aura-glass footer .text-foreground\/80 {
-    color: hsl(var(--foreground)) !important; /* Uses foreground from html.aura-glass[data-aura-prose="..."] */
-  }
-
+/* Footer styles for Aura Glass theme */
+html.aura-glass footer {
+  background-color: transparent !important;
+  color: hsl(var(--foreground) / 0.85) !important; /* Uses foreground from html.aura-glass[data-aura-prose="..."] */
+}
+html.aura-glass footer .text-muted-foreground {
+  color: hsl(var(--muted-foreground) / 0.8) !important; /* Uses muted-foreground from html.aura-glass[data-aura-prose="..."] */
+}
+html.aura-glass footer .border-border\/50 {
+  border-color: hsl(var(--border) / 0.3) !important;
+}
+ html.aura-glass footer .text-foreground\/80 {
+  color: hsl(var(--foreground)) !important; /* Uses foreground from html.aura-glass[data-aura-prose="..."] */
 }
 
 
@@ -313,4 +314,6 @@ input[type="color"] + input[type="text"] {
    border-top-left-radius: 0;
    border-bottom-left-radius: 0;
 }
+    
+
     
