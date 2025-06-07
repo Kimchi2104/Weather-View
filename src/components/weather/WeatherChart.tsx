@@ -637,6 +637,7 @@ const { toast } = useToast(); // Add this line to get the toast function
         }
         elements.push(
           <Scatter
+            yAxisId="left"
             key={`scatter-${key}`}
             name={chartConfigForShadcn[yDataKey]?.label || yDataKey} // Legend name
             dataKey={yDataKey} // Y-axis value
@@ -659,6 +660,7 @@ const { toast } = useToast(); // Add this line to get the toast function
           const name = chartConfigForShadcn[key]?.label || metricConfig.name || key;
           return (
             <Line
+              yAxisId="left"
               key={`line-${key}`}
               type="monotone"
               dataKey={key} // For raw data, this is the direct metric key
@@ -681,6 +683,7 @@ const { toast } = useToast(); // Add this line to get the toast function
           const name = chartConfigForShadcn[key]?.label || metricConfig.name || key;
           return (
             <Bar
+              yAxisId="left"
               key={`bar-${key}`}
               dataKey={key}
               fill={color}
@@ -736,11 +739,9 @@ const { toast } = useToast(); // Add this line to get the toast function
         allowDataOverflow: chartType !== 'bar', // Bar charts usually clip, others can extend
     };
 
-    let ChartComponentToRender: React.ComponentType<any>;
 
     // Determine chart component and specific X-axis props based on chartType
     if (chartType === 'scatter') {
-        ChartComponentToRender = ScatterChart;
         // Scatter-specific X-axis props
         if (!isAggregated) { // Raw data scatter plot
             xAxisProps.dataKey = "timestamp";
@@ -764,8 +765,66 @@ const { toast } = useToast(); // Add this line to get the toast function
             xAxisProps.minTickGap = 5; // Closer ticks for categories
             xAxisProps.interval = "preserveStartEnd"; // Show first and last, and some in between
         }
+         return (
+            <ScatterChart
+                key={chartDynamicKey}
+                data={currentChartDataForRender}
+                {...commonCartesianProps}
+            >
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                {selectedMetrics.includes('sunriseSunset') && sunriseSunsetBlocks.map((block, index) => (
+                  <ReferenceArea
+                    key={`sunrise-sunset-block-${index}`}
+                    x1={block.x1}
+                    x2={block.x2}
+                    yAxisId="left"
+                    fill={block.type === "Sunrise" ? "hsla(50, 100%, 85%, 0.3)" : "hsla(220, 20%, 40%, 0.25)"}
+                    stroke="none"
+                    ifOverflow="hidden"
+                    label={{
+                      value: block.type === "Sunrise" ? "Day" : "Night",
+                      position: "insideTopLeft",
+                      fontSize: 10,
+                      fill: "hsl(var(--muted-foreground))",
+                      dx: 5,
+                      dy: 5
+                    }}
+                  />
+                ))}
+                <XAxis {...xAxisProps} />
+                <YAxis {...yAxisProps} />
+                <Tooltip
+                  content={renderCustomTooltipContent}
+                  wrapperStyle={{ outline: "none" }}
+                  cursor={false}
+                  animationDuration={150}
+                  animationEasing="ease-out"
+                />
+                <Legend
+                  wrapperStyle={{ paddingTop: '0px', paddingBottom: '20px' }}
+                  iconSize={14}
+                  layout="horizontal"
+                  align="center"
+                  verticalAlign="top"
+                  formatter={(value, entry: any, index) => {
+                    const rechartsName = entry.name as string | undefined;
+                    if (typeof rechartsName !== 'string') return value;
+                    let originalKey = rechartsName;
+                    if (isAggregated && rechartsName.endsWith('_avg')) {
+                      originalKey = rechartsName.substring(0, rechartsName.length - 4);
+                    } else if (isAggregated && rechartsName.endsWith('_stdDev')) {
+                        if (numericMetricsForScatter.includes(originalKey.replace('_stdDev','') as MetricKey) ) {
+                            return null;
+                        }
+                    }
+                    const config = chartConfigForShadcn[originalKey as MetricKey];
+                    return config?.label || value;
+                  }}
+                />
+                {renderChartSpecificElements()}
+            </ScatterChart>
+        );
     } else if (chartType === 'bar') {
-        ChartComponentToRender = BarChart;
         // Bar chart X-axis (always categorical for this setup)
         xAxisProps.dataKey = "timestampDisplay";
         xAxisProps.type = "category";
@@ -775,8 +834,63 @@ const { toast } = useToast(); // Add this line to get the toast function
         xAxisProps.height = 30; // Standard height
         xAxisProps.minTickGap = 5;
         xAxisProps.interval = isAggregated ? "preserveStartEnd" : (currentChartDataForRender.length > 20 ? Math.floor(currentChartDataForRender.length / (currentChartDataForRender.length > 0 ? Math.min(10, currentChartDataForRender.length) : 5)) : 0);
+        return (
+            <BarChart
+                key={chartDynamicKey}
+                data={currentChartDataForRender}
+                onClick={handleLineBarChartClick}
+                {...commonCartesianProps}
+            >
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                 {selectedMetrics.includes('sunriseSunset') && sunriseSunsetBlocks.map((block, index) => (
+                  <ReferenceArea
+                    key={`sunrise-sunset-block-${index}`}
+                    x1={block.x1}
+                    x2={block.x2}
+                    yAxisId="left"
+                    fill={block.type === "Sunrise" ? "hsla(50, 100%, 85%, 0.3)" : "hsla(220, 20%, 40%, 0.25)"}
+                    stroke="none"
+                    ifOverflow="hidden"
+                    label={{
+                      value: block.type === "Sunrise" ? "Day" : "Night",
+                      position: "insideTopLeft",
+                      fontSize: 10,
+                      fill: "hsl(var(--muted-foreground))",
+                      dx: 5,
+                      dy: 5
+                    }}
+                  />
+                ))}
+                <XAxis {...xAxisProps} />
+                <YAxis {...yAxisProps} />
+                <Tooltip
+                  content={renderCustomTooltipContent}
+                  wrapperStyle={{ outline: "none" }}
+                  cursor={{ stroke: 'hsl(var(--accent))', strokeWidth: 1, strokeDasharray: '3 3' }}
+                  animationDuration={150}
+                  animationEasing="ease-out"
+                />
+                <Legend
+                  wrapperStyle={{ paddingTop: '0px', paddingBottom: '20px' }}
+                  iconSize={14}
+                  layout="horizontal"
+                  align="center"
+                  verticalAlign="top"
+                  formatter={(value, entry: any, index) => {
+                    const rechartsName = entry.name as string | undefined;
+                    if (typeof rechartsName !== 'string') return value;
+                    let originalKey = rechartsName;
+                     if (isAggregated && rechartsName.endsWith('_avg')) {
+                        originalKey = rechartsName.substring(0, rechartsName.length - 4);
+                    }
+                    const config = chartConfigForShadcn[originalKey as MetricKey];
+                    return config?.label || value;
+                  }}
+                />
+                {renderChartSpecificElements()}
+            </BarChart>
+        );
     } else { // Default to Line chart
-        ChartComponentToRender = LineChart;
         // Line chart X-axis (categorical for timestampDisplay)
         xAxisProps.dataKey = "timestampDisplay";
         xAxisProps.type = "category";
@@ -786,140 +900,118 @@ const { toast } = useToast(); // Add this line to get the toast function
         xAxisProps.height = (chartType === 'line' && !isAggregated) ? 70 : 30;
         xAxisProps.minTickGap = ((chartType === 'line') && !isAggregated) ? 10 : 5;
         xAxisProps.interval = isAggregated ? "preserveStartEnd" : (currentChartDataForRender.length > 20 ? Math.floor(currentChartDataForRender.length / (currentChartDataForRender.length > 0 ? Math.min(10, currentChartDataForRender.length) : 5)) : 0);
+        return (
+            <LineChart
+                key={chartDynamicKey}
+                data={currentChartDataForRender}
+                onClick={handleLineBarChartClick}
+                {...commonCartesianProps}
+            >
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                {selectedMetrics.includes('sunriseSunset') && sunriseSunsetBlocks.map((block, index) => (
+                  <ReferenceArea
+                    key={`sunrise-sunset-block-${index}`}
+                    x1={block.x1}
+                    x2={block.x2}
+                    yAxisId="left"
+                    fill={block.type === "Sunrise" ? "hsla(50, 100%, 85%, 0.3)" : "hsla(220, 20%, 40%, 0.25)"}
+                    stroke="none"
+                    ifOverflow="hidden"
+                    label={{
+                      value: block.type === "Sunrise" ? "Day" : "Night",
+                      position: "insideTopLeft",
+                      fontSize: 10,
+                      fill: "hsl(var(--muted-foreground))",
+                      dx: 5,
+                      dy: 5
+                    }}
+                  />
+                ))}
+                <XAxis {...xAxisProps} />
+                <YAxis {...yAxisProps} />
+                <Tooltip
+                  content={renderCustomTooltipContent}
+                  wrapperStyle={{ outline: "none" }}
+                  cursor={{ stroke: 'hsl(var(--accent))', strokeWidth: 1, strokeDasharray: '3 3' }}
+                  animationDuration={150}
+                  animationEasing="ease-out"
+                />
+                <Legend
+                  wrapperStyle={{ paddingTop: '0px', paddingBottom: '20px' }}
+                  iconSize={14}
+                  layout="horizontal"
+                  align="center"
+                  verticalAlign="top"
+                  formatter={(value, entry: any, index) => {
+                    const rechartsName = entry.name as string | undefined;
+                    if (typeof rechartsName !== 'string') return value;
+                    let originalKey = rechartsName;
+                    if (isAggregated && rechartsName.endsWith('_avg')) {
+                        originalKey = rechartsName.substring(0, rechartsName.length - 4);
+                    }
+                    const config = chartConfigForShadcn[originalKey as MetricKey];
+                    return config?.label || value;
+                  }}
+                />
+                {renderChartSpecificElements()}
+                {showMinMaxLines && chartType === 'line' && minMaxReferenceData &&
+                  selectedMetrics.flatMap(metricKey => {
+                    const metricMinMax = minMaxReferenceData[metricKey];
+                    const metricConfig = METRIC_CONFIGS[metricKey];
+                    if (!metricMinMax || !metricConfig || metricConfig.isString || 
+                        typeof metricMinMax.minValue !== 'number' || !isFinite(metricMinMax.minValue) ||
+                        typeof metricMinMax.maxValue !== 'number' || !isFinite(metricMinMax.maxValue)
+                    ) {
+                      return [];
+                    }
+                    const { minValue, maxValue } = metricMinMax;
+                    const orderIndex = metricsWithMinMaxLines.indexOf(metricKey);
+                    const activeOrderIndex = orderIndex !== -1 ? orderIndex : 0;
+                    const dyMinLabel = 5 + activeOrderIndex * 12;
+                    const dyMaxLabel = -5 - activeOrderIndex * 12;
+                    return [
+                      <ReferenceLine
+                        yAxisId="left"
+                        key={`min-line-${metricKey}`}
+                        y={minValue}
+                        stroke={metricConfig.color}
+                        strokeDasharray="2 2"
+                        strokeOpacity={0.7}
+                        strokeWidth={1.5} 
+                        label={{
+                          value: `Min: ${minValue.toFixed(isAggregated ? 1 : (metricConfig.unit === 'ppm' ? 0 : 2))}${metricConfig.unit || ''}`,
+                          position: "right",
+                          textAnchor: "end",
+                          dx: -5,
+                          fill: 'hsl(var(--popover-foreground))',
+                          fontSize: 10,
+                          dy: dyMinLabel
+                        }}
+                      />,
+                      <ReferenceLine
+                        yAxisId="left"
+                        key={`max-line-${metricKey}`}
+                        y={maxValue}
+                        stroke={metricConfig.color}
+                        strokeDasharray="2 2"
+                        strokeOpacity={0.7}
+                        strokeWidth={1.5}
+                        label={{
+                          value: `Max: ${maxValue.toFixed(isAggregated ? 1 : (metricConfig.unit === 'ppm' ? 0 : 2))}${metricConfig.unit || ''}`,
+                          position: "right",
+                          textAnchor: "end",
+                          dx: -5,
+                          fill: 'hsl(var(--popover-foreground))',
+                          fontSize: 10,
+                          dy: dyMaxLabel
+                        }}
+                      />
+                    ];
+                  })
+                }
+            </LineChart>
+        );
     }
-
-    return (
-    // @ts-ignore
-    <ChartComponentToRender
-      key={chartDynamicKey} // Force re-render on key props change
-      data={currentChartDataForRender}
-      onClick={chartType === 'line' || chartType === 'bar' ? handleLineBarChartClick : undefined} // Scatter has its own onClick on <Scatter> elements
-      {...commonCartesianProps}
-    >
-      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-      {selectedMetrics.includes('sunriseSunset') && sunriseSunsetBlocks.map((block, index) => (
-        <ReferenceArea
-          key={`sunrise-sunset-block-${index}`}
-          x1={block.x1}
-          x2={block.x2}
-          yAxisId="left" // Associate with the main Y-axis
-          fill={block.type === "Sunrise" ? "hsla(50, 100%, 85%, 0.3)" : "hsla(220, 20%, 40%, 0.25)"}
-          stroke="none"
-          ifOverflow="hidden"
-          label={{
-            value: block.type === "Sunrise" ? "Day" : "Night",
-            position: "insideTopLeft",
-            fontSize: 10,
-            fill: "hsl(var(--muted-foreground))",
-            dx: 5,
-            dy: 5
-          }}
-        />
-      ))}
-      <XAxis {...xAxisProps} />
-      <YAxis {...yAxisProps} />
-      <Tooltip
-        content={renderCustomTooltipContent}
-        wrapperStyle={{ outline: "none" }}
-        cursor={(chartType === 'line' || chartType === 'bar') ? { stroke: 'hsl(var(--accent))', strokeWidth: 1, strokeDasharray: '3 3' } : false }
-        animationDuration={150}
-        animationEasing="ease-out"
-      />
-      <Legend
-        wrapperStyle={{ paddingTop: '0px', paddingBottom: '20px' }}
-        iconSize={14}
-        layout="horizontal"
-        align="center"
-        verticalAlign="top"
-        formatter={(value, entry: any, index) => {
-          const rechartsName = entry.name as string | undefined; // This 'name' comes from the 'name' prop of Line/Bar/Scatter
-          if (typeof rechartsName !== 'string') {
-            return value; // Fallback
-          }
-
-          // Determine original metric key (e.g. 'temperature' from 'temperature_avg')
-          let originalKey = rechartsName;
-          if (isAggregated && rechartsName.endsWith('_avg')) {
-            originalKey = rechartsName.substring(0, rechartsName.length - 4);
-          } else if (isAggregated && rechartsName.endsWith('_stdDev')) {
-              // For scatter plots, if ZAxis is named (e.g., "Temperature Std Dev"), we don't want it in legend
-              // because the bubble size represents it.
-              if (chartType === 'scatter' && numericMetricsForScatter.includes(originalKey.replace('_stdDev','') as MetricKey) ) {
-                  return null; // Don't show Std Dev in legend for scatter
-              }
-          }
-
-          const config = chartConfigForShadcn[originalKey as MetricKey];
-          return config?.label || value; // Use label from chartConfigForShadcn if available
-        }}
-      />
-      {renderChartSpecificElements()} {/* Renders Line, Bar, or Scatter components */}
-
-      {/* Min/Max Reference Lines - only for Line charts and if enabled */}
-      {showMinMaxLines && chartType === 'line' && minMaxReferenceData &&
-        selectedMetrics.flatMap(metricKey => {
-          const metricMinMax = minMaxReferenceData[metricKey];
-          const metricConfig = METRIC_CONFIGS[metricKey];
-
-          if (!metricMinMax || !metricConfig || metricConfig.isString || 
-              typeof metricMinMax.minValue !== 'number' || !isFinite(metricMinMax.minValue) ||
-              typeof metricMinMax.maxValue !== 'number' || !isFinite(metricMinMax.maxValue)
-          ) {
-            return []; // Skip if no valid min/max data or not applicable
-          }
-
-          const { minValue, maxValue } = metricMinMax;
-          // Determine order for label positioning to avoid overlap
-          const orderIndex = metricsWithMinMaxLines.indexOf(metricKey);
-          const activeOrderIndex = orderIndex !== -1 ? orderIndex : 0; // Fallback if not found
-
-          // Dynamic vertical positioning for labels
-          const dyMinLabel = 5 + activeOrderIndex * 12; // Adjust multiplier as needed
-          const dyMaxLabel = -5 - activeOrderIndex * 12; // Adjust multiplier as needed
-
-
-          return [
-            <ReferenceLine
-              yAxisId="left" // Ensure it's tied to the correct Y-axis
-              key={`min-line-${metricKey}`}
-              y={minValue}
-              stroke={metricConfig.color} // Use metric's color
-              strokeDasharray="2 2"
-              strokeOpacity={0.7}
-              strokeWidth={1.5} 
-              label={{
-                value: `Min: ${minValue.toFixed(isAggregated ? 1 : (metricConfig.unit === 'ppm' ? 0 : 2))}${metricConfig.unit || ''}`,
-                position: "right", // Position relative to the line
-                textAnchor: "end", // Align text
-                dx: -5, // Horizontal offset
-                fill: 'hsl(var(--popover-foreground))', // Use a theme color for text
-                fontSize: 10,
-                dy: dyMinLabel
-              }}
-            />,
-            <ReferenceLine
-              yAxisId="left" // Ensure it's tied to the correct Y-axis
-              key={`max-line-${metricKey}`}
-              y={maxValue}
-              stroke={metricConfig.color} // Use metric's color
-              strokeDasharray="2 2"
-              strokeOpacity={0.7}
-              strokeWidth={1.5}
-              label={{
-                value: `Max: ${maxValue.toFixed(isAggregated ? 1 : (metricConfig.unit === 'ppm' ? 0 : 2))}${metricConfig.unit || ''}`,
-                position: "right",
-                textAnchor: "end",
-                dx: -5,
-                fill: 'hsl(var(--popover-foreground))', // Use a theme color for text
-                fontSize: 10,
-                dy: dyMaxLabel
-              }}
-            />
-          ];
-        })
-      }
-    </ChartComponentToRender>
-    );
   };
 
   return (
@@ -1017,6 +1109,3 @@ const { toast } = useToast(); // Add this line to get the toast function
 };
 
 export default WeatherChart;
-
-    
-
