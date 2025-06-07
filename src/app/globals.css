@@ -126,6 +126,7 @@ body {
     --radius: 0.75rem;
 
     /* Prose color palettes for Aura Glass based on data-aura-prose attribute */
+    /* These define the GENERAL page text colors against the gradient */
     &[data-aura-prose="dark"] {
       --foreground: 220 40% 15%; /* Darker text for light backgrounds */
       --muted-foreground: 220 30% 40%;
@@ -206,45 +207,93 @@ html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"]
   box-shadow: 0 6px 16px rgba(0,0,0,0.07);
 }
 
+/* Text color overrides for content WITHIN glass components */
+/* These ensure readability against their intrinsic light glass background */
+html.aura-glass .bg-card,
+html.aura-glass [data-radix-popper-content-wrapper] > div[role^="dialog"],
+html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"],
+html.aura-glass [data-radix-tooltip-content]
+{
+  /* Force dark text variables for elements inside these glass components */
+  --foreground: 220 40% 15% !important; /* Darker blue-gray */
+  --card-foreground: 220 40% 15% !important; /* Consistent with new --foreground */
+  --muted-foreground: 220 30% 40% !important; /* Darker muted blue-gray */
+  --popover-foreground: 220 40% 15% !important;
+}
+
+/* Default Input text color for Aura glass (applies to general page inputs) */
 html.aura-glass .border-input {
   background-color: rgba(var(--input-rgb), var(--input-alpha)) !important;
   border-color: rgba(var(--input-border-rgb), var(--input-border-alpha)) !important;
-  color: hsl(var(--card-foreground)) !important; /* Uses card-foreground from html.aura-glass[data-aura-prose="..."] */
+  color: hsl(var(--foreground)) !important; /* Uses PAGE-level --foreground */
 }
 html.aura-glass input::placeholder,
 html.aura-glass textarea::placeholder {
-  color: hsl(var(--muted-foreground)) !important; /* Uses muted-foreground from html.aura-glass[data-aura-prose="..."] */
+  color: hsl(var(--muted-foreground)) !important; /* Uses PAGE-level --muted-foreground */
   opacity: 0.6 !important;
 }
+
+/* Specific Input/Textarea text color when INSIDE glass components (dialogs, popovers, cards) */
+html.aura-glass .bg-card input[type="text"],
+html.aura-glass .bg-card textarea,
+html.aura-glass [data-radix-popper-content-wrapper] > div[role^="dialog"] input[type="text"],
+html.aura-glass [data-radix-popper-content-wrapper] > div[role^="dialog"] textarea,
+html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"] input[type="text"],
+html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"] textarea,
+html.aura-glass [data-radix-tooltip-content] input[type="text"],
+html.aura-glass [data-radix-tooltip-content] textarea {
+  color: hsl(220 40% 15%) !important; /* Force dark text */
+}
+
+/* Specific text color for hex input next to color picker INSIDE glass components */
+html.aura-glass .bg-card input[type="color"] + input[type="text"],
+html.aura-glass [data-radix-popper-content-wrapper] > div[role^="dialog"] input[type="color"] + input[type="text"] {
+    color: hsl(220 40% 15%) !important;
+}
+
+/* Specific placeholder color for Inputs/Textareas INSIDE glass components */
+html.aura-glass .bg-card input::placeholder,
+html.aura-glass .bg-card textarea::placeholder,
+html.aura-glass [data-radix-popper-content-wrapper] > div[role^="dialog"] input::placeholder,
+html.aura-glass [data-radix-popper-content-wrapper] > div[role^="dialog"] textarea::placeholder,
+html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"] input::placeholder,
+html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"] textarea::placeholder,
+html.aura-glass [data-radix-tooltip-content] input::placeholder,
+html.aura-glass [data-radix-tooltip-content] textarea::placeholder {
+  color: hsl(220 30% 40%) !important; /* Force dark muted text for placeholders */
+  opacity: 0.7 !important;
+}
+
+
 html.aura-glass .ring-ring {
   --tw-ring-color: hsl(var(--ring) / 0.5) !important;
 }
 
 /* Chart adjustments for Aura Glass */
 html.aura-glass .recharts-cartesian-grid line {
-   stroke: hsl(var(--card-foreground) / 0.15) !important; /* Uses card-foreground from html.aura-glass[data-aura-prose="..."] */
+   stroke: hsl(var(--card-foreground) / 0.15) !important;
 }
 html.aura-glass .recharts-cartesian-axis-tick-value {
-  fill: hsl(var(--card-foreground) / 0.85) !important; /* Uses card-foreground from html.aura-glass[data-aura-prose="..."] */
+  fill: hsl(var(--card-foreground) / 0.85) !important;
 }
 html.aura-glass .recharts-legend-item text {
-  fill: hsl(var(--card-foreground) / 0.85) !important; /* Uses card-foreground from html.aura-glass[data-aura-prose="..."] */
+  fill: hsl(var(--card-foreground) / 0.85) !important;
 }
 html.aura-glass .recharts-tooltip-wrapper .bg-background { /* This bg-background is a class name, not the var */
   background-color: rgba(var(--popover-rgb), calc(var(--popover-alpha) + 0.4)) !important;
   -webkit-backdrop-filter: blur(var(--popover-blur-value));
   backdrop-filter: blur(var(--popover-blur-value));
   border: 1px solid rgba(var(--popover-border-rgb), calc(var(--popover-border-alpha) + 0.1)) !important;
-  color: hsl(var(--popover-foreground)) !important; /* Uses popover-foreground from html.aura-glass[data-aura-prose="..."] */
+  color: hsl(var(--popover-foreground)) !important;
 }
 html.aura-glass .recharts-tooltip-cursor {
   stroke: hsl(var(--accent) / 0.5) !important;
 }
 html.aura-glass .recharts-reference-line .recharts-reference-line-line {
-  stroke: hsl(var(--foreground) / 0.5) !important; /* Uses foreground from html.aura-glass[data-aura-prose="..."] */
+  stroke: hsl(var(--foreground) / 0.5) !important;
 }
 html.aura-glass .recharts-reference-line .recharts-label text {
-  fill: hsl(var(--foreground) / 0.75) !important; /* Uses foreground from html.aura-glass[data-aura-prose="..."] */
+  fill: hsl(var(--foreground) / 0.75) !important;
 }
 html.aura-glass .recharts-line .recharts-line-curve {
   stroke-opacity: 0.85 !important;
@@ -256,16 +305,16 @@ html.aura-glass .recharts-line .recharts-line-curve {
 /* Footer styles for Aura Glass theme */
 html.aura-glass footer {
   background-color: transparent !important;
-  color: hsl(var(--foreground) / 0.85) !important; /* Uses foreground from html.aura-glass[data-aura-prose="..."] */
+  color: hsl(var(--foreground) / 0.85) !important;
 }
 html.aura-glass footer .text-muted-foreground {
-  color: hsl(var(--muted-foreground) / 0.8) !important; /* Uses muted-foreground from html.aura-glass[data-aura-prose="..."] */
+  color: hsl(var(--muted-foreground) / 0.8) !important;
 }
 html.aura-glass footer .border-border\/50 {
   border-color: hsl(var(--border) / 0.3) !important;
 }
  html.aura-glass footer .text-foreground\/80 {
-  color: hsl(var(--foreground)) !important; /* Uses foreground from html.aura-glass[data-aura-prose="..."] */
+  color: hsl(var(--foreground)) !important;
 }
 
 
