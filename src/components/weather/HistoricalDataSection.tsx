@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { transformRawDataToWeatherDataPoint, formatTimestampToDdMmHhMmUTC, formatTimestampToFullUTC } from '@/lib/utils';
-import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge, ShieldCheck, Sun, Moon } from 'lucide-react';
+import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge, ShieldCheck, Sun, Moon } from 'lucide-react'; // Added Moon
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from '@/components/ui/skeleton';
 import DetailedDistributionModal from './DetailedDistributionModal';
@@ -45,7 +45,7 @@ const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
   aqiPpm: { name: 'AQI (ppm)', unit: 'ppm', Icon: Wind, color: 'hsl(var(--chart-5))', healthyMin: 0, healthyMax: 300 },
   lux: { name: 'Light Level', unit: 'lux', Icon: SunDim, color: 'hsl(30, 80%, 55%)' },
   pressure: { name: 'Pressure', unit: 'hPa', Icon: Gauge, color: 'hsl(120, 60%, 45%)', healthyMin: 980, healthyMax: 1040 },
-  sunriseSunset: { name: 'Day/Night', unit: '', Icon: Sun, color: 'hsl(45, 100%, 50%)', isString: true }, // Icon can be dynamic based on value (Sun/Moon)
+  sunriseSunset: { name: 'Day/Night', unit: '', Icon: Sun, color: 'hsl(45, 100%, 50%)', isString: true },
 };
 
 type AggregationPeriod = 'hourly' | 'daily' | 'weekly' | 'monthly';
@@ -171,17 +171,53 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
     }
   }, [dateRange, allFetchedData, filterDataByDateRange, startTime, endTime, isLoading]);
 
-  const handleChartTypeChange = (newChartType: ChartType) => {
-    setSelectedChartType(newChartType);
-    if (newChartType === 'bar' && aggregationType === 'raw') {
-      setAggregationType('daily');
-    }
-     if (newChartType !== 'scatter' && aggregationType === 'raw') { // Violin removed
-        setAggregationType('daily');
-    } else if (newChartType === 'scatter' && aggregationType === 'raw') {
-      // Scatter can be raw
+
+  const handleMetricSelectionChange = (newlySelectedKeys: MetricKey[]) => {
+    setSelectedMetrics(newlySelectedKeys);
+
+    if (newlySelectedKeys.length === 1 && newlySelectedKeys[0] === 'sunriseSunset') {
+        setSelectedChartType('scatter');
+        setAggregationType('raw');
+    } else {
+        // If 'bar' chart is selected with 'raw' aggregation AND some metrics are chosen,
+        // default aggregation to 'daily'. This prevents an invalid state for Bar charts.
+        if (selectedChartType === 'bar' && aggregationType === 'raw' && newlySelectedKeys.length > 0) {
+            setAggregationType('daily');
+        }
+        // Otherwise, chart type and aggregation type remain as they were,
+        // allowing user to configure them if 'sunriseSunset' is not the sole selection.
     }
   };
+
+
+  const handleChartTypeChange = (newChartType: ChartType) => {
+    setSelectedChartType(newChartType);
+    // If switching to 'bar' chart and current aggregation is 'raw',
+    // and there are metrics selected (other than potentially 'sunriseSunset' which is handled above),
+    // default aggregation to 'daily'.
+    if (newChartType === 'bar' && aggregationType === 'raw' && selectedMetrics.filter(m => m !== 'sunriseSunset').length > 0) {
+      setAggregationType('daily');
+    }
+  };
+
+  const handleAggregationTypeChange = (newAggregationType: ChartAggregationMode) => {
+    // If current chart is 'bar' and user tries to select 'raw' aggregation,
+    // prevent it if there are metrics selected (other than 'sunriseSunset').
+    // Instead, keep the current aggregation or default to 'daily'.
+    // 'sunriseSunset' has its own scatter/raw forced state.
+    if (selectedChartType === 'bar' && newAggregationType === 'raw' && selectedMetrics.filter(m => m !== 'sunriseSunset').length > 0) {
+        // Silently keep current or default to 'daily'. For simplicity, let's keep current.
+        // Or, we could toast the user. For now, just don't update if invalid.
+        if (aggregationType !== 'raw') { // if current is not 'raw', allow change
+            setAggregationType(aggregationType); // effectively no-op or revert
+        } else {
+            setAggregationType('daily'); // default if current was raw
+        }
+    } else {
+        setAggregationType(newAggregationType);
+    }
+  };
+
 
   const isAggregationApplicable = selectedChartType === 'line' || selectedChartType === 'bar' || selectedChartType === 'scatter';
   const isActuallyAggregated = isAggregationApplicable && aggregationType !== 'raw';
@@ -219,7 +255,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           timestamp: firstPointDate.getTime(),
           timestampDisplay: '',
           aggregationPeriod: currentAggregationPeriod,
-          rawPointsInGroup: pointsInGroup, // Always include raw points for potential modal use
+          rawPointsInGroup: pointsInGroup, 
         };
 
         if (currentAggregationPeriod === 'hourly') {
@@ -232,7 +268,8 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           aggregatedPoint.timestampDisplay = format(startOfMonth(firstPointDate), 'MMM yyyy');
         }
 
-        selectedMetrics.forEach(metricKey => {
+        // Use all selectedMetrics for aggregation calculation logic
+        (Object.keys(METRIC_CONFIGS) as MetricKey[]).forEach(metricKey => {
           const config = METRIC_CONFIGS[metricKey];
           if (config && !config.isString) {
             const values = pointsInGroup.map(p => p[metricKey] as number).filter(v => typeof v === 'number' && isFinite(v));
@@ -243,8 +280,9 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
               (aggregatedPoint as any)[`${metricKey}_max`] = Math.max(...values);
               (aggregatedPoint as any)[`${metricKey}_stdDev`] = calculateStandardDeviation(values);
               (aggregatedPoint as any)[`${metricKey}_count`] = values.length;
-              if (selectedChartType === 'line' || selectedChartType === 'bar' || (selectedChartType === 'scatter' && isActuallyAggregated)) {
-                  aggregatedPoint[metricKey] = average;
+              // For the chart, only populate the primary metricKey if it's selected
+              if (selectedMetrics.includes(metricKey)) {
+                aggregatedPoint[metricKey] = average;
               }
             } else {
               (aggregatedPoint as any)[`${metricKey}_avg`] = null;
@@ -252,14 +290,13 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
               (aggregatedPoint as any)[`${metricKey}_max`] = null;
               (aggregatedPoint as any)[`${metricKey}_stdDev`] = 0;
               (aggregatedPoint as any)[`${metricKey}_count`] = 0;
-              if (selectedChartType === 'line' || selectedChartType === 'bar' || (selectedChartType === 'scatter' && isActuallyAggregated)) {
-                   aggregatedPoint[metricKey] = null;
+              if (selectedMetrics.includes(metricKey)) {
+                aggregatedPoint[metricKey] = null;
               }
             }
-          } else if (config && config.isString) {
+          } else if (config && config.isString && selectedMetrics.includes(metricKey)) { // Also check if selected
              const firstValue = pointsInGroup[0]?.[metricKey];
              aggregatedPoint[metricKey] = firstValue;
-             // For string types, stats are less relevant but count is useful
             (aggregatedPoint as any)[`${metricKey}_avg`] = null;
             (aggregatedPoint as any)[`${metricKey}_min`] = null;
             (aggregatedPoint as any)[`${metricKey}_max`] = null;
@@ -272,7 +309,6 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
       return aggregatedResult;
     }
 
-    // For 'raw' data mode (non-aggregated)
     return displayedData.map(point => ({
         ...point,
         timestampDisplay: formatTimestampToDdMmHhMmUTC(point.timestamp),
@@ -305,15 +341,11 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
 
 
   const handleDetailedChartClick = (clickedData: WeatherDataPoint | AggregatedDataPoint | null, rechartsClickProps: any | null) => {
-    console.log('[HistoricalDataSection] handleDetailedChartClick received:', { clickedData, rechartsClickProps });
-    console.log(`[HistoricalDataSection] Current state: selectedChartType: ${selectedChartType}, isActuallyAggregated: ${isActuallyAggregated}`);
-
     const isRawLineOrScatterClickForAI =
       ((selectedChartType === 'line' || selectedChartType === 'scatter') && !isActuallyAggregated);
 
     if (isRawLineOrScatterClickForAI && onChartPointClickForAI) {
       if (clickedData && ('rawTimestampString' in clickedData || ('timestamp' in clickedData && !isActuallyAggregated && !('aggregationPeriod' in clickedData)))) {
-          console.log('[HistoricalDataSection] Handling AI forecast click with point:', clickedData);
           onChartPointClickForAI(clickedData as WeatherDataPoint);
           return;
       }
@@ -323,39 +355,20 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
       const payloadPoint = clickedData as AggregatedDataPoint;
       let metricKeyFromPayload: MetricKey | undefined = undefined;
 
-      console.log("[HistoricalDataSection] Scatter click: Full rechartsClickProps object (passed from WeatherChart as second arg):", rechartsClickProps);
-      console.log("[HistoricalDataSection] Scatter click: selectedMetrics array:", selectedMetrics);
-      console.log("[HistoricalDataSection] Scatter click: payloadPoint (clickedData from chart - first arg):", payloadPoint);
-
       if (rechartsClickProps && rechartsClickProps.explicitMetricKey) {
         metricKeyFromPayload = rechartsClickProps.explicitMetricKey as MetricKey;
-        console.log(`[HistoricalDataSection] Derived metricKey '${metricKeyFromPayload}' from explicitMetricKey.`);
       } else {
-        console.error("[HistoricalDataSection] Cannot reliably infer metricKey for modal from explicitMetricKey. Aborting modal open.");
         return;
       }
 
       const baseMetricKey = metricKeyFromPayload;
       const metricConfig = METRIC_CONFIGS[baseMetricKey];
 
-      if (!metricConfig) {
-        console.error(`[HistoricalDataSection] No metricConfig for baseMetricKey: ${baseMetricKey}. Modal will not open.`);
-        return;
-      }
-      if (metricConfig.isString) {
-        console.log(`[HistoricalDataSection] Metric ${baseMetricKey} is string. No detail modal for string data. Modal will not open.`);
-        return;
-      }
-
+      if (!metricConfig || metricConfig.isString) return;
       const rawPointsForAggregate = payloadPoint.rawPointsInGroup;
-
-      if (!rawPointsForAggregate || rawPointsForAggregate.length === 0) {
-        console.warn(`[HistoricalDataSection] No raw points in payloadPoint.rawPointsInGroup for aggregate ${payloadPoint.timestampDisplay} of ${baseMetricKey}. Modal will not open.`);
-        return;
-      }
+      if (!rawPointsForAggregate || rawPointsForAggregate.length === 0) return;
 
       const aggregationFullLabel = `${payloadPoint.aggregationPeriod?.charAt(0).toUpperCase() + payloadPoint.aggregationPeriod!.slice(1)} - ${payloadPoint.timestampDisplay}`;
-
       const modalDataPayload: DetailModalDataTypeFromType = {
         metricKey: baseMetricKey,
         metricConfig,
@@ -370,33 +383,25 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
         rawPoints: rawPointsForAggregate,
       };
 
-      console.log('[HistoricalDataSection] Preparing to open detail modal with data (BEFORE SETTING STATE):', JSON.parse(JSON.stringify(modalDataPayload)));
       if (!modalDataPayload.metricKey || !modalDataPayload.metricConfig || !modalDataPayload.rawPoints || modalDataPayload.rawPoints.length === 0) {
-          console.error("[HistoricalDataSection] CRITICAL: modalDataPayload is incomplete before setting state!", modalDataPayload);
           return;
       }
-
       setDetailModalData(modalDataPayload);
       setIsDetailModalOpen(true);
-      console.log('[HistoricalDataSection] setIsDetailModalOpen called with true.');
       return;
     } else if (rechartsClickProps === null && clickedData === null && onChartPointClickForAI) {
-        console.log('[HistoricalDataSection] Empty chart space click. Calling onChartPointClickForAI(null).');
         onChartPointClickForAI(null);
         return;
     }
-
-    console.log('[HistoricalDataSection] Click did not match conditions for AI or Modal.');
   };
 
-  console.log(`[HistoricalDataSection] RENDERING. isDetailModalOpen: ${isDetailModalOpen}, detailModalData exists: ${!!detailModalData}, chartType: ${selectedChartType}`);
-
+  const showChartConfigSelectors = !(selectedMetrics.length === 1 && selectedMetrics[0] === 'sunriseSunset');
 
   return (
     <>
       <section className="mb-8">
         <h2
-          className={`text-2xl font-headline font-semibold mb-4`}
+          className={`text-2xl font-headline font-semibold mb-4 text-foreground`}
         >Historical Data Analysis</h2>
 
         <div className="bg-card p-4 sm:p-6 rounded-lg shadow-md space-y-6">
@@ -436,60 +441,64 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           <DataSelector
             availableMetrics={HISTORICAL_AVAILABLE_METRICS}
             selectedMetrics={selectedMetrics}
-            onSelectionChange={setSelectedMetrics}
+            onSelectionChange={handleMetricSelectionChange}
           />
-          <div className="mt-4 flex flex-col sm:flex-row items-end gap-4">
-            <div>
-              <ShadcnLabel htmlFor="chart-type-select" className="text-sm font-medium text-muted-foreground mb-1 block">Chart Type:</ShadcnLabel>
-              <Select value={selectedChartType} onValueChange={(value) => handleChartTypeChange(value as ChartType)}>
-                <SelectTrigger id="chart-type-select" className="w-full sm:w-auto sm:min-w-[150px]">
-                  <SelectValue placeholder="Select chart type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="line">Line Chart</SelectItem>
-                  <SelectItem value="bar">Bar Chart</SelectItem>
-                  <SelectItem value="scatter">Scatter Chart</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {isAggregationApplicable && (
-              <div>
-                <ShadcnLabel htmlFor="aggregation-type-select" className="text-sm font-medium text-muted-foreground mb-1 block">Aggregation:</ShadcnLabel>
-                <Select
-                  value={aggregationType}
-                  onValueChange={(value) => setAggregationType(value as ChartAggregationMode)}
-                  disabled={(selectedChartType === 'bar' && aggregationType === 'raw')}
-                >
-                  <SelectTrigger id="aggregation-type-select" className="w-full sm:w-auto sm:min-w-[150px]">
-                    <SelectValue placeholder="Select aggregation" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    { (selectedChartType === 'line' || selectedChartType === 'scatter' ) && <SelectItem value="raw">Raw Data</SelectItem> }
-                    <SelectItem value="hourly">Hourly</SelectItem>
-                    <SelectItem value="daily">Daily</SelectItem>
-                    <SelectItem value="weekly">Weekly</SelectItem>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                  </SelectContent>
+          {showChartConfigSelectors && (
+            <div className="mt-4 flex flex-col sm:flex-row items-end gap-4">
+                <div>
+                <ShadcnLabel htmlFor="chart-type-select" className="text-sm font-medium text-muted-foreground mb-1 block">Chart Type:</ShadcnLabel>
+                <Select value={selectedChartType} onValueChange={(value) => handleChartTypeChange(value as ChartType)}>
+                    <SelectTrigger id="chart-type-select" className="w-full sm:w-auto sm:min-w-[150px]">
+                    <SelectValue placeholder="Select chart type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                    <SelectItem value="line">Line Chart</SelectItem>
+                    <SelectItem value="bar">Bar Chart</SelectItem>
+                    <SelectItem value="scatter">Scatter Chart</SelectItem>
+                    </SelectContent>
                 </Select>
-              </div>
-            )}
-            {selectedChartType === 'line' && (
-              <div className="flex items-center space-x-2 mt-2 sm:mt-0 sm:self-end pb-1">
-                <Checkbox
-                  id="show-min-max-lines"
-                  checked={showMinMaxLines}
-                  onCheckedChange={(checked) => setShowMinMaxLines(Boolean(checked))}
-                  aria-label="Show Min/Max Lines"
-                />
-                <ShadcnLabel
-                  htmlFor="show-min-max-lines"
-                  className="text-sm font-medium text-muted-foreground cursor-pointer"
-                >
-                  Show Min/Max Lines
-                </ShadcnLabel>
-              </div>
-            )}
-          </div>
+                </div>
+                {isAggregationApplicable && (
+                <div>
+                    <ShadcnLabel htmlFor="aggregation-type-select" className="text-sm font-medium text-muted-foreground mb-1 block">Aggregation:</ShadcnLabel>
+                    <Select
+                    value={aggregationType}
+                    onValueChange={(value) => handleAggregationTypeChange(value as ChartAggregationMode)}
+                    // Disable 'raw' for 'bar' chart if other metrics are selected.
+                    // 'sunriseSunset' selection handles this by forcing aggregationType itself.
+                    disabled={selectedChartType === 'bar' && aggregationType === 'raw' && selectedMetrics.filter(m => m !== 'sunriseSunset').length > 0 }
+                    >
+                    <SelectTrigger id="aggregation-type-select" className="w-full sm:w-auto sm:min-w-[150px]">
+                        <SelectValue placeholder="Select aggregation" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        { (selectedChartType === 'line' || selectedChartType === 'scatter' ) && <SelectItem value="raw">Raw Data</SelectItem> }
+                        <SelectItem value="hourly">Hourly</SelectItem>
+                        <SelectItem value="daily">Daily</SelectItem>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                    </SelectContent>
+                    </Select>
+                </div>
+                )}
+                {selectedChartType === 'line' && (
+                <div className="flex items-center space-x-2 mt-2 sm:mt-0 sm:self-end pb-1">
+                    <Checkbox
+                    id="show-min-max-lines"
+                    checked={showMinMaxLines}
+                    onCheckedChange={(checked) => setShowMinMaxLines(Boolean(checked))}
+                    aria-label="Show Min/Max Lines"
+                    />
+                    <ShadcnLabel
+                    htmlFor="show-min-max-lines"
+                    className="text-sm font-medium text-muted-foreground cursor-pointer"
+                    >
+                    Show Min/Max Lines
+                    </ShadcnLabel>
+                </div>
+                )}
+            </div>
+          )}
         </div>
         <div className="mt-6">
           <WeatherChart
@@ -509,7 +518,6 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           <DetailedDistributionModal
             isOpen={isDetailModalOpen}
             onClose={() => {
-              console.log('[HistoricalDataSection] Closing modal.');
               setIsDetailModalOpen(false);
               setDetailModalData(null);
             }}
