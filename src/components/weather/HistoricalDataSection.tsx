@@ -21,7 +21,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from '@/components/ui/skeleton';
 import DetailedDistributionModal from './DetailedDistributionModal';
 import { useTheme } from 'next-themes';
-// Removed import of applyAuraGradient as it's no longer correct and applyAuraVisuals is for global effects.
 
 
 const WeatherChart = dynamic(() => import('./WeatherChart'), {
@@ -395,14 +394,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
     <>
       <section className="mb-8">
         <h2
-          className={`text-2xl font-headline font-semibold mb-4 `}
-          style={isAuraGlassTheme && hasMounted ? {
-            backgroundImage: 'var(--aura-gradient)',
-            WebkitBackgroundClip: 'text',
-            backgroundClip: 'text',
-            color: 'transparent',
-            WebkitTextFillColor: 'transparent',
-          } : {}}
+          className={`text-2xl font-headline font-semibold mb-4`}
         >Historical Data Analysis</h2>
 
         <div className="bg-card p-4 sm:p-6 rounded-lg shadow-md space-y-6">

@@ -192,7 +192,7 @@ const RealtimeDataSection: FC = () => {
   return (
     <section className="mb-8">
       <div className="flex justify-between items-center mb-4">
-        <h2 className={`text-2xl font-headline font-semibold text-primary`}>
+        <h2 className={`text-2xl font-headline font-semibold text-foreground`}>
           Real-time Conditions
         </h2>
       </div>
