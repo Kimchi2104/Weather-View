@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { transformRawDataToWeatherDataPoint, formatTimestampToDdMmHhMmUTC, formatTimestampToFullUTC } from '@/lib/utils';
-import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge, ShieldCheck } from 'lucide-react';
+import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge, ShieldCheck, Sun, Moon } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from '@/components/ui/skeleton';
 import DetailedDistributionModal from './DetailedDistributionModal';
@@ -34,6 +34,7 @@ const HISTORICAL_AVAILABLE_METRICS: { key: MetricKey; name: string }[] = [
   { key: 'aqiPpm', name: 'AQI (ppm)' },
   { key: 'lux', name: 'Light (Lux)' },
   { key: 'pressure', name: 'Pressure' },
+  { key: 'sunriseSunset', name: 'Day/Night' },
 ];
 
 const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
@@ -44,6 +45,7 @@ const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
   aqiPpm: { name: 'AQI (ppm)', unit: 'ppm', Icon: Wind, color: 'hsl(var(--chart-5))', healthyMin: 0, healthyMax: 300 },
   lux: { name: 'Light Level', unit: 'lux', Icon: SunDim, color: 'hsl(30, 80%, 55%)' },
   pressure: { name: 'Pressure', unit: 'hPa', Icon: Gauge, color: 'hsl(120, 60%, 45%)', healthyMin: 980, healthyMax: 1040 },
+  sunriseSunset: { name: 'Day/Night', unit: '', Icon: Sun, color: 'hsl(45, 100%, 50%)', isString: true }, // Icon can be dynamic based on value (Sun/Moon)
 };
 
 type AggregationPeriod = 'hourly' | 'daily' | 'weekly' | 'monthly';
@@ -258,7 +260,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
              const firstValue = pointsInGroup[0]?.[metricKey];
              aggregatedPoint[metricKey] = firstValue;
              // For string types, stats are less relevant but count is useful
-            (aggregatedPoint as any)[`${metricKey}_avg`] = null; 
+            (aggregatedPoint as any)[`${metricKey}_avg`] = null;
             (aggregatedPoint as any)[`${metricKey}_min`] = null;
             (aggregatedPoint as any)[`${metricKey}_max`] = null;
             (aggregatedPoint as any)[`${metricKey}_stdDev`] = 0;
@@ -316,7 +318,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           return;
       }
     }
-   
+
     if (selectedChartType === 'scatter' && isActuallyAggregated && clickedData && rechartsClickProps) {
       const payloadPoint = clickedData as AggregatedDataPoint;
       let metricKeyFromPayload: MetricKey | undefined = undefined;
@@ -367,7 +369,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
         },
         rawPoints: rawPointsForAggregate,
       };
-      
+
       console.log('[HistoricalDataSection] Preparing to open detail modal with data (BEFORE SETTING STATE):', JSON.parse(JSON.stringify(modalDataPayload)));
       if (!modalDataPayload.metricKey || !modalDataPayload.metricConfig || !modalDataPayload.rawPoints || modalDataPayload.rawPoints.length === 0) {
           console.error("[HistoricalDataSection] CRITICAL: modalDataPayload is incomplete before setting state!", modalDataPayload);
@@ -462,7 +464,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
                     <SelectValue placeholder="Select aggregation" />
                   </SelectTrigger>
                   <SelectContent>
-                    { (selectedChartType === 'line' || selectedChartType === 'scatter' ) && <SelectItem value="raw">Raw Data</SelectItem> }                    
+                    { (selectedChartType === 'line' || selectedChartType === 'scatter' ) && <SelectItem value="raw">Raw Data</SelectItem> }
                     <SelectItem value="hourly">Hourly</SelectItem>
                     <SelectItem value="daily">Daily</SelectItem>
                     <SelectItem value="weekly">Weekly</SelectItem>
@@ -505,7 +507,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
       </section>
       {isDetailModalOpen && detailModalData && (
           <DetailedDistributionModal
-            isOpen={isDetailModalOpen} 
+            isOpen={isDetailModalOpen}
             onClose={() => {
               console.log('[HistoricalDataSection] Closing modal.');
               setIsDetailModalOpen(false);
@@ -519,4 +521,3 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
 };
 
 export default HistoricalDataSection;
-

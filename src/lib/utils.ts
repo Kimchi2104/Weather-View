@@ -28,7 +28,7 @@ export function parseCustomTimestamp(timestampStr: string | undefined): number |
     const second = parseInt(parts[6], 10);
 
     const date = new Date(Date.UTC(year, month, day, hour, minute, second));
-    
+
     if (isNaN(date.getTime())) {
       console.error(`[parseCustomTimestamp] CRITICAL: Invalid date constructed. Raw: "${timestampStr}", Attempted UTC Components -> Year: ${year}, Month(0-idx): ${month}, Day: ${day}, H:${hour}, M:${minute}, S:${second}`);
       return null;
@@ -81,20 +81,20 @@ export function transformRawDataToWeatherDataPoint(rawData: RawFirebaseDataPoint
     precipitationValue = "Unknown";
   }
   // console.log(`[transformRawDataToWeatherDataPoint] Precipitation status for (key: ${recordKey || 'N/A'}):`, precipitationValue);
-  
+
   const temperatureValue = parseNumeric(rawData.temperature);
   const humidityValue = parseNumeric(rawData.humidity);
   const luxValue = parseNumeric(rawData.lux);
-  
+
   const airQualityStringValue = typeof rawData.airQuality === 'string' ? rawData.airQuality : "Unknown";
   // if (typeof rawData.airQuality !== 'string') console.warn(`[transformRawDataToWeatherDataPoint] airQuality (string) is not a string for (key: ${recordKey || 'N/A'}). Defaulting to "Unknown". Value:`, rawData.airQuality);
   // console.log(`[transformRawDataToWeatherDataPoint] Air Quality (string) for (key: ${recordKey || 'N/A'}):`, airQualityStringValue);
-  
+
   const aqiPpmValue = parseNumeric(rawData.mq135PPM);
   // if (typeof rawData.mq135PPM !== 'number') console.warn(`[transformRawDataToWeatherDataPoint] mq135PPM (for AQI PPM) is not a number for (key: ${recordKey || 'N/A'}). Defaulting to 0. Value:`, rawData.mq135PPM);
   // console.log(`[transformRawDataToWeatherDataPoint] AQI PPM (from mq135PPM) for (key: ${recordKey || 'N/A'}):`, aqiPpmValue);
 
-  const pressureValue = parseNumeric(rawData.pressure); 
+  const pressureValue = parseNumeric(rawData.pressure);
 
   // Default numeric values to 0 if they are undefined after parsing, as WeatherDataPoint expects numbers for these.
   // Pressure remains optional.
@@ -102,6 +102,8 @@ export function transformRawDataToWeatherDataPoint(rawData: RawFirebaseDataPoint
   const finalHumidity = humidityValue === undefined ? 0 : humidityValue;
   const finalLux = luxValue === undefined ? 0 : luxValue;
   const finalAqiPpm = aqiPpmValue === undefined ? 0 : aqiPpmValue;
+
+  const sunriseSunsetStatus = finalLux > 0 ? "Sunrise" : "Sunset";
 
 
   const transformedPoint: WeatherDataPoint = {
@@ -113,6 +115,7 @@ export function transformRawDataToWeatherDataPoint(rawData: RawFirebaseDataPoint
     airQuality: airQualityStringValue,
     aqiPpm: finalAqiPpm,
     lux: finalLux,
+    sunriseSunset: sunriseSunsetStatus,
     ...(pressureValue !== undefined && { pressure: pressureValue }),
   };
 
@@ -139,4 +142,3 @@ export const formatTimestampToFullUTC = (timestamp: number): string => {
   const seconds = date.getUTCSeconds().toString().padStart(2, '0');
   return `${day}/${month}/${year} ${hours}:${minutes}:${seconds} UTC`;
 };
-

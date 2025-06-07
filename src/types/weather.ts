@@ -9,6 +9,7 @@ export interface WeatherDataPoint {
   airQuality: string; // e.g., "Safe Air", from rawData.airQuality
   aqiPpm: number; // Air Quality Index from MQ135, in PPM, from rawData.mq135PPM
   pressure?: number; // hPa
+  sunriseSunset?: string; // "Sunrise" or "Sunset"
   // Allow dynamic metric keys for aggregated data if needed
   [key: string]: any;
 }
@@ -24,6 +25,7 @@ export interface RawFirebaseDataPoint {
   rainStatus?: string;
   temperature?: number;
   timestamp?: string;
+  sunriseSunset?: string; // Derived for RawDataViewer
   [key: string]: any;
 }
 
@@ -36,7 +38,7 @@ export interface RealtimeData {
   [key: string]: WeatherDataPoint;
 }
 
-export type MetricKey = 'temperature' | 'humidity' | 'precipitation' | 'lux' | 'airQuality' | 'aqiPpm' | 'pressure';
+export type MetricKey = 'temperature' | 'humidity' | 'precipitation' | 'lux' | 'airQuality' | 'aqiPpm' | 'pressure' | 'sunriseSunset';
 
 export interface MetricConfig {
   name: string;
@@ -51,7 +53,7 @@ export interface MetricConfig {
 export interface AggregatedDataPoint extends WeatherDataPoint {
   timestampDisplay: string;
   aggregationPeriod: 'hourly' | 'daily' | 'weekly' | 'monthly';
-  rawPointsInGroup?: WeatherDataPoint[]; 
+  rawPointsInGroup?: WeatherDataPoint[];
 }
 
 export interface DetailModalData {
@@ -73,6 +75,3 @@ export interface DetailModalData {
 // Keeping 'violin' in the type for now if WeatherChart itself still needs to handle it internally,
 // but it won't be user-selectable from the main dropdown.
 export type ChartType = 'line' | 'bar' | 'scatter' | 'violin';
-
-
-    

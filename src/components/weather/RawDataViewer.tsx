@@ -28,6 +28,7 @@ import { Input } from '@/components/ui/input';
 interface RawDataTableRow extends RawFirebaseDataPoint {
   id: string; // Firebase key
   parsedTimestamp: number | null; // For filtering
+  sunriseSunset?: string; // Derived
 }
 
 const RawDataViewer: FC = () => {
@@ -40,7 +41,7 @@ const RawDataViewer: FC = () => {
 
   const firebaseDataPath = 'devices/TGkMhLL4k4ZFBwgOyRVNKe5mTQq1/records/';
 
-  const tableHeaders: { key: keyof RawFirebaseDataPoint | 'timestamp'; label: string }[] = [
+  const tableHeaders: { key: keyof RawFirebaseDataPoint | 'timestamp' | 'sunriseSunset'; label: string }[] = [
     { key: 'timestamp', label: 'Timestamp (Raw)' },
     { key: 'temperature', label: 'Temp (°C)' },
     { key: 'humidity', label: 'Humidity (%)' },
@@ -48,9 +49,10 @@ const RawDataViewer: FC = () => {
     { key: 'airQuality', label: 'Air Quality' },
     { key: 'mq135PPM', label: 'AQI (PPM)' },
     { key: 'lux', label: 'Light (Lux)' },
+    { key: 'sunriseSunset', label: 'Day/Night' },
     { key: 'pressure', label: 'Pressure (hPa)' },
   ];
-  
+
   useEffect(() => {
     // Initialize date range on the client side to avoid hydration mismatch
     setDateRange({
@@ -77,13 +79,18 @@ const RawDataViewer: FC = () => {
 
         const recordsArray: [string, RawFirebaseDataPoint][] = Object.entries(rawDataContainer);
         const processedData: RawDataTableRow[] = recordsArray
-          .map(([key, rawPoint]) => ({
-            ...rawPoint,
-            id: key,
-            parsedTimestamp: parseCustomTimestamp(rawPoint.timestamp),
-          }))
+          .map(([key, rawPoint]) => {
+            const luxVal = typeof rawPoint.lux === 'number' ? rawPoint.lux : 0;
+            const sunriseSunsetVal = luxVal > 0 ? "Sunrise" : "Sunset";
+            return {
+              ...rawPoint,
+              id: key,
+              parsedTimestamp: parseCustomTimestamp(rawPoint.timestamp),
+              sunriseSunset: sunriseSunsetVal,
+            };
+          })
           .filter(item => item.parsedTimestamp !== null)
-          .sort((a, b) => (b.parsedTimestamp as number) - (a.parsedTimestamp as number)); 
+          .sort((a, b) => (b.parsedTimestamp as number) - (a.parsedTimestamp as number));
 
         setAllFetchedRawData(processedData);
       } else {
@@ -109,7 +116,7 @@ const RawDataViewer: FC = () => {
     }
 
     const [startH, startM] = startTime.split(':').map(Number);
-    const fromDateObj = dateRange.from; 
+    const fromDateObj = dateRange.from;
     const fromTimestamp = Date.UTC(
       fromDateObj.getFullYear(),
       fromDateObj.getMonth(),
@@ -118,7 +125,7 @@ const RawDataViewer: FC = () => {
     );
 
     const [endH, endM] = endTime.split(':').map(Number);
-    const toDateObj = dateRange.to; 
+    const toDateObj = dateRange.to;
     const toTimestamp = Date.UTC(
       toDateObj.getFullYear(),
       toDateObj.getMonth(),
@@ -171,7 +178,10 @@ const RawDataViewer: FC = () => {
     const headers = ['ID', ...tableHeaders.map(h => h.label)];
     const rows = displayedData.map(row => [
       row.id,
-      ...tableHeaders.map(header => String(row[header.key as keyof RawFirebaseDataPoint] ?? 'N/A'))
+      ...tableHeaders.map(header => {
+        if (header.key === 'sunriseSunset') return row.sunriseSunset ?? 'N/A';
+        return String(row[header.key as keyof RawFirebaseDataPoint] ?? 'N/A');
+      })
     ]);
     const csvContent = [
       headers.join(','),
@@ -195,7 +205,13 @@ const RawDataViewer: FC = () => {
       txtContent += `Record ${index + 1}\n`;
       txtContent += `ID: ${row.id}\n`;
       tableHeaders.forEach(header => {
-        txtContent += `${header.label}: ${String(row[header.key as keyof RawFirebaseDataPoint] ?? 'N/A')}\n`;
+        let value;
+        if (header.key === 'sunriseSunset') {
+          value = row.sunriseSunset ?? 'N/A';
+        } else {
+          value = String(row[header.key as keyof RawFirebaseDataPoint] ?? 'N/A');
+        }
+        txtContent += `${header.label}: ${value}\n`;
       });
       txtContent += '---\n';
     });
@@ -227,8 +243,14 @@ const RawDataViewer: FC = () => {
       xmlContent += '  <record>\n';
       xmlContent += `    <id>${escapeXml(row.id)}</id>\n`;
       tableHeaders.forEach(header => {
-        const key = header.key.replace(/\s+/g, '').replace(/[^a-zA-Z0-9_]/g, '_'); 
-        xmlContent += `    <${key}>${escapeXml(String(row[header.key as keyof RawFirebaseDataPoint] ?? 'N/A'))}</${key}>\n`;
+        const key = header.label.replace(/\s+/g, '').replace(/[^a-zA-Z0-9_]/g, '_'); // Create valid XML tag name
+        let value;
+        if (header.key === 'sunriseSunset') {
+          value = row.sunriseSunset ?? 'N/A';
+        } else {
+          value = String(row[header.key as keyof RawFirebaseDataPoint] ?? 'N/A');
+        }
+        xmlContent += `    <${key}>${escapeXml(value)}</${key}>\n`;
       });
       xmlContent += '  </record>\n';
     });
@@ -325,7 +347,9 @@ const RawDataViewer: FC = () => {
                       <TableCell className="font-mono text-xs">{row.id}</TableCell>
                       {tableHeaders.map(header => (
                         <TableCell key={`${row.id}-${header.key}`}>
-                          {String(row[header.key as keyof RawFirebaseDataPoint] ?? 'N/A')}
+                           {header.key === 'sunriseSunset'
+                            ? row.sunriseSunset ?? 'N/A'
+                            : String(row[header.key as keyof RawFirebaseDataPoint] ?? 'N/A')}
                         </TableCell>
                       ))}
                     </TableRow>

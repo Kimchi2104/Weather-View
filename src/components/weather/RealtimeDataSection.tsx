@@ -9,7 +9,7 @@ import { database } from '@/lib/firebase';
 import { ref, onValue, type Unsubscribe } from "firebase/database";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge, ShieldCheck, Sun, HelpCircle, CloudSun, CloudFog } from 'lucide-react'; // Added CloudSun, CloudFog
+import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge, ShieldCheck, Sun, HelpCircle, CloudSun, CloudFog, Moon } from 'lucide-react'; // Added Moon
 import { Button } from '@/components/ui/button';
 import { useTheme } from 'next-themes';
 import { transformRawDataToWeatherDataPoint } from '@/lib/utils';
@@ -23,6 +23,7 @@ const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
   aqiPpm: { name: 'AQI (ppm)', unit: 'ppm', Icon: Wind, color: 'hsl(var(--chart-5))', healthyMin: 0, healthyMax: 300 },
   lux: { name: 'Light Level', unit: 'lux', Icon: SunDim, color: 'hsl(30, 80%, 55%)' },
   pressure: { name: 'Pressure', unit: 'hPa', Icon: Gauge, color: 'hsl(120, 60%, 45%)', healthyMin: 980, healthyMax: 1040 },
+  sunriseSunset: { name: 'Day/Night', unit: '', Icon: Sun, color: 'hsl(45, 100%, 50%)', isString: true }, // Icon can be dynamic
 };
 
 interface DailyMetricTrend {
@@ -51,17 +52,17 @@ const getPrecipitationStyle = (status: string | null): WeatherStatusStyle => {
   }
   const s = status.toLowerCase();
   if (s.includes('no rain')) {
-    return { 
-      Icon: Sun, 
-      statusTextColorClass: 'text-orange-500', 
-      label: status, 
+    return {
+      Icon: Sun,
+      statusTextColorClass: 'text-orange-500',
+      label: status,
     };
   }
   if (s.includes('rain')) {
-    return { 
-      Icon: CloudRain, 
-      statusTextColorClass: 'text-blue-500', 
-      label: status, 
+    return {
+      Icon: CloudRain,
+      statusTextColorClass: 'text-blue-500',
+      label: status,
     };
   }
    if (s.includes('cloudy') || s.includes('clouds')) {
@@ -93,6 +94,19 @@ const getAirQualityStyle = (status: string | null) => {
   return { Icon: HelpCircle, color: 'text-muted-foreground', label: status };
 };
 
+const getSunriseSunsetStyle = (status: string | null): WeatherStatusStyle => {
+  if (!status) {
+    return { Icon: HelpCircle, statusTextColorClass: 'text-muted-foreground', label: 'N/A' };
+  }
+  if (status === 'Sunrise') {
+    return { Icon: Sun, statusTextColorClass: 'text-yellow-500', label: 'Sunrise' };
+  }
+  if (status === 'Sunset') {
+    return { Icon: Moon, statusTextColorClass: 'text-indigo-400', label: 'Sunset' };
+  }
+  return { Icon: HelpCircle, statusTextColorClass: 'text-muted-foreground', label: status };
+};
+
 
 const RealtimeDataSection: FC = () => {
   const [processedData, setProcessedData] = useState<RealtimeSectionState>({});
@@ -108,24 +122,24 @@ const RealtimeDataSection: FC = () => {
 
       if (rawDataContainer && typeof rawDataContainer === 'object') {
         const allRecords: [string, RawFirebaseDataPoint][] = Object.entries(rawDataContainer);
-        
+
         const transformedRecords: WeatherDataPoint[] = allRecords
           .map(([key, rawPoint]) => transformRawDataToWeatherDataPoint(rawPoint as RawFirebaseDataPoint, key))
           .filter((point): point is WeatherDataPoint => point !== null && point.timestamp !== null && point.rawTimestampString !== undefined)
-          .sort((a, b) => a.timestamp - b.timestamp); 
+          .sort((a, b) => a.timestamp - b.timestamp);
 
         if (transformedRecords.length > 0) {
           const latestRecord = transformedRecords[transformedRecords.length - 1];
-          
+
           const todayStart = startOfDay(new Date()).getTime();
           const todayEnd = endOfDay(new Date()).getTime();
 
-          const todayRecords = transformedRecords.filter(p => 
+          const todayRecords = transformedRecords.filter(p =>
             isWithinInterval(new Date(p.timestamp), { start: todayStart, end: todayEnd })
           );
 
           const newProcessedData: RealtimeSectionState = {
-            lastUpdatedRawString: latestRecord.rawTimestampString, 
+            lastUpdatedRawString: latestRecord.rawTimestampString,
           };
 
           (Object.keys(METRIC_CONFIGS) as MetricKey[]).forEach(key => {
@@ -135,14 +149,15 @@ const RealtimeDataSection: FC = () => {
             if (latestRecord) {
                  if (key === 'aqiPpm') currentMetricData.latest = latestRecord.aqiPpm;
                  else if (key === 'airQuality') currentMetricData.latest = latestRecord.airQuality;
-                 else currentMetricData.latest = latestRecord[key as Exclude<MetricKey, 'aqiPpm' | 'airQuality'>];
+                 else if (key === 'sunriseSunset') currentMetricData.latest = latestRecord.sunriseSunset ?? (latestRecord.lux > 0 ? "Sunrise" : "Sunset");
+                 else currentMetricData.latest = latestRecord[key as Exclude<MetricKey, 'aqiPpm' | 'airQuality' | 'sunriseSunset'>];
             }
-            
+
             if (!config.isString && todayRecords.length > 0) {
               const numericValues = todayRecords.map(p => {
                 if (key === 'aqiPpm') return p.aqiPpm;
                 if (key === 'pressure' && p.pressure === undefined) return undefined; // Explicitly handle optional pressure
-                const val = p[key as Exclude<MetricKey, 'aqiPpm' | 'airQuality' | 'precipitation' | 'pressure'>];
+                const val = p[key as Exclude<MetricKey, 'aqiPpm' | 'airQuality' | 'precipitation' | 'pressure' | 'sunriseSunset'>];
                 return typeof val === 'number' ? val : (key === 'pressure' && typeof p.pressure === 'number' ? p.pressure : undefined);
               }).filter((v): v is number => typeof v === 'number');
 
@@ -152,10 +167,10 @@ const RealtimeDataSection: FC = () => {
                 currentMetricData.max = Math.max(...numericValues);
                 currentMetricData.average = numericValues.reduce((sum, val) => sum + val, 0) / numericValues.length;
               }
-              
+
               currentMetricData.sparklineData = todayRecords.map(p => ({
                 timestamp: p.timestamp,
-                value: (key === 'aqiPpm') ? p.aqiPpm : (key === 'pressure') ? p.pressure : p[key as Exclude<MetricKey, 'aqiPpm' | 'airQuality' | 'precipitation' | 'pressure'>] as number | undefined,
+                value: (key === 'aqiPpm') ? p.aqiPpm : (key === 'pressure') ? p.pressure : p[key as Exclude<MetricKey, 'aqiPpm' | 'airQuality' | 'precipitation' | 'sunriseSunset' | 'pressure'>] as number | undefined,
               }));
             }
             newProcessedData[key] = currentMetricData;
@@ -184,9 +199,11 @@ const RealtimeDataSection: FC = () => {
 
   const precipitationLatest = processedData.precipitation?.latest ?? null;
   const airQualityLatest = processedData.airQuality?.latest ?? null;
-  
+  const sunriseSunsetLatest = processedData.sunriseSunset?.latest ?? null;
+
   const precipStyle = getPrecipitationStyle(typeof precipitationLatest === 'string' ? precipitationLatest : null);
   const aqStyle = getAirQualityStyle(typeof airQualityLatest === 'string' ? airQualityLatest : null);
+  const dayNightStyle = getSunriseSunsetStyle(typeof sunriseSunsetLatest === 'string' ? sunriseSunsetLatest : null);
 
 
   return (
@@ -225,6 +242,10 @@ const RealtimeDataSection: FC = () => {
                   <Skeleton className="h-6 w-6 rounded-full opacity-20" />
                   <Skeleton className="h-6 w-32 opacity-20" />
                 </div>
+                 <div className="flex items-center space-x-2 py-1">
+                  <Skeleton className="h-6 w-6 rounded-full opacity-20" />
+                  <Skeleton className="h-6 w-24 opacity-20" />
+                </div>
               </>
             ) : (
               <>
@@ -236,6 +257,10 @@ const RealtimeDataSection: FC = () => {
                   <aqStyle.Icon className={`h-6 w-6 ${aqStyle.color}`} />
                   <span className={`text-md font-semibold ${aqStyle.color}`}>{aqStyle.label}</span>
                 </div>
+                <div className="flex items-center space-x-2">
+                  <dayNightStyle.Icon className={`h-6 w-6 ${dayNightStyle.statusTextColorClass}`} />
+                  <span className={`text-md font-semibold ${dayNightStyle.statusTextColorClass}`}>{dayNightStyle.label}</span>
+                </div>
               </>
             )}
           </CardContent>
@@ -244,7 +269,7 @@ const RealtimeDataSection: FC = () => {
         {individualMetricsOrder.map((key) => {
           const config = METRIC_CONFIGS[key];
           const metricData = processedData[key];
-          
+
           return (
             <RealtimeDataCard
               key={key}
@@ -270,4 +295,3 @@ const RealtimeDataSection: FC = () => {
 };
 
 export default RealtimeDataSection;
-
