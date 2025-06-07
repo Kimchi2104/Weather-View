@@ -4,18 +4,17 @@
 import type { FC } from 'react';
 import { Zap } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
-import { useTheme } from 'next-themes';
+// useTheme is not directly needed here anymore for conditional classes
+// import { useTheme } from 'next-themes';
 
 const Header: FC = () => {
-  const { theme, resolvedTheme } = useTheme(); // Use resolvedTheme to account for system preference
+  // const { theme, resolvedTheme } = useTheme();
+  // const isAuraGlassActive = theme === 'aura-glass' || (theme === 'system' && resolvedTheme === 'aura-glass');
 
-  // Determine if Aura Glass is active
-  const isAuraGlassActive = theme === 'aura-glass' || (theme === 'system' && resolvedTheme === 'aura-glass');
-
-  // Conditional classes for the <header> element
-  const headerElementClasses = isAuraGlassActive
-    ? 'bg-transparent shadow-none' // Aura Glass: transparent background, no shadow. Text/icon colors handled by globals.css
-    : 'bg-primary text-primary-foreground shadow-md'; // Default themes
+  // Reverted: Header component will always use its default classes.
+  // Aura Glass specific styling for the header is now handled entirely by globals.css
+  // via the `html.aura-glass header` selector.
+  const headerElementClasses = 'bg-primary text-primary-foreground shadow-md';
 
   return (
     <header className={headerElementClasses}>

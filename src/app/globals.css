@@ -82,19 +82,12 @@ body {
     /* Default gradient, can be overridden by JS via inline style on <html> */
     --aura-gradient: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%);
 
-    /* Base page colors when Aura Glass is active */
-    /* --background: 0 0% 100%; */ /* Fallback, actual bg is gradient - REMOVED as it's not used directly */
-    /* --foreground: 220 40% 20%; */ /* Default prose color for Aura: Dark text on potentially light gradient - MOVED INTO PROSE */
-
     /* Glassmorphic Card Styles */
     --card-rgb: 255, 255, 255;
     --card-alpha: 0.15;
     --card-blur-value: 10px;
     --card-border-rgb: 255, 255, 255;
     --card-border-alpha: 0.4;
-
-    /* --card: 0 0% 100%; */ /* Fallback for card bg - REMOVED as card uses rgba */
-    /* --card-foreground: hsl(var(--foreground)); */ /* Use prose color for card text - Will use prose variable */
 
     /* Glassmorphic Popover/Dropdown/Dialog Styles */
     --popover-rgb: 255, 255, 255;
@@ -103,9 +96,6 @@ body {
     --popover-border-rgb: 255, 255, 255;
     --popover-border-alpha: 0.25;
 
-    /* --popover: 0 0% 100%; */ /* Fallback for popover bg - REMOVED */
-    /* --popover-foreground: hsl(var(--foreground)); */ /* Use prose color for popover text - Will use prose variable */
-
     --border: 220 20% 85%; /* Border for non-glass elements in Aura theme */
 
     /* Input fields for Aura Glass */
@@ -113,7 +103,6 @@ body {
     --input-alpha: 0.2;
     --input-border-rgb: 255, 255, 255;
     --input-border-alpha: 0.3;
-    /* --input: 0 0% 100%; */ /* Fallback for input bg - REMOVED */
 
     /* UI Accent Colors */
     --primary: 230 80% 65%;
@@ -121,7 +110,6 @@ body {
     --secondary: 220 30% 90%;
     --secondary-foreground: 220 30% 30%;
     --muted: 220 20% 94%;
-    /* --muted-foreground: 220 25% 50%; */ /* Will use prose variable */
     --accent: 270 70% 70%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 70% 60%;
@@ -182,9 +170,12 @@ body {
   }
 
   html.aura-glass header {
-    background-color: transparent !important;
+    background-color: rgba(var(--card-rgb), 0.2) !important; /* Glass effect with 20% opacity */
+    -webkit-backdrop-filter: blur(var(--card-blur-value)); /* Use card's blur value */
+    backdrop-filter: blur(var(--card-blur-value));
+    border-bottom: 1px solid rgba(var(--card-border-rgb), 0.3) !important; /* Slightly more opaque border */
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important; /* Soft drop shadow */
     color: hsl(var(--foreground)) !important; /* Use prose-aware text color */
-    box-shadow: none !important; /* Remove shadow to blend better */
   }
 
   html.aura-glass header .text-accent { /* Targets the Zap icon specifically */
