@@ -295,15 +295,9 @@ const { toast } = useToast(); // Add this line to get the toast function
     } else if (targetExportTheme === 'dark') {
       htmlElement.classList.add('dark'); // Add your base 'dark' class
       document.body.classList.add('dark');
-    } else if (targetExportTheme === 'aura-glass') {
+    } else if (targetExportTheme === 'aura-glass') { 
       htmlElement.classList.add('aura-glass');
-      document.body.classList.add('aura-glass');
-      // If the original theme was dark or the system theme is dark, and we are exporting aura,
-      // ensure dark context is applied for aura styles that might depend on it.
-      if (originalHtmlClasses.includes('dark') || currentSystemTheme === 'dark') {
-          htmlElement.classList.add('dark');
-          document.body.classList.add('dark');
-      }
+      document.body.classList.add('aura-glass');          
     }
     
     // Add a consistent root class if your Tailwind setup depends on it, e.g., for font loading.
@@ -344,10 +338,6 @@ const { toast } = useToast(); // Add this line to get the toast function
             } else if (targetExportTheme === 'aura-glass') {
                 clonedHtmlElement.classList.add('aura-glass');
                 clonedBodyElement.classList.add('aura-glass');
-                if (originalHtmlClasses.includes('dark') || currentSystemTheme === 'dark') {
-                    clonedHtmlElement.classList.add('dark');
-                    clonedBodyElement.classList.add('dark');
-                }
             }
             // clonedBodyElement.classList.add('font-sans', 'antialiased'); // Example if needed
         }
