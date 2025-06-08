@@ -321,7 +321,7 @@ html.aura-glass footer {
 }
 
 html.aura-glass footer .text-muted-foreground {
-  color: hsl(var(--muted-foreground) / 0.8) !important;
+  color: hsl(var(--foreground) / 0.75) !important;
 }
 html.aura-glass footer .border-border\/50 {
   border-color: hsl(var(--border) / 0.3) !important;
@@ -463,3 +463,7 @@ html.aura-glass .group[data-radix-collection-item][data-state="open"].destructiv
     
 
 
+
+
+
+    
