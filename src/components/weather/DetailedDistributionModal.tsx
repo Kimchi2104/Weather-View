@@ -326,7 +326,7 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-headline text-xl">
             Detailed View: {metricConfig.name}
@@ -612,7 +612,7 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
         </div>
 
         {/* This div is the flex child that should grow and allow its ScrollArea child to scroll */}
-        <div className="flex-grow mt-2 flex flex-col min-h-0 overflow-hidden">
+        <div className="flex-grow mt-2 flex flex-col min-h-0"> {/* Removed overflow-hidden */}
           <h4 className="text-md font-semibold mb-2 text-muted-foreground flex-shrink-0">
             Contributing Raw Data Points ({rawPoints.length} points):
           </h4>
@@ -669,4 +669,5 @@ export default DetailedDistributionModal;
 
 
     
+
 
