@@ -197,8 +197,7 @@ html.aura-glass .bg-card {
 }
 
 /* Specific Overlay Components (Popovers, Menus, Dialogs, Tooltips) for Aura Glass */
-html.aura-glass .bg-popover, /* For general popovers */
-html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"], /* For Dropdown Menus */
+html.aura-glass .bg-popover, /* For general popovers, also used by DropdownMenuContent by default */
 html.aura-glass div[role="dialog"][data-state="open"], /* For standalone Dialogs */
 html.aura-glass [data-radix-tooltip-content] /* For ShadCN Tooltip */
 {
@@ -208,6 +207,16 @@ html.aura-glass [data-radix-tooltip-content] /* For ShadCN Tooltip */
   border: 1px solid rgba(var(--popover-border-rgb), var(--popover-border-alpha)) !important;
   box-shadow: 0 6px 16px rgba(0,0,0,0.07);
 }
+
+/* Ensure DropdownMenuContent specifically gets the popover-like glass effect */
+html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"] {
+  background-color: rgba(var(--popover-rgb), var(--popover-alpha)) !important;
+  -webkit-backdrop-filter: blur(var(--popover-blur-value));
+  backdrop-filter: blur(var(--popover-blur-value));
+  border: 1px solid rgba(var(--popover-border-rgb), var(--popover-border-alpha)) !important;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.07);
+}
+
 
 /* Text color overrides for content WITHIN specific OVERLAY glass components */
 /* Switched to LIGHT text for better contrast if page gradient behind glass is dark */
@@ -220,6 +229,15 @@ html.aura-glass [data-radix-tooltip-content]
   --muted-foreground: 0 0% 80% !important; /* Light gray for muted text */
   --popover-foreground: 0 0% 98% !important;
 }
+
+/* Direct text color for DropdownMenuItem items in Aura Glass */
+html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"] div[role="menuitem"] {
+  color: hsl(var(--popover-foreground)) !important;
+}
+html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"] div[role="menuitem"] svg {
+  color: currentColor !important; /* Ensure icons inherit the light color */
+}
+
 
 /* Default Input text color for Aura glass (applies to general page inputs) */
 html.aura-glass .border-input {
@@ -460,6 +478,8 @@ html.aura-glass .group[data-radix-collection-item][data-state="open"].destructiv
 
 
 
+
+    
 
     
 
