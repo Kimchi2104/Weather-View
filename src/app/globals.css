@@ -208,17 +208,17 @@ html.aura-glass div[role="dialog"][data-state="open"] /* For standalone Dialogs 
 }
 
 /* Text color overrides for content WITHIN glass components */
-/* These ensure readability against their intrinsic light glass background */
+/* Switched to LIGHT text for better contrast if page gradient behind glass is dark */
 html.aura-glass .bg-card,
 html.aura-glass div[role="dialog"][data-state="open"],
 html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"],
 html.aura-glass [data-radix-tooltip-content]
 {
-  /* Force dark text variables for elements inside these glass components */
-  --foreground: 220 30% 10% !important; 
-  --card-foreground: 220 30% 10% !important; 
-  --muted-foreground: 220 25% 30% !important; 
-  --popover-foreground: 220 30% 10% !important;
+  /* Force LIGHT text variables for elements inside these glass components */
+  --foreground: 0 0% 98% !important; /* Almost white */
+  --card-foreground: 0 0% 98% !important; 
+  --muted-foreground: 0 0% 80% !important; /* Light gray for muted text */
+  --popover-foreground: 0 0% 98% !important;
 }
 
 /* Default Input text color for Aura glass (applies to general page inputs) */
@@ -242,13 +242,13 @@ html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"] input[typ
 html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"] textarea,
 html.aura-glass [data-radix-tooltip-content] input[type="text"],
 html.aura-glass [data-radix-tooltip-content] textarea {
-  color: hsl(220 30% 10%) !important; /* Force very dark text */
+  color: hsl(0 0% 98%) !important; /* Force very light text */
 }
 
 /* Specific text color for hex input next to color picker INSIDE glass components */
 html.aura-glass .bg-card input[type="color"] + input[type="text"],
 html.aura-glass div[role="dialog"][data-state="open"] input[type="color"] + input[type="text"] {
-    color: hsl(220 30% 10%) !important;
+    color: hsl(0 0% 98%) !important; /* Force very light text */
 }
 
 /* Specific placeholder color for Inputs/Textareas INSIDE glass components */
@@ -260,8 +260,8 @@ html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"] input::pl
 html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"] textarea::placeholder,
 html.aura-glass [data-radix-tooltip-content] input::placeholder,
 html.aura-glass [data-radix-tooltip-content] textarea::placeholder {
-  color: hsl(220 25% 35%) !important; /* Force darker muted text for placeholders */
-  opacity: 0.8 !important;
+  color: hsl(0 0% 75%) !important; /* Force lighter muted text for placeholders */
+  opacity: 0.7 !important;
 }
 
 
@@ -399,15 +399,15 @@ html.aura-glass .group[data-radix-collection-item][data-state="open"]:not(.destr
   backdrop-filter: blur(var(--popover-blur-value));
   border: 1px solid rgba(var(--popover-border-rgb), var(--popover-border-alpha)) !important;
   box-shadow: 0 4px 12px rgba(0,0,0,0.1), inset 0 0.5px 0px rgba(255,255,255,0.2);
-  color: hsl(220 30% 10%) !important; /* Force dark text on light glass (matches dialog content) */
+  color: hsl(0 0% 98%) !important; /* Force LIGHT text on light glass */
 }
 
 html.aura-glass .group[data-radix-collection-item][data-state="open"]:not(.destructive) .text-sm.font-semibold, /* ToastTitle */
 html.aura-glass .group[data-radix-collection-item][data-state="open"]:not(.destructive) .text-sm.opacity-90 { /* ToastDescription */
-  color: hsl(220 30% 10%) !important;
+  color: hsl(0 0% 98%) !important;
 }
 html.aura-glass .group[data-radix-collection-item][data-state="open"]:not(.destructive) .text-sm.opacity-90 {
-  opacity: 0.8 !important;
+  opacity: 0.85 !important; /* Slightly more opaque for light text on light glass */
 }
 
 html.aura-glass .group[data-radix-collection-item][data-state="open"].destructive {
@@ -416,7 +416,7 @@ html.aura-glass .group[data-radix-collection-item][data-state="open"].destructiv
   backdrop-filter: blur(var(--popover-blur-value));
   border: 1px solid hsl(var(--destructive) / 0.5) !important; /* More opaque destructive border */
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  color: hsl(var(--destructive-foreground)) !important; /* This should be light text */
+  color: hsl(var(--destructive-foreground)) !important; /* This should be light text as per theme */
 }
 
 html.aura-glass .group[data-radix-collection-item][data-state="open"].destructive .text-sm.font-semibold,
@@ -429,10 +429,10 @@ html.aura-glass .group[data-radix-collection-item][data-state="open"].destructiv
 
 /* Toast Close Button adjustments for Aura Glass */
 html.aura-glass .group[data-radix-collection-item][data-state="open"]:not(.destructive) button[toast-close] {
-  color: hsl(220 30% 10% / 0.6) !important;
+  color: hsl(0 0% 98% / 0.7) !important; /* Light color for close button */
 }
 html.aura-glass .group[data-radix-collection-item][data-state="open"]:not(.destructive) button[toast-close]:hover {
-  color: hsl(220 30% 10%) !important;
+  color: hsl(0 0% 98%) !important;
 }
 
 html.aura-glass .group[data-radix-collection-item][data-state="open"].destructive button[toast-close] {
@@ -444,11 +444,11 @@ html.aura-glass .group[data-radix-collection-item][data-state="open"].destructiv
 
 /* Toast Action Button adjustments for Aura Glass */
 html.aura-glass .group[data-radix-collection-item][data-state="open"]:not(.destructive) .inline-flex.border.bg-transparent {
-  color: hsl(220 30% 10%) !important;
-  border-color: hsl(220 30% 10% / 0.3) !important;
+  color: hsl(0 0% 98%) !important; /* Light text */
+  border-color: hsl(0 0% 98% / 0.4) !important; /* Light border */
 }
 html.aura-glass .group[data-radix-collection-item][data-state="open"]:not(.destructive) .inline-flex.border.bg-transparent:hover {
-  background-color: hsl(220 30% 10% / 0.05) !important;
+  background-color: hsl(0 0% 98% / 0.1) !important; /* Subtle light hover */
 }
 
 html.aura-glass .group[data-radix-collection-item][data-state="open"].destructive .inline-flex.border {
@@ -465,6 +465,8 @@ html.aura-glass .group[data-radix-collection-item][data-state="open"].destructiv
 
 
 
+
+    
 
     
 
