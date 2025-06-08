@@ -75,3 +75,18 @@ export interface DetailModalData {
 // Keeping 'violin' in the type for now if WeatherChart itself still needs to handle it internally,
 // but it won't be user-selectable from the main dropdown.
 export type ChartType = 'line' | 'bar' | 'scatter' | 'violin';
+
+export interface DayNightPeriod {
+  type: 'Day' | 'Night';
+  startTimestamp: number;
+  endTimestamp: number;
+  duration: number; // in milliseconds
+}
+
+export interface AggregatedDurationData {
+  periodLabel: string; // e.g., "Week 1", "January", "2023"
+  averageDayDuration: number; // in milliseconds
+  averageNightDuration: number; // in milliseconds
+  dayPeriodsCount: number;
+  nightPeriodsCount: number;
+}

@@ -8,18 +8,19 @@ import DateRangePicker from './DateRangePicker';
 import DataSelector from './DataSelector';
 import type { DateRange } from 'react-day-picker';
 import { subDays, format, getISOWeek, getYear, startOfHour, endOfHour, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
-import type { WeatherDataPoint, MetricKey, MetricConfig, RawFirebaseDataPoint, AggregatedDataPoint, DetailModalData as DetailModalDataTypeFromType, ChartType } from '@/types/weather';
+import type { WeatherDataPoint, MetricKey, MetricConfig, RawFirebaseDataPoint, AggregatedDataPoint, DetailModalData as DetailModalDataTypeFromType, ChartType, DayNightPeriod } from '@/types/weather';
 import { database } from '@/lib/firebase';
 import { ref, get, type DataSnapshot } from "firebase/database";
 import { Label as ShadcnLabel } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { transformRawDataToWeatherDataPoint, formatTimestampToDdMmHhMmUTC, formatTimestampToFullUTC } from '@/lib/utils';
+import { transformRawDataToWeatherDataPoint, formatTimestampToDdMmHhMmUTC, formatTimestampToFullUTC, calculateDayNightPeriods } from '@/lib/utils';
 import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge, ShieldCheck, Sun, Moon } from 'lucide-react'; // Added Moon
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from '@/components/ui/skeleton';
 import DetailedDistributionModal from './DetailedDistributionModal';
+import DayNightDurationModal from './DayNightDurationModal';
 import { useTheme } from 'next-themes';
 
 
@@ -85,6 +86,10 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
 
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [detailModalData, setDetailModalData] = useState<DetailModalDataTypeFromType | null>(null);
+
+  const [isDayNightModalOpen, setIsDayNightModalOpen] = useState(false);
+  const [dayNightPeriods, setDayNightPeriods] = useState<DayNightPeriod[]>([]);
+
 
   const { theme } = useTheme();
   const isAuraGlassTheme = theme === 'aura-glass';
@@ -341,6 +346,10 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
 
 
   const handleDetailedChartClick = (clickedData: WeatherDataPoint | AggregatedDataPoint | null, rechartsClickProps: any | null) => {
+    if (selectedMetrics.length === 1 && selectedMetrics[0] === 'sunriseSunset') {
+        return;
+    }
+
     const isRawLineOrScatterClickForAI =
       ((selectedChartType === 'line' || selectedChartType === 'scatter') && !isActuallyAggregated);
 
@@ -395,6 +404,12 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
     }
   };
 
+  const handleDayNightAnalysisClick = () => {
+      const periods = calculateDayNightPeriods(chartData as WeatherDataPoint[]);
+      setDayNightPeriods(periods);
+      setIsDayNightModalOpen(true);
+  }
+
   const showChartConfigSelectors = !(selectedMetrics.length === 1 && selectedMetrics[0] === 'sunriseSunset');
 
   return (
@@ -443,6 +458,13 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
             selectedMetrics={selectedMetrics}
             onSelectionChange={handleMetricSelectionChange}
           />
+          {!showChartConfigSelectors && (
+              <div className="mt-4">
+                  <Button onClick={handleDayNightAnalysisClick}>
+                      View Day/Night Durations
+                  </Button>
+              </div>
+          )}
           {showChartConfigSelectors && (
             <div className="mt-4 flex flex-col sm:flex-row items-end gap-4">
                 <div>
@@ -523,6 +545,13 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
             }}
             data={detailModalData}
           />
+       )}
+       {isDayNightModalOpen && (
+           <DayNightDurationModal
+                isOpen={isDayNightModalOpen}
+                onClose={() => setIsDayNightModalOpen(false)}
+                periods={dayNightPeriods}
+            />
        )}
     </>
   );

@@ -1,7 +1,4 @@
-import type {NextConfig} from 'next';
-
-const nextConfig: NextConfig = {
-  /* config options here */
+const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -19,10 +16,13 @@ const nextConfig: NextConfig = {
     ],
   },
   experimental: {
+    // This is the port that Genkit is running on.
     allowedDevOrigins: [
-        "https://9003-firebase-studio-1748936635700.cluster-ys234awlzbhwoxmkkse6qo3fz6.cloudworkstations.dev"
-    ]
-  }
+      'http://localhost:10001',
+      'https://9003-firebase-studio-1748936635700.cluster-ys234awlzbhwoxmkkse6qo3fz6.cloudworkstations.dev',
+    ],
+  },
+  output: 'standalone',
 };
 
-export default nextConfig;
+module.exports = nextConfig;

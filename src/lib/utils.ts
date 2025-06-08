@@ -1,6 +1,7 @@
 
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { DayNightPeriod, WeatherDataPoint } from "@/types/weather";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -42,7 +43,7 @@ export function parseCustomTimestamp(timestampStr: string | undefined): number |
 }
 
 // Helper to convert raw Firebase data to WeatherDataPoint
-import type { RawFirebaseDataPoint, WeatherDataPoint } from '@/types/weather';
+import type { RawFirebaseDataPoint } from '@/types/weather';
 
 const parseNumeric = (val: any): number | undefined => {
   if (val === undefined || val === null) return undefined;
@@ -103,7 +104,7 @@ export function transformRawDataToWeatherDataPoint(rawData: RawFirebaseDataPoint
   const finalLux = luxValue === undefined ? 0 : luxValue;
   const finalAqiPpm = aqiPpmValue === undefined ? 0 : aqiPpmValue;
 
-  const sunriseSunsetStatus = finalLux > 0 ? "Sunrise" : "Sunset";
+  const sunriseSunsetStatus = finalLux > 400 ? "Sunrise" : "Sunset";
 
 
   const transformedPoint: WeatherDataPoint = {
@@ -142,3 +143,66 @@ export const formatTimestampToFullUTC = (timestamp: number): string => {
   const seconds = date.getUTCSeconds().toString().padStart(2, '0');
   return `${day}/${month}/${year} ${hours}:${minutes}:${seconds} UTC`;
 };
+
+export function formatDuration(milliseconds: number): string {
+    if (milliseconds < 0) {
+        return "N/A";
+    }
+    const totalSeconds = Math.floor(milliseconds / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    return `${hours}h ${minutes}m`;
+}
+
+export function calculateDayNightPeriods(
+    data: WeatherDataPoint[]
+): DayNightPeriod[] {
+    const periods: DayNightPeriod[] = [];
+    if (data.length === 0) {
+        return periods;
+    }
+
+    let currentPeriod: DayNightPeriod | null = null;
+
+    for (let i = 0; i < data.length; i++) {
+        const point = data[i];
+        const type = point.sunriseSunset === "Sunrise" ? "Day" : "Night";
+
+        if (!currentPeriod) {
+            currentPeriod = {
+                type: type,
+                startTimestamp: point.timestamp,
+                endTimestamp: point.timestamp, // Tentative end
+                duration: 0,
+            };
+            continue;
+        }
+
+        if (type !== currentPeriod.type) {
+            // End the previous period
+            currentPeriod.endTimestamp = point.timestamp;
+            currentPeriod.duration =
+                currentPeriod.endTimestamp - currentPeriod.startTimestamp;
+            periods.push(currentPeriod);
+
+            // Start a new period
+            currentPeriod = {
+                type: type,
+                startTimestamp: point.timestamp,
+                endTimestamp: point.timestamp,
+                duration: 0,
+            };
+        }
+    }
+
+    // Add the last period if it exists
+    if (currentPeriod) {
+        const lastPoint = data[data.length - 1];
+        currentPeriod.endTimestamp = lastPoint.timestamp;
+        currentPeriod.duration =
+            currentPeriod.endTimestamp - currentPeriod.startTimestamp;
+        periods.push(currentPeriod);
+    }
+
+    return periods;
+}

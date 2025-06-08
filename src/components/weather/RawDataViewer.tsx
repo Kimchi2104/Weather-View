@@ -56,8 +56,8 @@ const RawDataViewer: FC = () => {
   useEffect(() => {
     // Initialize date range on the client side to avoid hydration mismatch
     setDateRange({
-      from: subDays(new Date(), 1),
-      to: new Date(),
+      from: new Date('2024-06-01'),
+      to: new Date('2024-06-07'),
     });
   }, []);
 
@@ -369,3 +369,4 @@ const RawDataViewer: FC = () => {
 };
 
 export default RawDataViewer;
+
