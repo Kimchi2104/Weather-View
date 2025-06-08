@@ -11,8 +11,12 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
+  params,
+  searchParams
 }: Readonly<{
   children: React.ReactNode;
+  params: { [key: string]: string | string[] | undefined };
+  searchParams: { [key: string]: string | string[] | undefined };
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
