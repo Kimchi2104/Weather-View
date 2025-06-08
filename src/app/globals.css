@@ -187,7 +187,7 @@ html.aura-glass header .text-accent { /* Targets the Zap icon specifically */
 }
 
 html.aura-glass .bg-card,
-html.aura-glass [data-radix-popper-content-wrapper] > div[role^="dialog"],
+html.aura-glass div[role="dialog"][data-state="open"], /* MODIFIED: General dialog selector */
 html.aura-glass [data-radix-tooltip-content]
 {
   background-color: rgba(var(--card-rgb), var(--card-alpha)) !important;
@@ -210,7 +210,7 @@ html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"]
 /* Text color overrides for content WITHIN glass components */
 /* These ensure readability against their intrinsic light glass background */
 html.aura-glass .bg-card,
-html.aura-glass [data-radix-popper-content-wrapper] > div[role^="dialog"],
+html.aura-glass div[role="dialog"][data-state="open"], /* MODIFIED: General dialog selector */
 html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"],
 html.aura-glass [data-radix-tooltip-content]
 {
@@ -236,8 +236,8 @@ html.aura-glass textarea::placeholder {
 /* Specific Input/Textarea text color when INSIDE glass components (dialogs, popovers, cards) */
 html.aura-glass .bg-card input[type="text"],
 html.aura-glass .bg-card textarea,
-html.aura-glass [data-radix-popper-content-wrapper] > div[role^="dialog"] input[type="text"],
-html.aura-glass [data-radix-popper-content-wrapper] > div[role^="dialog"] textarea,
+html.aura-glass div[role="dialog"][data-state="open"] input[type="text"], /* MODIFIED */
+html.aura-glass div[role="dialog"][data-state="open"] textarea, /* MODIFIED */
 html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"] input[type="text"],
 html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"] textarea,
 html.aura-glass [data-radix-tooltip-content] input[type="text"],
@@ -247,15 +247,15 @@ html.aura-glass [data-radix-tooltip-content] textarea {
 
 /* Specific text color for hex input next to color picker INSIDE glass components */
 html.aura-glass .bg-card input[type="color"] + input[type="text"],
-html.aura-glass [data-radix-popper-content-wrapper] > div[role^="dialog"] input[type="color"] + input[type="text"] {
+html.aura-glass div[role="dialog"][data-state="open"] input[type="color"] + input[type="text"] /* MODIFIED */ {
     color: hsl(220 40% 15%) !important;
 }
 
 /* Specific placeholder color for Inputs/Textareas INSIDE glass components */
 html.aura-glass .bg-card input::placeholder,
 html.aura-glass .bg-card textarea::placeholder,
-html.aura-glass [data-radix-popper-content-wrapper] > div[role^="dialog"] input::placeholder,
-html.aura-glass [data-radix-popper-content-wrapper] > div[role^="dialog"] textarea::placeholder,
+html.aura-glass div[role="dialog"][data-state="open"] input::placeholder, /* MODIFIED */
+html.aura-glass div[role="dialog"][data-state="open"] textarea::placeholder, /* MODIFIED */
 html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"] input::placeholder,
 html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"] textarea::placeholder,
 html.aura-glass [data-radix-tooltip-content] input::placeholder,
