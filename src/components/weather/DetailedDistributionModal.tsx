@@ -611,11 +611,11 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
             </Card>
         </div>
 
-        <div className="flex-grow overflow-hidden mt-2 flex flex-col min-h-0">
+        <div className="flex-grow mt-2 flex flex-col min-h-0">
           <h4 className="text-md font-semibold mb-2 text-muted-foreground flex-shrink-0">
             Contributing Raw Data Points ({rawPoints.length} points):
           </h4>
-          <ScrollArea className="border rounded-md flex-grow">
+          <ScrollArea className="border rounded-md flex-grow h-0">
             <Table>
               <TableHeader className="sticky top-0 bg-background z-10">
                 <TableRow>
@@ -664,3 +664,6 @@ export default DetailedDistributionModal;
     
 
 
+
+
+    
