@@ -32,7 +32,14 @@ interface RawDataTableRow extends RawFirebaseDataPoint {
 }
 
 const RawDataViewer: FC = () => {
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+    const today = new Date();
+    const sevenDaysAgo = subDays(today, 7);
+    return {
+      from: sevenDaysAgo < today ? sevenDaysAgo : today, // Ensure 'from' isn't after 'to'
+      to: today,
+    };
+  });
   const [startTime, setStartTime] = useState<string>("00:00");
   const [endTime, setEndTime] = useState<string>("23:59");
   const [allFetchedRawData, setAllFetchedRawData] = useState<RawDataTableRow[]>([]);
@@ -52,14 +59,6 @@ const RawDataViewer: FC = () => {
     { key: 'sunriseSunset', label: 'Day/Night' },
     { key: 'pressure', label: 'Pressure (hPa)' },
   ];
-
-  useEffect(() => {
-    // Initialize date range on the client side to avoid hydration mismatch
-    setDateRange({
-      from: new Date('2024-06-01'),
-      to: new Date('2024-06-07'),
-    });
-  }, []);
 
   const fetchAllRawData = useCallback(async () => {
     setIsLoading(true);
@@ -147,7 +146,6 @@ const RawDataViewer: FC = () => {
   }, [fetchAllRawData]);
 
   useEffect(() => {
-    // Only filter if dateRange is set (which happens client-side)
     if (dateRange) {
       filterDataByDateTimeRange();
     }
@@ -169,11 +167,6 @@ const RawDataViewer: FC = () => {
   };
 
   const exportToCSV = () => {
-    // Dynamically import jspdf (not needed for CSV, but keeping the pattern)
-    // For CSV, we just need to generate text content.
-
-    // Implementation for CSV export
-
     if (displayedData.length === 0) return;
     const headers = ['ID', ...tableHeaders.map(h => h.label)];
     const rows = displayedData.map(row => [
@@ -191,11 +184,6 @@ const RawDataViewer: FC = () => {
   };
 
   const exportToTXT = () => {
-    // Dynamically import jspdf (not needed for TXT, but keeping the pattern)
-    // For TXT, we just need to generate text content.
-
-    // Implementation for TXT export
-
     if (displayedData.length === 0) return;
     let txtContent = `Raw Data Export - ${formatDateFns(new Date(), 'yyyy-MM-dd HH:mm:ss')}\n`;
     txtContent += `Date Range: ${dateRange?.from ? formatDateFns(dateRange.from, 'yyyy-MM-dd') : 'N/A'} ${startTime} to ${dateRange?.to ? formatDateFns(dateRange.to, 'yyyy-MM-dd') : 'N/A'} ${endTime}\n`;
@@ -232,18 +220,13 @@ const RawDataViewer: FC = () => {
   };
 
   const exportToXML = () => {
-    // Dynamically import jspdf (not needed for XML, but keeping the pattern)
-    // For XML, we just need to generate text content.
-
-    // Implementation for XML export
-
     if (displayedData.length === 0) return;
     let xmlContent = '<?xml version="1.0" encoding="UTF-8"?>\n<records>\n';
     displayedData.forEach(row => {
       xmlContent += '  <record>\n';
       xmlContent += `    <id>${escapeXml(row.id)}</id>\n`;
       tableHeaders.forEach(header => {
-        const key = header.label.replace(/\s+/g, '').replace(/[^a-zA-Z0-9_]/g, '_'); // Create valid XML tag name
+        const key = header.label.replace(/\s+/g, '').replace(/[^a-zA-Z0-9_]/g, '_'); 
         let value;
         if (header.key === 'sunriseSunset') {
           value = row.sunriseSunset ?? 'N/A';
