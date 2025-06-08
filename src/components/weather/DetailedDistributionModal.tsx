@@ -17,7 +17,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import type { WeatherDataPoint, MetricConfig, MetricKey, DetailModalData as DetailModalDataType } from '@/types/weather';
+import type { WeatherDataPoint, MetricConfig, MetricKey, DetailModalData as DetailModalDataTypeFromType } from '@/types/weather';
 import { formatTimestampToFullUTC } from '@/lib/utils';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ReferenceArea, ResponsiveContainer } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle as ModalCardTitle } from '@/components/ui/card';
@@ -38,7 +38,7 @@ type ExportThemeOption = 'current' | 'light' | 'dark';
 interface DetailedDistributionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  data: DetailModalDataType | null;
+  data: DetailModalDataTypeFromType | null;
 }
 
 const FIXED_CHART_HEIGHT = 300; // Kept for ResponsiveContainer height
@@ -611,11 +611,13 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
             </Card>
         </div>
 
-        <div className="flex-grow mt-2 flex flex-col min-h-0">
+        {/* This div is the flex child that should grow and allow its ScrollArea child to scroll */}
+        <div className="flex-grow mt-2 flex flex-col min-h-0 overflow-hidden">
           <h4 className="text-md font-semibold mb-2 text-muted-foreground flex-shrink-0">
             Contributing Raw Data Points ({rawPoints.length} points):
           </h4>
-          <ScrollArea className="border rounded-md flex-grow h-0">
+          {/* ScrollArea should now grow within its parent's bounded height */}
+          <ScrollArea className="border rounded-md flex-grow"> 
             <Table>
               <TableHeader className="sticky top-0 bg-background z-10">
                 <TableRow>
@@ -667,3 +669,4 @@ export default DetailedDistributionModal;
 
 
     
+
