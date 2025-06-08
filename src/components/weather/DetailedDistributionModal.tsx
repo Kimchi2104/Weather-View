@@ -611,7 +611,7 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
             </Card>
         </div>
 
-        <div className="flex-grow overflow-hidden mt-2 flex flex-col">
+        <div className="flex-grow overflow-hidden mt-2 flex flex-col min-h-0">
           <h4 className="text-md font-semibold mb-2 text-muted-foreground flex-shrink-0">
             Contributing Raw Data Points ({rawPoints.length} points):
           </h4>
@@ -662,4 +662,5 @@ export default DetailedDistributionModal;
     
 
     
+
 
