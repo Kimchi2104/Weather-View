@@ -326,7 +326,7 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="font-headline text-xl">
             Detailed View: {metricConfig.name}
