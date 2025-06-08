@@ -91,10 +91,10 @@ body {
 
     /* Glassmorphic Popover/Dropdown/Dialog Styles */
     --popover-rgb: 255, 255, 255;
-    --popover-alpha: 0.35;
-    --popover-blur-value: 12px;
+    --popover-alpha: 0.35; /* More opaque for overlays */
+    --popover-blur-value: 12px; /* Slightly more blur for overlays */
     --popover-border-rgb: 255, 255, 255;
-    --popover-border-alpha: 0.25;
+    --popover-border-alpha: 0.25; /* More subtle border for overlays */
 
     --border: 220 20% 85%; /* Border for non-glass elements in Aura theme */
 
@@ -130,14 +130,14 @@ body {
     &[data-aura-prose="dark"] {
       --foreground: 220 40% 15%; /* Darker text for light backgrounds */
       --muted-foreground: 220 30% 40%;
-      --card-foreground: 220 40% 15%;
-      --popover-foreground: 220 40% 15%;
+      --card-foreground: 220 40% 15%; /* Card text uses page prose by default now */
+      /* Popover foreground handled by specific overlay rule */
     }
     &[data-aura-prose="light"] {
       --foreground: 0 0% 95%; /* Lighter text for dark backgrounds */
       --muted-foreground: 0 0% 70%;
-      --card-foreground: 0 0% 95%;
-      --popover-foreground: 0 0% 95%;
+      --card-foreground: 0 0% 95%; /* Card text uses page prose by default now */
+      /* Popover foreground handled by specific overlay rule */
     }
   }
 }
@@ -186,19 +186,21 @@ html.aura-glass header .text-accent { /* Targets the Zap icon specifically */
   color: hsl(var(--accent)) !important; /* Use the Aura theme's accent color */
 }
 
-html.aura-glass .bg-card, /* For ShadCN Card component used on page */
-html.aura-glass [data-radix-tooltip-content] /* For ShadCN Tooltip */
-{
+/* General Card Style for Aura Glass */
+html.aura-glass .bg-card {
   background-color: rgba(var(--card-rgb), var(--card-alpha)) !important;
   -webkit-backdrop-filter: blur(var(--card-blur-value));
   backdrop-filter: blur(var(--card-blur-value));
   border: 1px solid rgba(var(--card-border-rgb), var(--card-border-alpha)) !important;
   box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.5), 0 4px 20px rgba(0, 0, 0, 0.06);
+  /* Text color for .bg-card will now primarily come from --card-foreground set by data-aura-prose */
 }
 
+/* Specific Overlay Components (Popovers, Menus, Dialogs, Tooltips) for Aura Glass */
 html.aura-glass .bg-popover, /* For general popovers */
 html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"], /* For Dropdown Menus */
-html.aura-glass div[role="dialog"][data-state="open"] /* For standalone Dialogs */
+html.aura-glass div[role="dialog"][data-state="open"], /* For standalone Dialogs */
+html.aura-glass [data-radix-tooltip-content] /* For ShadCN Tooltip */
 {
   background-color: rgba(var(--popover-rgb), var(--popover-alpha)) !important;
   -webkit-backdrop-filter: blur(var(--popover-blur-value));
@@ -207,16 +209,14 @@ html.aura-glass div[role="dialog"][data-state="open"] /* For standalone Dialogs 
   box-shadow: 0 6px 16px rgba(0,0,0,0.07);
 }
 
-/* Text color overrides for content WITHIN glass components */
+/* Text color overrides for content WITHIN specific OVERLAY glass components */
 /* Switched to LIGHT text for better contrast if page gradient behind glass is dark */
-html.aura-glass .bg-card,
 html.aura-glass div[role="dialog"][data-state="open"],
 html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"],
 html.aura-glass [data-radix-tooltip-content]
 {
   /* Force LIGHT text variables for elements inside these glass components */
   --foreground: 0 0% 98% !important; /* Almost white */
-  --card-foreground: 0 0% 98% !important; 
   --muted-foreground: 0 0% 80% !important; /* Light gray for muted text */
   --popover-foreground: 0 0% 98% !important;
 }
@@ -233,9 +233,7 @@ html.aura-glass textarea::placeholder {
   opacity: 0.6 !important;
 }
 
-/* Specific Input/Textarea text color when INSIDE glass components (dialogs, popovers, cards) */
-html.aura-glass .bg-card input[type="text"],
-html.aura-glass .bg-card textarea,
+/* Specific Input/Textarea text color when INSIDE specific OVERLAY glass components (dialogs, popovers) */
 html.aura-glass div[role="dialog"][data-state="open"] input[type="text"],
 html.aura-glass div[role="dialog"][data-state="open"] textarea,
 html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"] input[type="text"],
@@ -245,15 +243,12 @@ html.aura-glass [data-radix-tooltip-content] textarea {
   color: hsl(0 0% 98%) !important; /* Force very light text */
 }
 
-/* Specific text color for hex input next to color picker INSIDE glass components */
-html.aura-glass .bg-card input[type="color"] + input[type="text"],
+/* Specific text color for hex input next to color picker INSIDE specific OVERLAY glass components */
 html.aura-glass div[role="dialog"][data-state="open"] input[type="color"] + input[type="text"] {
     color: hsl(0 0% 98%) !important; /* Force very light text */
 }
 
-/* Specific placeholder color for Inputs/Textareas INSIDE glass components */
-html.aura-glass .bg-card input::placeholder,
-html.aura-glass .bg-card textarea::placeholder,
+/* Specific placeholder color for Inputs/Textareas INSIDE specific OVERLAY glass components */
 html.aura-glass div[role="dialog"][data-state="open"] input::placeholder,
 html.aura-glass div[role="dialog"][data-state="open"] textarea::placeholder,
 html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"] input::placeholder,
@@ -284,7 +279,7 @@ html.aura-glass .recharts-tooltip-wrapper .bg-background { /* This bg-background
   -webkit-backdrop-filter: blur(var(--popover-blur-value));
   backdrop-filter: blur(var(--popover-blur-value));
   border: 1px solid rgba(var(--popover-border-rgb), calc(var(--popover-border-alpha) + 0.1)) !important;
-  color: hsl(var(--popover-foreground)) !important;
+  color: hsl(var(--popover-foreground)) !important; /* Tooltip text should be light as per overlay rule */
 }
 html.aura-glass .recharts-tooltip-cursor {
   stroke: hsl(var(--accent) / 0.5) !important;
