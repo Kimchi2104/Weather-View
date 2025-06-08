@@ -304,9 +304,22 @@ html.aura-glass .recharts-line .recharts-line-curve {
 
 /* Footer styles for Aura Glass theme */
 html.aura-glass footer {
-  background-color: transparent !important;
+  /* Glassmorphism for the footer */
+  background-color: rgba(var(--card-rgb), 0.08) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  backdrop-filter: blur(8px) !important;
+  
+  /* Top border to separate from content */
+  border-top: 1px solid rgba(var(--card-border-rgb), 0.18) !important;
+  
+  /* Shadow to lift it slightly */
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.04),
+              inset 0 0.5px 0px rgba(var(--card-border-rgb), 0.15) !important;
+
+  /* Text Color - Use page's prose-aware foreground, slightly muted */
   color: hsl(var(--foreground) / 0.85) !important;
 }
+
 html.aura-glass footer .text-muted-foreground {
   color: hsl(var(--muted-foreground) / 0.8) !important;
 }
