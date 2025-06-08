@@ -376,6 +376,22 @@ input[type="color"] + input[type="text"] {
    border-top-left-radius: 0;
    border-bottom-left-radius: 0;
 }
+
+/* ThemeToggle icon states for Aura Glass */
+html.aura-glass .sun-icon {
+  transform: rotate(-90deg) scale(0); /* Hide Sun icon */
+}
+html.aura-glass .moon-icon {
+  transform: rotate(90deg) scale(0); /* Hide Moon icon */
+}
+/* Ensure Moon icon stays hidden if both aura-glass and dark are active */
+html.aura-glass.dark .moon-icon {
+  transform: rotate(90deg) scale(0);
+}
+html.aura-glass .sparkles-icon {
+  transform: rotate(0deg) scale(1); /* Show Sparkles icon */
+}
     
 
     
+
