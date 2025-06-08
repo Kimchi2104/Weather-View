@@ -227,21 +227,6 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
   useEffect(() => {
     if (isOpen && data) {
       // console.log('[DetailedDistributionModal] Rendering. isOpen:', isOpen);
-      // console.log('[DetailedDistributionModal] Data props:', {
-      //   metricKey: data.metricKey,
-      //   metricName: data.metricConfig.name,
-      //   aggregationLabel: data.aggregationLabel,
-      //   stats: data.stats,
-      //   rawPointsCount: data.rawPoints.length,
-      // });
-      // console.log('[DetailedDistributionModal] numericValuesForDistribution (count, sample):', 
-      //   numericValuesForDistribution?.length, 
-      //   numericValuesForDistribution?.slice(0,5)
-      // );
-      // console.log('[DetailedDistributionModal] histogramData:', histogramData);
-      // console.log('[DetailedDistributionModal] boxPlotStats:', boxPlotStats);
-      // console.log('[DetailedDistributionModal] violinPlotDataForArea:', violinPlotDataForArea);
-      // console.log('[DetailedDistributionModal] canShowDistributionPlots:', canShowDistributionPlots);
     }
   }, [isOpen, data, numericValuesForDistribution, histogramData, boxPlotStats, violinPlotDataForArea, canShowDistributionPlots]);
 
@@ -437,7 +422,6 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                            <div ref={histogramChartRef} className="w-full bg-card">
                             {(() => {
                               const showHistogram = canShowDistributionPlots && histogramData && histogramData.length > 0;
-                              // console.log('[DetailedDistributionModal] Show Histogram condition:', showHistogram);
                               if (showHistogram) {
                                 return (
                                   <ResponsiveContainer width="100%" height={FIXED_CHART_HEIGHT}>
@@ -458,11 +442,6 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                                   </ResponsiveContainer>
                                 );
                               } else {
-                                // console.log('[DetailedDistributionModal] Histogram not shown. Details:', {
-                                //   canShowDistributionPlots,
-                                //   histogramDataLength: histogramData?.length,
-                                //   isString: data?.metricConfig?.isString,
-                                // });
                                 return (
                                   <div className="flex items-center justify-center h-full text-muted-foreground text-sm" style={{height: `${FIXED_CHART_HEIGHT}px`}}>
                                       {metricConfig.isString ? "Histogram not applicable for textual data." : "Not enough data or variation for histogram."}
@@ -476,11 +455,6 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                           <div ref={violinPlotChartRef} className="w-full bg-card">
                            {(() => {
                               const showViolin = canShowDistributionPlots && violinPlotDataForArea && violinPlotDataForArea.length > 0 && boxPlotStats;
-                              // const currentShowViolinLog = `[DetailedDistributionModal] Show Violin condition (boolean): ${!!showViolin}`;
-                              // if (console.log && (console.log as any).lastLog !== currentShowViolinLog) {
-                              //   console.log(currentShowViolinLog);
-                              //   (console.log as any).lastLog = currentShowViolinLog;
-                              // }
                               
                               if (showViolin) {
                                 return (
@@ -590,13 +564,6 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                                   </ResponsiveContainer>
                                 );
                               } else {
-                                // console.log('[DetailedDistributionModal] Violin Plot not shown. Details:', {
-                                //   canShowDistributionPlots,
-                                //   violinPlotDataForAreaExists: !!violinPlotDataForArea,
-                                //   violinPlotDataLength: violinPlotDataForArea?.length,
-                                //   boxPlotStatsExists: !!boxPlotStats,
-                                //   isString: data?.metricConfig?.isString,
-                                // });
                                  return (
                                   <div className="flex items-center justify-center h-full text-muted-foreground text-sm" style={{height: `${FIXED_CHART_HEIGHT}px`}}>
                                       {metricConfig.isString ? "Violin plot not applicable for textual data." : "Not enough data or variation for violin plot."}
@@ -611,13 +578,12 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
             </Card>
         </div>
 
-        {/* This div is the flex child that should grow and allow its ScrollArea child to scroll */}
-        <div className="flex-grow mt-2 flex flex-col min-h-0"> {/* Removed overflow-hidden */}
+        {/* Section for Raw Data Table */}
+        <div className="mt-2 flex flex-col"> {/* Removed flex-grow, min-h-0 */}
           <h4 className="text-md font-semibold mb-2 text-muted-foreground flex-shrink-0">
             Contributing Raw Data Points ({rawPoints.length} points):
           </h4>
-          {/* ScrollArea should now grow within its parent's bounded height */}
-          <ScrollArea className="border rounded-md flex-grow"> 
+          <ScrollArea className="h-[300px] border rounded-md"> {/* Fixed height for ScrollArea */}
             <Table>
               <TableHeader className="sticky top-0 bg-background z-10">
                 <TableRow>
@@ -669,5 +635,6 @@ export default DetailedDistributionModal;
 
 
     
+
 
 
