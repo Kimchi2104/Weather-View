@@ -18,7 +18,9 @@ import { startOfDay, endOfDay, isWithinInterval } from 'date-fns';
 const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
   temperature: { name: 'Temperature', unit: '°C', Icon: Thermometer, color: 'hsl(var(--chart-1))', healthyMin: 0, healthyMax: 35 },
   humidity: { name: 'Humidity', unit: '%', Icon: Droplets, color: 'hsl(var(--chart-2))', healthyMin: 30, healthyMax: 70 },
-  precipitation: { name: 'Precipitation', unit: '', Icon: CloudRain, color: 'hsl(var(--chart-3))', isString: true },
+  precipitation: { name: 'Precipitation Status', unit: '', Icon: CloudRain, color: 'hsl(var(--chart-3))', isString: true }, // For textual status
+  rainAnalog: { name: 'Rain Analog', unit: '', Icon: CloudRain, color: 'hsl(var(--chart-3))' }, // Raw value, no unit in card
+  precipitationIntensity: { name: 'Precip. Intensity', unit: '%', Icon: CloudRain, color: 'hsl(var(--chart-3))', healthyMin: 0, healthyMax: 70 }, // 0-100%
   airQuality: { name: 'Air Quality', unit: '', Icon: ShieldCheck, color: 'hsl(var(--chart-4))', isString: true },
   aqiPpm: { name: 'AQI (ppm)', unit: 'ppm', Icon: Wind, color: 'hsl(var(--chart-5))', healthyMin: 0, healthyMax: 300 },
   lux: { name: 'Light Level', unit: 'lux', Icon: SunDim, color: 'hsl(30, 80%, 55%)' },
@@ -147,19 +149,12 @@ const RealtimeDataSection: FC = () => {
             const currentMetricData: DailyMetricTrend = { latest: null };
 
             if (latestRecord) {
-                 if (key === 'aqiPpm') currentMetricData.latest = latestRecord.aqiPpm;
-                 else if (key === 'airQuality') currentMetricData.latest = latestRecord.airQuality;
-                 else if (key === 'sunriseSunset') currentMetricData.latest = latestRecord.sunriseSunset ?? (latestRecord.lux > 0 ? "Sunrise" : "Sunset");
-                 else currentMetricData.latest = latestRecord[key as Exclude<MetricKey, 'aqiPpm' | 'airQuality' | 'sunriseSunset'>];
+                 currentMetricData.latest = latestRecord[key];
             }
 
             if (!config.isString && todayRecords.length > 0) {
-              const numericValues = todayRecords.map(p => {
-                if (key === 'aqiPpm') return p.aqiPpm;
-                if (key === 'pressure' && p.pressure === undefined) return undefined; // Explicitly handle optional pressure
-                const val = p[key as Exclude<MetricKey, 'aqiPpm' | 'airQuality' | 'precipitation' | 'pressure' | 'sunriseSunset'>];
-                return typeof val === 'number' ? val : (key === 'pressure' && typeof p.pressure === 'number' ? p.pressure : undefined);
-              }).filter((v): v is number => typeof v === 'number');
+              const numericValues = todayRecords.map(p => p[key] as number)
+                .filter((v): v is number => typeof v === 'number' && isFinite(v));
 
 
               if (numericValues.length > 0) {
@@ -170,7 +165,7 @@ const RealtimeDataSection: FC = () => {
 
               currentMetricData.sparklineData = todayRecords.map(p => ({
                 timestamp: p.timestamp,
-                value: (key === 'aqiPpm') ? p.aqiPpm : (key === 'pressure') ? p.pressure : p[key as Exclude<MetricKey, 'aqiPpm' | 'airQuality' | 'precipitation' | 'sunriseSunset' | 'pressure'>] as number | undefined,
+                value: p[key] as number | undefined,
               }));
             }
             newProcessedData[key] = currentMetricData;
@@ -195,9 +190,9 @@ const RealtimeDataSection: FC = () => {
     };
   }, [firebaseDataPath]);
 
-  const individualMetricsOrder: MetricKey[] = ['temperature', 'humidity', 'aqiPpm', 'lux', 'pressure'];
+  const individualMetricsOrder: MetricKey[] = ['temperature', 'humidity', 'precipitationIntensity', 'rainAnalog', 'aqiPpm', 'lux', 'pressure'];
 
-  const precipitationLatest = processedData.precipitation?.latest ?? null;
+  const precipitationLatest = processedData.precipitation?.latest ?? null; // This is 'precipitation' (string status)
   const airQualityLatest = processedData.airQuality?.latest ?? null;
   const sunriseSunsetLatest = processedData.sunriseSunset?.latest ?? null;
 
@@ -295,3 +290,4 @@ const RealtimeDataSection: FC = () => {
 };
 
 export default RealtimeDataSection;
+

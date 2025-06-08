@@ -29,6 +29,7 @@ interface RawDataTableRow extends RawFirebaseDataPoint {
   id: string; // Firebase key
   parsedTimestamp: number | null; // For filtering
   sunriseSunset?: string; // Derived
+  precipitationIntensity?: number; // Calculated
 }
 
 const RawDataViewer: FC = () => {
@@ -48,11 +49,13 @@ const RawDataViewer: FC = () => {
 
   const firebaseDataPath = 'devices/TGkMhLL4k4ZFBwgOyRVNKe5mTQq1/records/';
 
-  const tableHeaders: { key: keyof RawFirebaseDataPoint | 'timestamp' | 'sunriseSunset'; label: string }[] = [
+  const tableHeaders: { key: keyof RawFirebaseDataPoint | 'timestamp' | 'sunriseSunset' | 'precipitationIntensity'; label: string }[] = [
     { key: 'timestamp', label: 'Timestamp (Raw)' },
     { key: 'temperature', label: 'Temp (°C)' },
     { key: 'humidity', label: 'Humidity (%)' },
     { key: 'rainStatus', label: 'Rain Status' },
+    { key: 'rainAnalog', label: 'Rain Analog' },
+    { key: 'precipitationIntensity', label: 'Precip. Intensity (%)' },
     { key: 'airQuality', label: 'Air Quality' },
     { key: 'mq135PPM', label: 'AQI (PPM)' },
     { key: 'lux', label: 'Light (Lux)' },
@@ -80,12 +83,19 @@ const RawDataViewer: FC = () => {
         const processedData: RawDataTableRow[] = recordsArray
           .map(([key, rawPoint]) => {
             const luxVal = typeof rawPoint.lux === 'number' ? rawPoint.lux : 0;
-            const sunriseSunsetVal = luxVal > 0 ? "Sunrise" : "Sunset";
+            const sunriseSunsetVal = luxVal > 400 ? "Sunrise" : "Sunset"; // Adjusted threshold
+            const rainAnalogVal = typeof rawPoint.rainAnalog === 'number' ? rawPoint.rainAnalog : undefined;
+            let intensityVal: number | undefined = undefined;
+            if (rainAnalogVal !== undefined) {
+              intensityVal = Math.max(0, Math.min(100, ((4095 - rainAnalogVal) / 4095) * 100));
+            }
+
             return {
               ...rawPoint,
               id: key,
               parsedTimestamp: parseCustomTimestamp(rawPoint.timestamp),
               sunriseSunset: sunriseSunsetVal,
+              precipitationIntensity: intensityVal,
             };
           })
           .filter(item => item.parsedTimestamp !== null)
@@ -173,6 +183,7 @@ const RawDataViewer: FC = () => {
       row.id,
       ...tableHeaders.map(header => {
         if (header.key === 'sunriseSunset') return row.sunriseSunset ?? 'N/A';
+        if (header.key === 'precipitationIntensity') return row.precipitationIntensity?.toFixed(1) ?? 'N/A';
         return String(row[header.key as keyof RawFirebaseDataPoint] ?? 'N/A');
       })
     ]);
@@ -196,7 +207,10 @@ const RawDataViewer: FC = () => {
         let value;
         if (header.key === 'sunriseSunset') {
           value = row.sunriseSunset ?? 'N/A';
-        } else {
+        } else if (header.key === 'precipitationIntensity') {
+          value = row.precipitationIntensity?.toFixed(1) ?? 'N/A';
+        }
+         else {
           value = String(row[header.key as keyof RawFirebaseDataPoint] ?? 'N/A');
         }
         txtContent += `${header.label}: ${value}\n`;
@@ -226,11 +240,14 @@ const RawDataViewer: FC = () => {
       xmlContent += '  <record>\n';
       xmlContent += `    <id>${escapeXml(row.id)}</id>\n`;
       tableHeaders.forEach(header => {
-        const key = header.label.replace(/\s+/g, '').replace(/[^a-zA-Z0-9_]/g, '_'); 
+        const key = header.label.replace(/\s+/g, '').replace(/[^a-zA-Z0-9_]/g, '_');
         let value;
         if (header.key === 'sunriseSunset') {
           value = row.sunriseSunset ?? 'N/A';
-        } else {
+        } else if (header.key === 'precipitationIntensity') {
+          value = row.precipitationIntensity?.toFixed(1) ?? 'N/A';
+        }
+         else {
           value = String(row[header.key as keyof RawFirebaseDataPoint] ?? 'N/A');
         }
         xmlContent += `    <${key}>${escapeXml(value)}</${key}>\n`;
@@ -332,6 +349,8 @@ const RawDataViewer: FC = () => {
                         <TableCell key={`${row.id}-${header.key}`}>
                            {header.key === 'sunriseSunset'
                             ? row.sunriseSunset ?? 'N/A'
+                            : header.key === 'precipitationIntensity'
+                            ? (row.precipitationIntensity?.toFixed(1) ?? 'N/A')
                             : String(row[header.key as keyof RawFirebaseDataPoint] ?? 'N/A')}
                         </TableCell>
                       ))}

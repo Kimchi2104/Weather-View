@@ -81,6 +81,15 @@ export function transformRawDataToWeatherDataPoint(rawData: RawFirebaseDataPoint
   const aqiPpmValue = parseNumeric(rawData.mq135PPM);
 
   const pressureValue = parseNumeric(rawData.pressure);
+  const rainAnalogValue = parseNumeric(rawData.rainAnalog);
+
+  let precipitationIntensityValue: number | undefined = undefined;
+  if (rainAnalogValue !== undefined) {
+    // 4095 is no rain (0 intensity), 0 is max rain (100 intensity)
+    precipitationIntensityValue = ((4095 - rainAnalogValue) / 4095) * 100;
+    precipitationIntensityValue = Math.max(0, Math.min(100, precipitationIntensityValue)); // Clamp between 0 and 100
+  }
+
 
   const finalTemperature = temperatureValue === undefined ? 0 : temperatureValue;
   const finalHumidity = humidityValue === undefined ? 0 : humidityValue;
@@ -95,11 +104,13 @@ export function transformRawDataToWeatherDataPoint(rawData: RawFirebaseDataPoint
     rawTimestampString: rawData.timestamp,
     temperature: finalTemperature,
     humidity: finalHumidity,
-    precipitation: precipitationValue,
+    precipitation: precipitationValue, // This is the string status like "No Rain"
     airQuality: airQualityStringValue,
     aqiPpm: finalAqiPpm,
     lux: finalLux,
     sunriseSunset: sunriseSunsetStatus,
+    rainAnalog: rainAnalogValue,
+    precipitationIntensity: precipitationIntensityValue,
     ...(pressureValue !== undefined && { pressure: pressureValue }),
   };
 
@@ -188,3 +199,4 @@ export function calculateDayNightPeriods(
 
     return periods;
 }
+

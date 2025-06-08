@@ -10,13 +10,16 @@ interface MetricIconProps extends Omit<LucideProps, 'color'> {
 }
 
 const iconMap: Record<MetricKey | 'alert' | 'unknown', React.ElementType> = {
-  precipitation: CloudRain,
+  precipitation: CloudRain, // String status
   temperature: Thermometer,
   humidity: Droplets,
   lux: SunDim,
   airQuality: ShieldCheck, // Icon for string-based "Safe Air" etc.
   aqiPpm: Wind, // Icon for numerical PPM AQI
   pressure: Gauge,
+  sunriseSunset: SunDim, // Or a dynamic icon based on value
+  rainAnalog: CloudRain, // Can use the same icon
+  precipitationIntensity: CloudRain, // Can use the same icon
   alert: AlertTriangle,
   unknown: HelpCircle,
 };

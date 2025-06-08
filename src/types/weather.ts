@@ -2,7 +2,7 @@
 export interface WeatherDataPoint {
   timestamp: number; // Unix timestamp (milliseconds)
   rawTimestampString?: string; // Original timestamp string from Firebase
-  precipitation: string; // e.g., "No Rain", "Rain"
+  precipitation: string; // e.g., "No Rain", "Rain" - derived from rainStatus
   temperature: number; // °C
   humidity: number; // %
   lux: number; // lux
@@ -10,6 +10,8 @@ export interface WeatherDataPoint {
   aqiPpm: number; // Air Quality Index from MQ135, in PPM, from rawData.mq135PPM
   pressure?: number; // hPa
   sunriseSunset?: string; // "Sunrise" or "Sunset"
+  rainAnalog?: number; // Raw analog value for rain sensor
+  precipitationIntensity?: number; // Calculated percentage of precipitation intensity
   // Allow dynamic metric keys for aggregated data if needed
   [key: string]: any;
 }
@@ -21,11 +23,12 @@ export interface RawFirebaseDataPoint {
   lux?: number;
   mq135PPM?: number;
   pressure?: number;
-  rainAnalog?: number;
+  rainAnalog?: number; // Added raw rain analog value
   rainStatus?: string;
   temperature?: number;
   timestamp?: string;
   sunriseSunset?: string; // Derived for RawDataViewer
+  precipitationIntensity?: number; // Added for RawDataViewer
   [key: string]: any;
 }
 
@@ -38,7 +41,7 @@ export interface RealtimeData {
   [key: string]: WeatherDataPoint;
 }
 
-export type MetricKey = 'temperature' | 'humidity' | 'precipitation' | 'lux' | 'airQuality' | 'aqiPpm' | 'pressure' | 'sunriseSunset';
+export type MetricKey = 'temperature' | 'humidity' | 'precipitation' | 'lux' | 'airQuality' | 'aqiPpm' | 'pressure' | 'sunriseSunset' | 'rainAnalog' | 'precipitationIntensity';
 
 export interface MetricConfig {
   name: string;
@@ -90,3 +93,4 @@ export interface AggregatedDurationData {
   dayPeriodsCount: number;
   nightPeriodsCount: number;
 }
+

@@ -35,13 +35,17 @@ const HISTORICAL_AVAILABLE_METRICS: { key: MetricKey; name: string }[] = [
   { key: 'aqiPpm', name: 'AQI (ppm)' },
   { key: 'lux', name: 'Light (Lux)' },
   { key: 'pressure', name: 'Pressure' },
+  { key: 'rainAnalog', name: 'Rain Analog (Raw)' },
+  { key: 'precipitationIntensity', name: 'Precip. Intensity (%)' },
   { key: 'sunriseSunset', name: 'Day/Night' },
 ];
 
 const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
   temperature: { name: 'Temperature', unit: '°C', Icon: Thermometer, color: 'hsl(var(--chart-1))', healthyMin: 0, healthyMax: 35 },
   humidity: { name: 'Humidity', unit: '%', Icon: Droplets, color: 'hsl(var(--chart-2))', healthyMin: 30, healthyMax: 70 },
-  precipitation: { name: 'Precipitation', unit: '', Icon: CloudRain, color: 'hsl(var(--chart-3))', isString: true },
+  precipitation: { name: 'Precipitation Status', unit: '', Icon: CloudRain, color: 'hsl(var(--chart-3))', isString: true }, // Textual status
+  rainAnalog: { name: 'Rain Analog', unit: 'raw', Icon: CloudRain, color: 'hsl(200, 70%, 60%)' },
+  precipitationIntensity: { name: 'Precip. Intensity', unit: '%', Icon: CloudRain, color: 'hsl(220, 80%, 70%)', healthyMin: 0, healthyMax: 10 }, // Low intensity is good
   airQuality: { name: 'Air Quality', unit: '', Icon: ShieldCheck, color: 'hsl(var(--chart-4))', isString: true },
   aqiPpm: { name: 'AQI (ppm)', unit: 'ppm', Icon: Wind, color: 'hsl(var(--chart-5))', healthyMin: 0, healthyMax: 300 },
   lux: { name: 'Light Level', unit: 'lux', Icon: SunDim, color: 'hsl(30, 80%, 55%)' },
@@ -260,7 +264,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           timestamp: firstPointDate.getTime(),
           timestampDisplay: '',
           aggregationPeriod: currentAggregationPeriod,
-          rawPointsInGroup: pointsInGroup, 
+          rawPointsInGroup: pointsInGroup,
         };
 
         if (currentAggregationPeriod === 'hourly') {
@@ -558,3 +562,4 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
 };
 
 export default HistoricalDataSection;
+

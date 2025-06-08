@@ -40,11 +40,21 @@ const RealtimeDataCard: FC<RealtimeDataCardProps> = ({
   lineColor,
 }) => {
   const isAlerting =
-    !isString && 
+    !isString &&
     typeof value === 'number' &&
     value !== null &&
     ((healthyMin !== undefined && value < healthyMin) ||
      (healthyMax !== undefined && value > healthyMax));
+
+  let displayValue: string | number | null = value;
+  if (typeof value === 'number' && !isString) {
+    if (metricKey === 'aqiPpm' || metricKey === 'rainAnalog') {
+      displayValue = value.toFixed(0);
+    } else {
+      displayValue = value.toFixed(1);
+    }
+  }
+
 
   return (
     <Card className={`shadow-lg transition-all duration-300 flex flex-col ${isAlerting ? 'border-destructive bg-destructive/10' : ''}`}>
@@ -62,7 +72,7 @@ const RealtimeDataCard: FC<RealtimeDataCardProps> = ({
           ) : value !== null && value !== undefined ? (
             <>
               <div className={`text-2xl font-bold ${isAlerting ? 'text-destructive' : ''}`}>
-                {typeof value === 'number' && !isString ? value.toFixed(metricKey === 'aqiPpm' ? 0 : 1) : value}
+                {displayValue}
                 {unit && <span className="text-sm font-normal"> {unit}</span>}
               </div>
               {isAlerting && typeof value === 'number' && (
