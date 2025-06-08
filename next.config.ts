@@ -1,3 +1,4 @@
+
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
@@ -18,11 +19,24 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  experimental: {
-    allowedDevOrigins: [
-        "https://9003-firebase-studio-1748936635700.cluster-ys234awlzbhwoxmkkse6qo3fz6.cloudworkstations.dev"
-    ]
-  }
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'Permissions-Policy',
+            // Set a policy that omits 'browsing-topics'.
+            // Add other features your app might need, e.g., geolocation=(self)
+            value: 'camera=(), microphone=(), geolocation=(), payment=()',
+          },
+        ],
+      },
+    ];
+  },
+  allowedDevOrigins: [
+      "https://9003-firebase-studio-1748936635700.cluster-ys234awlzbhwoxmkkse6qo3fz6.cloudworkstations.dev"
+  ]
 };
 
 export default nextConfig;
