@@ -9,7 +9,7 @@ import { database } from '@/lib/firebase';
 import { ref, onValue, type Unsubscribe } from "firebase/database";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge, ShieldCheck, Sun, HelpCircle, CloudSun, CloudFog, Moon } from 'lucide-react'; // Added Moon
+import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge, ShieldCheck, Sun, HelpCircle, CloudSun, CloudFog, Moon, Waves } from 'lucide-react'; // Added Waves
 import { Button } from '@/components/ui/button';
 import { useTheme } from 'next-themes';
 import { transformRawDataToWeatherDataPoint } from '@/lib/utils';
@@ -19,7 +19,7 @@ const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
   temperature: { name: 'Temperature', unit: '°C', Icon: Thermometer, color: 'hsl(var(--chart-1))', healthyMin: 0, healthyMax: 35 },
   humidity: { name: 'Humidity', unit: '%', Icon: Droplets, color: 'hsl(var(--chart-2))', healthyMin: 30, healthyMax: 70 },
   precipitation: { name: 'Precipitation Status', unit: '', Icon: CloudRain, color: 'hsl(var(--chart-3))', isString: true }, // For textual status
-  rainAnalog: { name: 'Rain Analog', unit: '', Icon: CloudRain, color: 'hsl(var(--chart-3))' }, // Raw value, no unit in card
+  rainAnalog: { name: 'Rain Analog', unit: '', Icon: Waves, color: 'hsl(var(--chart-3))' }, // Raw value, no unit in card, updated Icon
   precipitationIntensity: { name: 'Precip. Intensity', unit: '%', Icon: CloudRain, color: 'hsl(var(--chart-3))', healthyMin: 0, healthyMax: 70 }, // 0-100%
   airQuality: { name: 'Air Quality', unit: '', Icon: ShieldCheck, color: 'hsl(var(--chart-4))', isString: true },
   aqiPpm: { name: 'AQI (ppm)', unit: 'ppm', Icon: Wind, color: 'hsl(var(--chart-5))', healthyMin: 0, healthyMax: 300 },
