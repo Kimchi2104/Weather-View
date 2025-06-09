@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { FC } from 'react';
@@ -13,7 +12,6 @@ import { database } from '@/lib/firebase';
 import { ref, get, type DataSnapshot } from "firebase/database";
 import type { RawFirebaseDataPoint } from '@/types/weather';
 import { parseCustomTimestamp } from '@/lib/utils';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   DropdownMenu,
@@ -83,7 +81,7 @@ const RawDataViewer: FC = () => {
         const processedData: RawDataTableRow[] = recordsArray
           .map(([key, rawPoint]) => {
             const luxVal = typeof rawPoint.lux === 'number' ? rawPoint.lux : 0;
-            const sunriseSunsetVal = luxVal > 400 ? "Sunrise" : "Sunset"; // Adjusted threshold
+            const sunriseSunsetVal = luxVal > 400 ? "Sunrise" : "Sunset";
             const rainAnalogVal = typeof rawPoint.rainAnalog === 'number' ? rawPoint.rainAnalog : undefined;
             let intensityVal: number | undefined = undefined;
             if (rainAnalogVal !== undefined) {
@@ -142,8 +140,6 @@ const RawDataViewer: FC = () => {
       endH, endM, 59, 999
     );
 
-    console.log(`[RawDataViewer] Filtering data for UTC datetime range: ${new Date(fromTimestamp).toISOString()} to ${new Date(toTimestamp).toISOString()}`);
-
     const filtered = allFetchedRawData.filter(point => {
       if (point.parsedTimestamp === null) return false;
       return point.parsedTimestamp >= fromTimestamp && point.parsedTimestamp <= toTimestamp;
@@ -179,18 +175,22 @@ const RawDataViewer: FC = () => {
   const exportToCSV = () => {
     if (displayedData.length === 0) return;
     const headers = ['ID', ...tableHeaders.map(h => h.label)];
-    const rows = displayedData.map(row => [
-      row.id,
-      ...tableHeaders.map(header => {
-        if (header.key === 'sunriseSunset') return row.sunriseSunset ?? 'N/A';
-        if (header.key === 'precipitationIntensity') return row.precipitationIntensity?.toFixed(1) ?? 'N/A';
-        return String(row[header.key as keyof RawFirebaseDataPoint] ?? 'N/A');
-      })
-    ]);
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(r => r.join(','))
-    ].join('\n');
+    const rows = displayedData.map(row => {
+      const idCell = `"${String(row.id).replace(/"/g, '""')}"`;
+      const otherCells = tableHeaders.map(header => {
+        let value;
+        if (header.key === 'sunriseSunset') {
+          value = row.sunriseSunset ?? 'N/A';
+        } else if (header.key === 'precipitationIntensity') {
+          value = row.precipitationIntensity?.toFixed(1) ?? 'N/A';
+        } else {
+          value = String(row[header.key as keyof RawFirebaseDataPoint] ?? 'N/A');
+        }
+        return `"${String(value).replace(/"/g, '""')}"`;
+      });
+      return [idCell, ...otherCells].join(',');
+    });
+    const csvContent = [headers.join(','), ...rows].join('\n');
     triggerDownload(csvContent, generateFilename('csv'), 'text/csv;charset=utf-8;');
   };
 
@@ -199,7 +199,6 @@ const RawDataViewer: FC = () => {
     let txtContent = `Raw Data Export - ${formatDateFns(new Date(), 'yyyy-MM-dd HH:mm:ss')}\n`;
     txtContent += `Date Range: ${dateRange?.from ? formatDateFns(dateRange.from, 'yyyy-MM-dd') : 'N/A'} ${startTime} to ${dateRange?.to ? formatDateFns(dateRange.to, 'yyyy-MM-dd') : 'N/A'} ${endTime}\n`;
     txtContent += `Total Records: ${displayedData.length}\n\n`;
-
     displayedData.forEach((row, index) => {
       txtContent += `Record ${index + 1}\n`;
       txtContent += `ID: ${row.id}\n`;
@@ -209,8 +208,7 @@ const RawDataViewer: FC = () => {
           value = row.sunriseSunset ?? 'N/A';
         } else if (header.key === 'precipitationIntensity') {
           value = row.precipitationIntensity?.toFixed(1) ?? 'N/A';
-        }
-         else {
+        } else {
           value = String(row[header.key as keyof RawFirebaseDataPoint] ?? 'N/A');
         }
         txtContent += `${header.label}: ${value}\n`;
@@ -223,11 +221,12 @@ const RawDataViewer: FC = () => {
   const escapeXml = (unsafe: string): string => {
     return unsafe.replace(/[<>&'"]/g, (c) => {
       switch (c) {
-        case '<': return '&lt;';
-        case '>': return '&gt;';
-        case '&': return '&amp;';
-        case '\'': return '&apos;';
-        case '"': return '&quot;';
+        case '<': return '<';
+        case '>': return '>';
+        case '&': return '&';
+        case "'": return ''; 
+        // <-- THIS IS THE CORRECTED LINE
+        case '"': return '"';
         default: return c;
       }
     });
@@ -246,8 +245,7 @@ const RawDataViewer: FC = () => {
           value = row.sunriseSunset ?? 'N/A';
         } else if (header.key === 'precipitationIntensity') {
           value = row.precipitationIntensity?.toFixed(1) ?? 'N/A';
-        }
-         else {
+        } else {
           value = String(row[header.key as keyof RawFirebaseDataPoint] ?? 'N/A');
         }
         xmlContent += `    <${key}>${escapeXml(value)}</${key}>\n`;
@@ -257,7 +255,6 @@ const RawDataViewer: FC = () => {
     xmlContent += '</records>';
     triggerDownload(xmlContent, generateFilename('xml'), 'application/xml;charset=utf-8;');
   };
-
 
   return (
     <section className="mb-8">
@@ -331,34 +328,34 @@ const RawDataViewer: FC = () => {
               <Skeleton className="h-8 w-full opacity-25" />
             </div>
           ) : displayedData.length > 0 ? (
-            <ScrollArea className="h-[400px] w-full border rounded-md">
+            <div className="relative h-[400px] w-full overflow-auto border rounded-md">
               <Table>
                 <TableHeader className="sticky top-0 bg-card z-10">
                   <TableRow>
                     <TableHead>ID (Firebase Key)</TableHead>
-                    {tableHeaders.map((header) => (
+                    {tableHeaders.map(header => (
                       <TableHead key={header.key}>{header.label}</TableHead>
                     ))}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {displayedData.map((row) => (
+                  {displayedData.map(row => (
                     <TableRow key={row.id}>
                       <TableCell className="font-mono text-xs">{row.id}</TableCell>
                       {tableHeaders.map(header => (
                         <TableCell key={`${row.id}-${header.key}`}>
-                           {header.key === 'sunriseSunset'
+                          {header.key === 'sunriseSunset'
                             ? row.sunriseSunset ?? 'N/A'
                             : header.key === 'precipitationIntensity'
-                            ? (row.precipitationIntensity?.toFixed(1) ?? 'N/A')
-                            : String(row[header.key as keyof RawFirebaseDataPoint] ?? 'N/A')}
+                              ? row.precipitationIntensity?.toFixed(1) ?? 'N/A'
+                              : String(row[header.key as keyof RawFirebaseDataPoint] ?? 'N/A')}
                         </TableCell>
                       ))}
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
-            </ScrollArea>
+            </div>
           ) : (
             <p className="text-muted-foreground text-center py-8">
               {allFetchedRawData.length > 0 ? 'No data available for the selected date and time range.' : 'No data found at the Firebase path, or failed to load.'}
@@ -371,4 +368,3 @@ const RawDataViewer: FC = () => {
 };
 
 export default RawDataViewer;
-

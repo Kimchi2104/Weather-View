@@ -308,13 +308,10 @@ const AIForecastSection: FC<AIForecastSectionProps> = ({ initialDataForForecast 
               )}
             </Button>
           </CardFooter>
-        </div> {/* End of relative wrapper for overlay */}
+        </div>
       </Card>
     </section>
   );
 };
 
 export default AIForecastSection;
-    
-
-    

@@ -188,39 +188,26 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
         setSelectedChartType('scatter');
         setAggregationType('raw');
     } else {
-        // If 'bar' chart is selected with 'raw' aggregation AND some metrics are chosen,
-        // default aggregation to 'daily'. This prevents an invalid state for Bar charts.
         if (selectedChartType === 'bar' && aggregationType === 'raw' && newlySelectedKeys.length > 0) {
             setAggregationType('daily');
         }
-        // Otherwise, chart type and aggregation type remain as they were,
-        // allowing user to configure them if 'sunriseSunset' is not the sole selection.
     }
   };
 
 
   const handleChartTypeChange = (newChartType: ChartType) => {
     setSelectedChartType(newChartType);
-    // If switching to 'bar' chart and current aggregation is 'raw',
-    // and there are metrics selected (other than potentially 'sunriseSunset' which is handled above),
-    // default aggregation to 'daily'.
     if (newChartType === 'bar' && aggregationType === 'raw' && selectedMetrics.filter(m => m !== 'sunriseSunset').length > 0) {
       setAggregationType('daily');
     }
   };
 
   const handleAggregationTypeChange = (newAggregationType: ChartAggregationMode) => {
-    // If current chart is 'bar' and user tries to select 'raw' aggregation,
-    // prevent it if there are metrics selected (other than 'sunriseSunset').
-    // Instead, keep the current aggregation or default to 'daily'.
-    // 'sunriseSunset' has its own scatter/raw forced state.
     if (selectedChartType === 'bar' && newAggregationType === 'raw' && selectedMetrics.filter(m => m !== 'sunriseSunset').length > 0) {
-        // Silently keep current or default to 'daily'. For simplicity, let's keep current.
-        // Or, we could toast the user. For now, just don't update if invalid.
-        if (aggregationType !== 'raw') { // if current is not 'raw', allow change
-            setAggregationType(aggregationType); // effectively no-op or revert
+        if (aggregationType !== 'raw') { 
+            setAggregationType(aggregationType);
         } else {
-            setAggregationType('daily'); // default if current was raw
+            setAggregationType('daily');
         }
     } else {
         setAggregationType(newAggregationType);
@@ -265,6 +252,16 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           timestampDisplay: '',
           aggregationPeriod: currentAggregationPeriod,
           rawPointsInGroup: pointsInGroup,
+          precipitation: '',
+          temperature: 0,
+          humidity: 0,
+          lux: 0,
+          aqiPpm: 0,
+          pressure: 0,
+          rainAnalog: 0,
+          precipitationIntensity: 0,
+          sunriseSunset: '',
+          airQuality: '',
         };
 
         if (currentAggregationPeriod === 'hourly') {
@@ -277,7 +274,6 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
           aggregatedPoint.timestampDisplay = format(startOfMonth(firstPointDate), 'MMM yyyy');
         }
 
-        // Use all selectedMetrics for aggregation calculation logic
         (Object.keys(METRIC_CONFIGS) as MetricKey[]).forEach(metricKey => {
           const config = METRIC_CONFIGS[metricKey];
           if (config && !config.isString) {
@@ -289,9 +285,8 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
               (aggregatedPoint as any)[`${metricKey}_max`] = Math.max(...values);
               (aggregatedPoint as any)[`${metricKey}_stdDev`] = calculateStandardDeviation(values);
               (aggregatedPoint as any)[`${metricKey}_count`] = values.length;
-              // For the chart, only populate the primary metricKey if it's selected
               if (selectedMetrics.includes(metricKey)) {
-                aggregatedPoint[metricKey] = average;
+                (aggregatedPoint as any)[metricKey] = average;
               }
             } else {
               (aggregatedPoint as any)[`${metricKey}_avg`] = null;
@@ -300,12 +295,12 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
               (aggregatedPoint as any)[`${metricKey}_stdDev`] = 0;
               (aggregatedPoint as any)[`${metricKey}_count`] = 0;
               if (selectedMetrics.includes(metricKey)) {
-                aggregatedPoint[metricKey] = null;
+                (aggregatedPoint as any)[metricKey] = null;
               }
             }
-          } else if (config && config.isString && selectedMetrics.includes(metricKey)) { // Also check if selected
+          } else if (config && config.isString && selectedMetrics.includes(metricKey)) { 
              const firstValue = pointsInGroup[0]?.[metricKey];
-             aggregatedPoint[metricKey] = firstValue;
+             (aggregatedPoint as any)[metricKey] = firstValue;
             (aggregatedPoint as any)[`${metricKey}_avg`] = null;
             (aggregatedPoint as any)[`${metricKey}_min`] = null;
             (aggregatedPoint as any)[`${metricKey}_max`] = null;
@@ -490,8 +485,6 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
                     <Select
                     value={aggregationType}
                     onValueChange={(value) => handleAggregationTypeChange(value as ChartAggregationMode)}
-                    // Disable 'raw' for 'bar' chart if other metrics are selected.
-                    // 'sunriseSunset' selection handles this by forcing aggregationType itself.
                     disabled={selectedChartType === 'bar' && aggregationType === 'raw' && selectedMetrics.filter(m => m !== 'sunriseSunset').length > 0 }
                     >
                     <SelectTrigger id="aggregation-type-select" className="w-full sm:w-auto sm:min-w-[150px]">
@@ -562,4 +555,3 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
 };
 
 export default HistoricalDataSection;
-

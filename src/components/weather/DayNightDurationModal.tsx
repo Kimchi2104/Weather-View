@@ -36,6 +36,7 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { useTheme } from 'next-themes';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 
 type AggregationLevel = 'weekly' | 'monthly' | 'annually';
@@ -137,7 +138,7 @@ const DayNightDurationModal: FC<DayNightDurationModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Day/Night Duration Analysis</DialogTitle>
           <DialogDescription>
@@ -217,13 +218,13 @@ const DayNightDurationModal: FC<DayNightDurationModalProps> = ({
           </div>
         </div>
 
-        <div className="flex-grow overflow-hidden mt-2 flex flex-col">
+        <div className="mt-2 flex flex-col">
             <h4 className="text-md font-semibold mb-2 text-muted-foreground flex-shrink-0">
                 Aggregated Data
             </h4>
-            <div className="border rounded-md">
+            <ScrollArea className="h-[300px] border rounded-md">
                 <Table>
-                    <TableHeader>
+                    <TableHeader className="sticky top-0 bg-background z-10">
                         <TableRow>
                         <TableHead>Period</TableHead>
                         <TableHead>Avg. Day Duration</TableHead>
@@ -244,7 +245,7 @@ const DayNightDurationModal: FC<DayNightDurationModalProps> = ({
                         ))}
                     </TableBody>
                 </Table>
-            </div>
+            </ScrollArea>
         </div>
 
 

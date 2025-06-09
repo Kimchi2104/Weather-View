@@ -14,17 +14,22 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 interface DateRangePickerProps {
   onDateChange: (range: DateRange | undefined) => void;
   initialRange?: DateRange;
-  id?: string; // Added id to props
+  id?: string;
 }
 
 const DateRangePicker: FC<DateRangePickerProps & React.HTMLAttributes<HTMLDivElement>> = ({
   className,
   onDateChange,
   initialRange,
-  id, // Destructure id
+  id,
 }) => {
   const [date, setDate] = useState<DateRange | undefined>(initialRange);
   const [isOpen, setIsOpen] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     if (initialRange) {
@@ -40,12 +45,16 @@ const DateRangePicker: FC<DateRangePickerProps & React.HTMLAttributes<HTMLDivEle
     }
   };
 
+  if (!isMounted) {
+    return null;
+  }
+
   return (
     <div className={cn('grid gap-2', className)}>
       <Popover open={isOpen} onOpenChange={setIsOpen}>
         <PopoverTrigger asChild>
           <Button
-            id={id || 'date-range-picker-trigger'} // Use passed id or a default
+            id={id || 'date-range-picker-trigger'}
             variant={'outline'}
             className={cn(
               'w-full justify-start text-left font-normal',

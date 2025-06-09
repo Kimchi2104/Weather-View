@@ -214,9 +214,9 @@ html.aura-glass div[role="dialog"][data-state="open"],
 html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"],
 html.aura-glass [data-radix-tooltip-content]
 {
-  --foreground: 0 0% 99% !important;
-  --muted-foreground: 0 0% 85% !important;
-  --popover-foreground: 0 0% 99% !important;
+  --foreground: 220 40% 15% !important;
+  --muted-foreground: 220 30% 40% !important;
+  --popover-foreground: 220 40% 15% !important;
 }
 
 html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"] div[role="menuitem"] {
@@ -243,11 +243,11 @@ html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"] input[typ
 html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"] textarea,
 html.aura-glass [data-radix-tooltip-content] input[type="text"],
 html.aura-glass [data-radix-tooltip-content] textarea {
-  color: hsl(0 0% 99%) !important;
+  color: hsl(var(--foreground)) !important;
 }
 
 html.aura-glass div[role="dialog"][data-state="open"] input[type="color"] + input[type="text"] {
-    color: hsl(0 0% 99%) !important;
+    color: hsl(var(--foreground)) !important;
 }
 
 html.aura-glass div[role="dialog"][data-state="open"] input::placeholder,
@@ -256,7 +256,7 @@ html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"] input::pl
 html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"] textarea::placeholder,
 html.aura-glass [data-radix-tooltip-content] input::placeholder,
 html.aura-glass [data-radix-tooltip-content] textarea::placeholder {
-  color: hsl(0 0% 80%) !important;
+  color: hsl(220 30% 50%) !important;
   opacity: 0.7 !important;
 }
 
@@ -377,12 +377,12 @@ html.aura-glass .group[data-radix-collection-item][data-state="open"]:not(.destr
   backdrop-filter: blur(var(--popover-blur-value));
   border: 1px solid rgba(var(--popover-border-rgb), var(--popover-border-alpha)) !important;
   box-shadow: 0 4px 12px rgba(0,0,0,0.1), inset 0 0.5px 0px rgba(255,255,255,0.2);
-  color: hsl(0 0% 98%) !important;
+  color: hsl(var(--foreground)) !important;
 }
 
 html.aura-glass .group[data-radix-collection-item][data-state="open"]:not(.destructive) .text-sm.font-semibold,
 html.aura-glass .group[data-radix-collection-item][data-state="open"]:not(.destructive) .text-sm.opacity-90 {
-  color: hsl(0 0% 98%) !important;
+  color: hsl(var(--foreground)) !important;
 }
 html.aura-glass .group[data-radix-collection-item][data-state="open"]:not(.destructive) .text-sm.opacity-90 {
   opacity: 0.85 !important;
@@ -406,10 +406,10 @@ html.aura-glass .group[data-radix-collection-item][data-state="open"].destructiv
 }
 
 html.aura-glass .group[data-radix-collection-item][data-state="open"]:not(.destructive) button[toast-close] {
-  color: hsl(0 0% 98% / 0.7) !important;
+  color: hsl(var(--foreground) / 0.7) !important;
 }
 html.aura-glass .group[data-radix-collection-item][data-state="open"]:not(.destructive) button[toast-close]:hover {
-  color: hsl(0 0% 98%) !important;
+  color: hsl(var(--foreground)) !important;
 }
 
 html.aura-glass .group[data-radix-collection-item][data-state="open"].destructive button[toast-close] {
@@ -420,11 +420,11 @@ html.aura-glass .group[data-radix-collection-item][data-state="open"].destructiv
 }
 
 html.aura-glass .group[data-radix-collection-item][data-state="open"]:not(.destructive) .inline-flex.border.bg-transparent {
-  color: hsl(0 0% 98%) !important;
-  border-color: hsl(0 0% 98% / 0.4) !important;
+  color: hsl(var(--foreground)) !important;
+  border-color: hsl(var(--foreground) / 0.4) !important;
 }
 html.aura-glass .group[data-radix-collection-item][data-state="open"]:not(.destructive) .inline-flex.border.bg-transparent:hover {
-  background-color: hsl(0 0% 98% / 0.1) !important;
+  background-color: hsl(var(--foreground) / 0.1) !important;
 }
 
 html.aura-glass .group[data-radix-collection-item][data-state="open"].destructive .inline-flex.border {
