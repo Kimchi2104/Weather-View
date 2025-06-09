@@ -197,8 +197,7 @@ html.aura-glass .bg-card {
 }
 
 /* Specific Overlay Components (Popovers, Menus, Dialogs, Tooltips) for Aura Glass */
-html.aura-glass .bg-popover, /* For general popovers, also used by DropdownMenuContent by default */
-html.aura-glass div[role="dialog"][data-state="open"], /* For standalone Dialogs */
+html.aura-glass .bg-popover, /* For general popovers */
 html.aura-glass [data-radix-tooltip-content] /* For ShadCN Tooltip */
 {
   background-color: rgba(var(--popover-rgb), var(--popover-alpha)) !important;
@@ -208,8 +207,9 @@ html.aura-glass [data-radix-tooltip-content] /* For ShadCN Tooltip */
   box-shadow: 0 6px 16px rgba(0,0,0,0.07);
 }
 
-/* Ensure DropdownMenuContent specifically gets the popover-like glass effect */
-html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"] {
+/* Ensure DropdownMenuContent and DialogContent specifically get the popover-like glass effect */
+html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"],
+html.aura-glass div[role="dialog"][data-state="open"] {
   background-color: rgba(var(--popover-rgb), var(--popover-alpha)) !important;
   -webkit-backdrop-filter: blur(var(--popover-blur-value));
   backdrop-filter: blur(var(--popover-blur-value));
@@ -219,15 +219,14 @@ html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"] {
 
 
 /* Text color overrides for content WITHIN specific OVERLAY glass components */
-/* Switched to LIGHT text for better contrast if page gradient behind glass is dark */
 html.aura-glass div[role="dialog"][data-state="open"],
 html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"],
 html.aura-glass [data-radix-tooltip-content]
 {
   /* Force LIGHT text variables for elements inside these glass components */
-  --foreground: 0 0% 98% !important; /* Almost white */
-  --muted-foreground: 0 0% 80% !important; /* Light gray for muted text */
-  --popover-foreground: 0 0% 98% !important;
+  --foreground: 0 0% 99% !important; /* Brighter white */
+  --muted-foreground: 0 0% 85% !important; /* Brighter light gray for muted text */
+  --popover-foreground: 0 0% 99% !important; /* Brighter white for popover text */
 }
 
 /* Direct text color for DropdownMenuItem items in Aura Glass */
@@ -258,12 +257,12 @@ html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"] input[typ
 html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"] textarea,
 html.aura-glass [data-radix-tooltip-content] input[type="text"],
 html.aura-glass [data-radix-tooltip-content] textarea {
-  color: hsl(0 0% 98%) !important; /* Force very light text */
+  color: hsl(0 0% 99%) !important; /* Force very light text */
 }
 
 /* Specific text color for hex input next to color picker INSIDE specific OVERLAY glass components */
 html.aura-glass div[role="dialog"][data-state="open"] input[type="color"] + input[type="text"] {
-    color: hsl(0 0% 98%) !important; /* Force very light text */
+    color: hsl(0 0% 99%) !important; /* Force very light text */
 }
 
 /* Specific placeholder color for Inputs/Textareas INSIDE specific OVERLAY glass components */
@@ -273,7 +272,7 @@ html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"] input::pl
 html.aura-glass [data-radix-popper-content-wrapper] > div[role="menu"] textarea::placeholder,
 html.aura-glass [data-radix-tooltip-content] input::placeholder,
 html.aura-glass [data-radix-tooltip-content] textarea::placeholder {
-  color: hsl(0 0% 75%) !important; /* Force lighter muted text for placeholders */
+  color: hsl(0 0% 80%) !important; /* Force lighter muted text for placeholders */
   opacity: 0.7 !important;
 }
 
