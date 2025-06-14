@@ -1,4 +1,3 @@
-
 export interface WeatherDataPoint {
   timestamp: number; // Unix timestamp (milliseconds)
   rawTimestampString?: string; // Original timestamp string from Firebase
@@ -46,7 +45,7 @@ export type MetricKey = 'temperature' | 'humidity' | 'precipitation' | 'lux' | '
 export interface MetricConfig {
   name: string;
   unit: string;
-  Icon: React.ElementType;
+  Icon: React.ComponentType;
   color: string;
   healthyMin?: number;
   healthyMax?: number;
@@ -73,11 +72,7 @@ export interface DetailModalData {
   rawPoints: WeatherDataPoint[];
 }
 
-// ChartType used in HistoricalDataSection and WeatherChart
-// 'violin' is removed from main chart selection but modal might use scatter logic that was part of violin.
-// Keeping 'violin' in the type for now if WeatherChart itself still needs to handle it internally,
-// but it won't be user-selectable from the main dropdown.
-export type ChartType = 'line' | 'bar' | 'scatter' | 'violin';
+export type ChartType = 'line' | 'bar' | 'scatter';
 
 export interface DayNightPeriod {
   type: 'Day' | 'Night';
@@ -94,3 +89,4 @@ export interface AggregatedDurationData {
   nightPeriodsCount: number;
 }
 
+export type TrendLineType = 'none' | 'linear' | 'logarithmic' | 'exponential' | 'power' | 'polynomial' | 'movingAverage';

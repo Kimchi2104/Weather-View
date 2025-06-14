@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { FC } from 'react';
@@ -8,7 +7,7 @@ import DateRangePicker from './DateRangePicker';
 import DataSelector from './DataSelector';
 import type { DateRange } from 'react-day-picker';
 import { subDays, format, getISOWeek, getYear, startOfHour, endOfHour, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
-import type { WeatherDataPoint, MetricKey, MetricConfig, RawFirebaseDataPoint, AggregatedDataPoint, DetailModalData as DetailModalDataTypeFromType, ChartType, DayNightPeriod } from '@/types/weather';
+import type { WeatherDataPoint, MetricKey, MetricConfig, RawFirebaseDataPoint, AggregatedDataPoint, DetailModalData as DetailModalDataTypeFromType, ChartType, DayNightPeriod, TrendLineType } from '@/types/weather';
 import { database } from '@/lib/firebase';
 import { ref, get, type DataSnapshot } from "firebase/database";
 import { Label as ShadcnLabel } from '@/components/ui/label';
@@ -22,6 +21,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import DetailedDistributionModal from './DetailedDistributionModal';
 import DayNightDurationModal from './DayNightDurationModal';
 import { useTheme } from 'next-themes';
+import CVComparisonCard from './CVComparisonCard';
 
 
 const WeatherChart = dynamic(() => import('./WeatherChart'), {
@@ -87,6 +87,11 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
   const [selectedChartType, setSelectedChartType] = useState<ChartType>('line');
   const [aggregationType, setAggregationType] = useState<ChartAggregationMode>('raw');
   const [showMinMaxLines, setShowMinMaxLines] = useState<boolean>(false);
+
+  const [trendLineType, setTrendLineType] = useState<TrendLineType>('none');
+  const [polynomialOrder, setPolynomialOrder] = useState(2);
+  const [movingAveragePeriod, setMovingAveragePeriod] = useState(7);
+
 
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [detailModalData, setDetailModalData] = useState<DetailModalDataTypeFromType | null>(null);
@@ -280,10 +285,12 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
             const values = pointsInGroup.map(p => p[metricKey] as number).filter(v => typeof v === 'number' && isFinite(v));
             if (values.length > 0) {
               const average = values.reduce((sum, val) => sum + val, 0) / values.length;
+              const stdDev = calculateStandardDeviation(values);
+
               (aggregatedPoint as any)[`${metricKey}_avg`] = average;
               (aggregatedPoint as any)[`${metricKey}_min`] = Math.min(...values);
               (aggregatedPoint as any)[`${metricKey}_max`] = Math.max(...values);
-              (aggregatedPoint as any)[`${metricKey}_stdDev`] = calculateStandardDeviation(values);
+              (aggregatedPoint as any)[`${metricKey}_stdDev`] = stdDev;
               (aggregatedPoint as any)[`${metricKey}_count`] = values.length;
               if (selectedMetrics.includes(metricKey)) {
                 (aggregatedPoint as any)[metricKey] = average;
@@ -402,6 +409,36 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
         return;
     }
   };
+  
+  const cvDataForCard = useMemo(() => {
+    if (!displayedData || displayedData.length < 2) return [];
+
+    const numericMetrics = selectedMetrics.filter(key => {
+        const config = METRIC_CONFIGS[key];
+        return config && !config.isString;
+    });
+
+    return numericMetrics
+      .map(metricKey => {
+        const config = METRIC_CONFIGS[metricKey];
+        const values = displayedData
+            .map(p => p[metricKey] as number)
+            .filter(v => typeof v === 'number' && isFinite(v));
+
+        if (values.length < 2) return null;
+
+        const mean = values.reduce((a, b) => a + b, 0) / values.length;
+        const stdDev = calculateStandardDeviation(values);
+        const cv = mean > 0 ? (stdDev / mean) * 100 : null;
+        
+        return {
+          metricName: config.name,
+          cv,
+        };
+      })
+      .filter((item): item is { metricName: string; cv: number | null } => item !== null);
+  }, [displayedData, selectedMetrics]);
+
 
   const handleDayNightAnalysisClick = () => {
       const periods = calculateDayNightPeriods(chartData as WeatherDataPoint[]);
@@ -465,11 +502,11 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
               </div>
           )}
           {showChartConfigSelectors && (
-            <div className="mt-4 flex flex-col sm:flex-row items-end gap-4">
+            <div className="mt-4 flex flex-wrap items-end gap-4">
                 <div>
                 <ShadcnLabel htmlFor="chart-type-select" className="text-sm font-medium text-muted-foreground mb-1 block">Chart Type:</ShadcnLabel>
                 <Select value={selectedChartType} onValueChange={(value) => handleChartTypeChange(value as ChartType)}>
-                    <SelectTrigger id="chart-type-select" className="w-full sm:w-auto sm:min-w-[150px]">
+                    <SelectTrigger id="chart-type-select" className="w-[150px]">
                     <SelectValue placeholder="Select chart type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -487,7 +524,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
                     onValueChange={(value) => handleAggregationTypeChange(value as ChartAggregationMode)}
                     disabled={selectedChartType === 'bar' && aggregationType === 'raw' && selectedMetrics.filter(m => m !== 'sunriseSunset').length > 0 }
                     >
-                    <SelectTrigger id="aggregation-type-select" className="w-full sm:w-auto sm:min-w-[150px]">
+                    <SelectTrigger id="aggregation-type-select" className="w-[150px]">
                         <SelectValue placeholder="Select aggregation" />
                     </SelectTrigger>
                     <SelectContent>
@@ -501,7 +538,7 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
                 </div>
                 )}
                 {selectedChartType === 'line' && (
-                <div className="flex items-center space-x-2 mt-2 sm:mt-0 sm:self-end pb-1">
+                <div className="flex items-center space-x-2 pb-1">
                     <Checkbox
                     id="show-min-max-lines"
                     checked={showMinMaxLines}
@@ -514,6 +551,39 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
                     >
                     Show Min/Max Lines
                     </ShadcnLabel>
+                </div>
+                )}
+                {(selectedChartType === 'line' || selectedChartType === 'bar' || selectedChartType === 'scatter') && (
+                <div className="flex items-end gap-2">
+                    <div>
+                        <ShadcnLabel htmlFor="trend-type-select" className="text-sm font-medium text-muted-foreground mb-1 block">Trend Line:</ShadcnLabel>
+                        <Select value={trendLineType} onValueChange={(value) => setTrendLineType(value as TrendLineType)} disabled={selectedMetrics.length === 0 || (selectedMetrics.length === 1 && selectedMetrics[0] === 'sunriseSunset')}>
+                            <SelectTrigger id="trend-type-select" className="w-[150px]">
+                                <SelectValue placeholder="Select trend type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="none">None</SelectItem>
+                                <SelectItem value="linear">Linear</SelectItem>
+                                <SelectItem value="logarithmic">Logarithmic</SelectItem>
+                                <SelectItem value="exponential">Exponential</SelectItem>
+                                <SelectItem value="power">Power</SelectItem>
+                                <SelectItem value="polynomial">Polynomial</SelectItem>
+                                <SelectItem value="movingAverage">Moving Average</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    {trendLineType === 'polynomial' && (
+                        <div>
+                            <ShadcnLabel htmlFor="poly-order" className="text-xs font-medium text-muted-foreground mb-1 block">Order:</ShadcnLabel>
+                            <Input type="number" id="poly-order" value={polynomialOrder} onChange={e => setPolynomialOrder(Math.max(2, Number(e.target.value)))} className="h-10 w-20" />
+                        </div>
+                    )}
+                    {trendLineType === 'movingAverage' && (
+                        <div>
+                            <ShadcnLabel htmlFor="ma-period" className="text-xs font-medium text-muted-foreground mb-1 block">Period:</ShadcnLabel>
+                            <Input type="number" id="ma-period" value={movingAveragePeriod} onChange={e => setMovingAveragePeriod(Math.max(2, Number(e.target.value)))} className="h-10 w-20" />
+                        </div>
+                    )}
                 </div>
                 )}
             </div>
@@ -529,9 +599,13 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
             chartType={selectedChartType}
             isAggregated={isActuallyAggregated}
             showMinMaxLines={showMinMaxLines && selectedChartType === 'line'}
+            showTrendLine={trendLineType !== 'none'}
+            trendLineType={trendLineType}
+            trendLineOptions={{ polynomialOrder, movingAveragePeriod }}
             minMaxReferenceData={minMaxReferenceData}
           />
         </div>
+        <CVComparisonCard cvData={cvDataForCard} />
       </section>
       {isDetailModalOpen && detailModalData && (
           <DetailedDistributionModal

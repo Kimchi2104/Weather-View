@@ -1,18 +1,66 @@
-
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { DayNightPeriod, WeatherDataPoint } from "@/types/weather";
+import regression from 'regression';
+import type { TrendLineType } from '@/types/weather';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-/**
- * Parses a timestamp string in "dd/MM/yyyy HH:mm:ss" format to a Unix timestamp (milliseconds).
- * The string's date/time components are interpreted in the client's local timezone.
- * @param timestampStr The timestamp string to parse.
- * @returns A Unix timestamp in milliseconds (UTC), or null if parsing fails.
- */
+export function calculateMovingAverage(data: number[], windowSize: number): (number | null)[] {
+  if (windowSize <= 1 || data.length < windowSize) {
+    return Array(data.length).fill(null);
+  }
+  const result: (number | null)[] = Array(windowSize - 1).fill(null);
+  for (let i = windowSize - 1; i < data.length; i++) {
+    const window = data.slice(i - windowSize + 1, i + 1);
+    const sum = window.reduce((acc, val) => acc + val, 0);
+    result.push(sum / windowSize);
+  }
+  return result;
+}
+
+export function calculateTrendLine(
+  data: any[], 
+  metricKey: string,
+  trendType: TrendLineType,
+  options: { polynomialOrder?: number; movingAveragePeriod?: number } = {}
+): any[] {
+  if (data.length < 2 || trendType === 'none') return data;
+  
+  const dataWithIndex = data.map((d, i) => ({ ...d, index: i }));
+
+  if (trendType === 'movingAverage') {
+    const values = data.map(d => d[metricKey] as number);
+    const movingAverage = calculateMovingAverage(values, options.movingAveragePeriod || 7);
+    return dataWithIndex.map((point, i) => ({ ...point, [`${metricKey}_trend`]: movingAverage[i] }));
+  }
+
+  const regressionData = dataWithIndex
+    .map(point => [point.index, point[metricKey] as number])
+    .filter((p): p is [number, number] => typeof p[1] === 'number' && isFinite(p[1]));
+
+  if (regressionData.length < 2) return data;
+
+  try {
+    const result = regression[trendType](regressionData, { order: options.polynomialOrder || 2, precision: 3 });
+    const trendPoints = result.points.map(p => p[1]);
+    
+    return dataWithIndex.map((point, i) => {
+      const regressionPoint = regressionData.find(p => p[0] === i);
+      if (regressionPoint) {
+        const trendIndex = regressionData.indexOf(regressionPoint);
+        return { ...point, [`${metricKey}_trend`]: trendPoints[trendIndex] };
+      }
+      return point;
+    });
+  } catch(e) {
+    console.error(`Could not calculate trend line for type "${trendType}":`, e);
+    return data;
+  }
+}
+
 export function parseCustomTimestamp(timestampStr: string | undefined): number | null {
   if (!timestampStr || typeof timestampStr !== 'string') {
     return null;
@@ -26,22 +74,18 @@ export function parseCustomTimestamp(timestampStr: string | undefined): number |
     const minute = parseInt(parts[5], 10);
     const second = parseInt(parts[6], 10);
 
-    // Create a Date object interpreting components as local time.
-    // Note: JavaScript month is 0-indexed, so month - 1.
     const localDate = new Date(year, month - 1, day, hour, minute, second);
 
     if (isNaN(localDate.getTime())) {
       console.error(`[parseCustomTimestamp] CRITICAL: Invalid date constructed from local components. Raw: "${timestampStr}", Attempted Local Components -> Year: ${year}, Month(0-idx): ${month - 1}, Day: ${day}, H:${hour}, M:${minute}, S:${second}`);
       return null;
     }
-    // .getTime() returns UTC milliseconds equivalent of the localDate instance.
     return localDate.getTime();
   }
   console.error(`[parseCustomTimestamp] CRITICAL: Could not parse format. Raw: "${timestampStr}". Expected "dd/MM/yyyy HH:mm:ss" (day/month can be single or double digit).`);
   return null;
 }
 
-// Helper to convert raw Firebase data to WeatherDataPoint
 import type { RawFirebaseDataPoint } from '@/types/weather';
 
 const parseNumeric = (val: any): number | undefined => {
@@ -85,9 +129,8 @@ export function transformRawDataToWeatherDataPoint(rawData: RawFirebaseDataPoint
 
   let precipitationIntensityValue: number | undefined = undefined;
   if (rainAnalogValue !== undefined) {
-    // 4095 is no rain (0 intensity), 0 is max rain (100 intensity)
     precipitationIntensityValue = ((4095 - rainAnalogValue) / 4095) * 100;
-    precipitationIntensityValue = Math.max(0, Math.min(100, precipitationIntensityValue)); // Clamp between 0 and 100
+    precipitationIntensityValue = Math.max(0, Math.min(100, precipitationIntensityValue));
   }
 
 
@@ -104,7 +147,7 @@ export function transformRawDataToWeatherDataPoint(rawData: RawFirebaseDataPoint
     rawTimestampString: rawData.timestamp,
     temperature: finalTemperature,
     humidity: finalHumidity,
-    precipitation: precipitationValue, // This is the string status like "No Rain"
+    precipitation: precipitationValue,
     airQuality: airQualityStringValue,
     aqiPpm: finalAqiPpm,
     lux: finalLux,
@@ -165,20 +208,18 @@ export function calculateDayNightPeriods(
             currentPeriod = {
                 type: type,
                 startTimestamp: point.timestamp,
-                endTimestamp: point.timestamp, // Tentative end
+                endTimestamp: point.timestamp,
                 duration: 0,
             };
             continue;
         }
 
         if (type !== currentPeriod.type) {
-            // End the previous period
             currentPeriod.endTimestamp = point.timestamp;
             currentPeriod.duration =
                 currentPeriod.endTimestamp - currentPeriod.startTimestamp;
             periods.push(currentPeriod);
 
-            // Start a new period
             currentPeriod = {
                 type: type,
                 startTimestamp: point.timestamp,
@@ -188,7 +229,6 @@ export function calculateDayNightPeriods(
         }
     }
 
-    // Add the last period if it exists
     if (currentPeriod) {
         const lastPoint = data[data.length - 1];
         currentPeriod.endTimestamp = lastPoint.timestamp;
@@ -199,4 +239,3 @@ export function calculateDayNightPeriods(
 
     return periods;
 }
-

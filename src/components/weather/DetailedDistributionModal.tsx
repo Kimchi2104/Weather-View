@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { FC } from 'react';
@@ -153,6 +152,7 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
     if (!numericValuesForDistribution || numericValuesForDistribution.length === 0) return null;
     return calculateBoxPlotStats(numericValuesForDistribution);
   }, [numericValuesForDistribution]);
+
 
   const violinPlotDataForArea = useMemo(() => {
     if (!numericValuesForDistribution || numericValuesForDistribution.length < 1 || !data?.metricConfig || !boxPlotStats) { 
@@ -327,27 +327,13 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
                     <ModalCardTitle className="text-md font-semibold">Summary Statistics</ModalCardTitle>
                 </CardHeader>
                 <CardContent className="text-sm grid grid-cols-2 gap-x-4 gap-y-1">
-                    {stats.avg !== undefined && (
-                        <div className="flex justify-between"><span>Average:</span> <span className="font-semibold text-primary">{stats.avg.toFixed(2)} {metricConfig.unit}</span></div>
-                    )}
-                    {boxPlotStats?.median !== undefined && (
-                        <div className="flex justify-between"><span>Median:</span> <span className="font-semibold text-primary">{boxPlotStats.median.toFixed(2)} {metricConfig.unit}</span></div>
-                    )}
-                    {boxPlotStats?.q1 !== undefined && (
-                        <div className="flex justify-between"><span>Q1:</span> <span className="font-semibold text-primary">{boxPlotStats.q1.toFixed(2)} {metricConfig.unit}</span></div>
-                    )}
-                     {boxPlotStats?.q3 !== undefined && (
-                        <div className="flex justify-between"><span>Q3:</span> <span className="font-semibold text-primary">{boxPlotStats.q3.toFixed(2)} {metricConfig.unit}</span></div>
-                    )}
-                    {stats.min !== undefined && (
-                         <div className="flex justify-between"><span>Min:</span> <span className="font-semibold text-primary">{stats.min.toFixed(2)} {metricConfig.unit}</span></div>
-                    )}
-                    {stats.max !== undefined && (
-                         <div className="flex justify-between"><span>Max:</span> <span className="font-semibold text-primary">{stats.max.toFixed(2)} {metricConfig.unit}</span></div>
-                    )}
-                    {stats.stdDev !== undefined && (
-                         <div className="flex justify-between col-span-2"><span>Std. Dev:</span> <span className="font-semibold text-primary">{stats.stdDev.toFixed(2)} {metricConfig.unit}</span></div>
-                    )}
+                    {stats.avg !== undefined && <div className="flex justify-between"><span>Average:</span> <span className="font-semibold text-primary">{stats.avg.toFixed(2)} {metricConfig.unit}</span></div>}
+                    {boxPlotStats?.median !== undefined && <div className="flex justify-between"><span>Median:</span> <span className="font-semibold text-primary">{boxPlotStats.median.toFixed(2)} {metricConfig.unit}</span></div>}
+                    {stats.stdDev !== undefined && <div className="flex justify-between"><span>Std. Dev:</span> <span className="font-semibold text-primary">{stats.stdDev.toFixed(2)} {metricConfig.unit}</span></div>}
+                    {stats.min !== undefined && <div className="flex justify-between"><span>Min:</span> <span className="font-semibold text-primary">{stats.min.toFixed(2)} {metricConfig.unit}</span></div>}
+                    {stats.max !== undefined && <div className="flex justify-between"><span>Max:</span> <span className="font-semibold text-primary">{stats.max.toFixed(2)} {metricConfig.unit}</span></div>}
+                    {boxPlotStats?.q1 !== undefined && <div className="flex justify-between"><span>Q1:</span> <span className="font-semibold text-primary">{boxPlotStats.q1.toFixed(2)} {metricConfig.unit}</span></div>}
+                     {boxPlotStats?.q3 !== undefined && <div className="flex justify-between"><span>Q3:</span> <span className="font-semibold text-primary">{boxPlotStats.q3.toFixed(2)} {metricConfig.unit}</span></div>}
                     {stats.count !== undefined && (
                          <div className="flex justify-between col-span-2"><span>Data Points:</span> <span className="font-semibold text-primary">{stats.count}</span></div>
                     )}
@@ -627,14 +613,3 @@ const DetailedDistributionModal: FC<DetailedDistributionModalProps> = ({ isOpen,
 };
 
 export default DetailedDistributionModal;
-    
-
-    
-
-
-
-
-    
-
-
-
