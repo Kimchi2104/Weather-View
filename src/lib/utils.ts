@@ -23,22 +23,23 @@ export function calculateMovingAverage(data: number[], windowSize: number): (num
 
 export function calculateTrendLine(
   data: any[], 
-  metricKey: string,
+  dataKey: string,
   trendType: TrendLineType,
   options: { polynomialOrder?: number; movingAveragePeriod?: number } = {}
 ): any[] {
   if (data.length < 2 || trendType === 'none') return data;
   
   const dataWithIndex = data.map((d, i) => ({ ...d, index: i }));
+  const trendDataKey = `${dataKey}_trend`;
 
   if (trendType === 'movingAverage') {
-    const values = data.map(d => d[metricKey] as number);
+    const values = data.map(d => d[dataKey] as number);
     const movingAverage = calculateMovingAverage(values, options.movingAveragePeriod || 7);
-    return dataWithIndex.map((point, i) => ({ ...point, [`${metricKey}_trend`]: movingAverage[i] }));
+    return dataWithIndex.map((point, i) => ({ ...point, [trendDataKey]: movingAverage[i] }));
   }
 
   const regressionData = dataWithIndex
-    .map(point => [point.index, point[metricKey] as number])
+    .map(point => [point.index, point[dataKey] as number])
     .filter((p): p is [number, number] => typeof p[1] === 'number' && isFinite(p[1]));
 
   if (regressionData.length < 2) return data;
@@ -47,11 +48,11 @@ export function calculateTrendLine(
     const result = regression[trendType](regressionData, { order: options.polynomialOrder || 2, precision: 3 });
     const trendPoints = result.points.map(p => p[1]);
     
-    return dataWithIndex.map((point, i) => {
-      const regressionPoint = regressionData.find(p => p[0] === i);
+    return dataWithIndex.map((point) => {
+      const regressionPoint = regressionData.find(p => p[0] === point.index);
       if (regressionPoint) {
         const trendIndex = regressionData.indexOf(regressionPoint);
-        return { ...point, [`${metricKey}_trend`]: trendPoints[trendIndex] };
+        return { ...point, [trendDataKey]: trendPoints[trendIndex] };
       }
       return point;
     });
@@ -60,6 +61,7 @@ export function calculateTrendLine(
     return data;
   }
 }
+
 
 export function parseCustomTimestamp(timestampStr: string | undefined): number | null {
   if (!timestampStr || typeof timestampStr !== 'string') {

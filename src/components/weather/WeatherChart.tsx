@@ -42,7 +42,7 @@ const getPaddedMinYDomain = (dataMin: number, dataMax: number): number => {
   } else {
     const padding = Math.max(3, 0.15 * Math.abs(dataMin));
     paddedMin = Math.floor(dataMin - padding);
-    if (paddedMin > 0 && dataMin < 0) paddedMin = 0; 
+    if (paddedMin > 0 && dataMin < 0) paddedMin = 0;
   }
   return paddedMin;
 };
@@ -64,13 +64,13 @@ const getPaddedMaxYDomain = (dataMax: number, dataMin: number): number => {
   } else { 
     const padding = Math.max(3, 0.15 * Math.abs(dataMax));
     paddedMax = Math.ceil(dataMax + padding);
-    if (paddedMax > 0 && dataMax < 0) paddedMax = 0; 
+    if (paddedMax > 0 && dataMax < 0) paddedMax = 0;
   }
   return paddedMax;
 };
 
 const getResolvedBackgroundColor = (theme: 'light' | 'dark' | 'aura-glass', chartElement: HTMLElement): string | null => {
-  if (theme === 'aura-glass') return null; 
+  if (theme === 'aura-glass') return null;
   try {
     if (chartElement && typeof getComputedStyle === 'function') {
       const style = getComputedStyle(chartElement.parentElement || document.body);
@@ -132,32 +132,27 @@ const WeatherChart: FC<WeatherChartProps> = ({
 
   const formattedData = useMemo(() => {
     if (!dataWithTrend) return [];
-    return dataWithTrend.map(point => ({
+    return dataWithTrend.map((point, index) => ({
         ...point,
+        index,
         timestamp: typeof point.timestamp === 'number' ? point.timestamp : (point.timestampDisplay ? new Date(point.timestampDisplay).getTime() : Date.now()),
         timestampDisplay: point.timestampDisplay || formatTimestampToDdMmHhMmUTC(point.timestamp || Date.now()),
         tooltipTimestampFull: point.tooltipTimestampFull || (isAggregated && (point as AggregatedDataPoint).aggregationPeriod ? point.timestampDisplay : formatTimestampToFullUTC(point.timestamp || Date.now())),
     }));
   }, [dataWithTrend, isAggregated]);
-  
-  const numericMetricsForScatter = useMemo(() => chartType === 'scatter' ? selectedMetrics.filter(key => !METRIC_CONFIGS[key].isString) : [], [selectedMetrics, chartType]);
 
   const yAxisDomain = useMemo(() => {
-    const metricsToConsider = chartType === 'scatter' ? numericMetricsForScatter : selectedMetrics.filter(key => !METRIC_CONFIGS[key]?.isString);
+    const metricsToConsider = selectedMetrics.filter(key => !METRIC_CONFIGS[key].isString);
     if (metricsToConsider.length === 0) return [0, 1];
-    
     let allValues: number[] = [];
     metricsToConsider.forEach(metricKey => {
       const dataKey = isAggregated ? `${metricKey}_avg` : metricKey;
       const values = formattedData.map(p => p[dataKey]).filter(v => typeof v === 'number' && isFinite(v)) as number[];
       allValues = allValues.concat(values);
     });
-
     if (allValues.length === 0) return [0, 10];
-    
     let effectiveMin = Math.min(...allValues);
     let effectiveMax = Math.max(...allValues);
-
     if (showMinMaxLines && chartType === 'line' && minMaxReferenceData) {
         metricsToConsider.forEach(metricKey => {
             const minMax = minMaxReferenceData[metricKey];
@@ -168,7 +163,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
         });
     }
     return [getPaddedMinYDomain(effectiveMin, effectiveMax), getPaddedMaxYDomain(effectiveMax, effectiveMin)];
-  }, [formattedData, selectedMetrics, numericMetricsForScatter, showMinMaxLines, minMaxReferenceData, chartType, isAggregated]);
+  }, [formattedData, selectedMetrics, showMinMaxLines, minMaxReferenceData, chartType, isAggregated]);
 
   const chartConfigForShadcn = useMemo(() => {
     const config: ChartConfig = {};
@@ -187,10 +182,7 @@ const WeatherChart: FC<WeatherChartProps> = ({
   const exportChart = async (format: 'png' | 'jpeg' | 'pdf') => {
     if (!chartRef.current || isExporting) return;
     const chartElement = chartRef.current.querySelector('.recharts-wrapper');
-    if (!chartElement) {
-      toast({ title: "Export Failed", description: "Chart element not found.", variant: "destructive" });
-      return;
-    }
+    if (!chartElement) { toast({ title: "Export Failed", description: "Chart element not found.", variant: "destructive" }); return; }
     setIsExporting(true);
     const htmlEl = document.documentElement;
     const currentTheme = htmlEl.classList.contains('dark') ? 'dark' : 'light';
@@ -199,19 +191,19 @@ const WeatherChart: FC<WeatherChartProps> = ({
     htmlEl.className = targetTheme;
     await new Promise(r => setTimeout(r, 300));
     try {
-      const html2canvas = (await import('html2canvas')).default;
-      const canvas = await html2canvas(chartElement as HTMLElement, { scale: 2, useCORS: true, backgroundColor: getResolvedBackgroundColor(targetTheme, chartElement as HTMLElement) });
-      const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png');
-      const link = document.createElement('a');
-      link.download = `weather-chart-${targetTheme}.${format}`;
-      link.href = imgData;
-      link.click();
-      toast({ title: "Export Successful!", description: `Chart exported as ${format.toUpperCase()}.` });
+        const html2canvas = (await import('html2canvas')).default;
+        const canvas = await html2canvas(chartElement as HTMLElement, { scale: 2, useCORS: true, backgroundColor: getResolvedBackgroundColor(targetTheme, chartElement as HTMLElement) });
+        const imgData = canvas.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png');
+        const link = document.createElement('a');
+        link.download = `weather-chart-${targetTheme}.${format}`;
+        link.href = imgData;
+        link.click();
+        toast({ title: "Export Successful!", description: `Chart exported as ${format.toUpperCase()}.` });
     } catch (e: any) {
-      toast({ title: "Export Failed", description: e.message, variant: "destructive" });
+        toast({ title: "Export Failed", description: e.message, variant: "destructive" });
     } finally {
-      htmlEl.className = originalClasses;
-      setIsExporting(false);
+        htmlEl.className = originalClasses;
+        setIsExporting(false);
     }
   };
 
@@ -219,120 +211,126 @@ const WeatherChart: FC<WeatherChartProps> = ({
     if (!onPointClick) return;
     const payloadSource = isAggregated && chartType === 'scatter' ? e : e?.activePayload?.[0];
     if (payloadSource) {
-      const key = explicitMetricKey || (payloadSource.dataKey as string).replace('_avg', '');
+      const key = explicitMetricKey || (payloadSource.dataKey as string).replace(/_avg$/, '');
       onPointClick(payloadSource.payload, { ...payloadSource, explicitMetricKey: key });
     } else if (e?.chartX) {
       onPointClick(null, null);
     }
   };
   
-  const yAxisTickFormatter = (value: any) => typeof value === 'number' ? value.toFixed(Math.abs(value) < 10 && value !== 0 ? 1 : 0) : value;
+  const metricsAvailableForCurrentChartType = useMemo(() => {
+    return selectedMetrics.filter(key => !METRIC_CONFIGS[key].isString);
+  }, [selectedMetrics]);
 
-  const tooltipFormatter = (value: any, name: string | number, entry: any) => {
-      const dataKey = entry.dataKey as string;
-      if (dataKey.endsWith('_trend')) return null;
+  const chartDynamicKey = `${chartType}-${selectedMetrics.join('-')}-${isAggregated}-${showTrendLine}-${trendLineType}`;
 
-      const originalMetricKey = dataKey.replace(/_avg$/, '') as MetricKey;
-      const config = METRIC_CONFIGS[originalMetricKey];
-      if (!config) return [value, name as string];
-
-      const displayName = chartConfigForShadcn[dataKey]?.label as string || name;
-      const displayValue = typeof value === 'number' ? value.toFixed(config.isString ? 0 : isAggregated ? 1 : 2) : value;
-      
-      return [`${displayValue}${config.unit || ''}`, displayName];
-  };
-
-  const renderChart = () => {
-    const plottableMetrics = selectedMetrics.filter(key => !METRIC_CONFIGS[key].isString);
-    if (isLoading || formattedData.length === 0 || plottableMetrics.length === 0) {
-      return (
-        <Card className="shadow-lg h-full">
-          <CardHeader className="pb-3"><Skeleton className="h-6 w-1/2 mb-2" /><Skeleton className="h-4 w-1/3" /></CardHeader>
-          <CardContent className="p-4 pt-0 h-[450px] flex items-center justify-center">
-            <p className="text-muted-foreground">{isLoading ? "Loading chart data..." : "No data for selected metrics or time range."}</p>
-          </CardContent>
-        </Card>
-      );
-    }
-
-    const xAxisProps: any = {
-      type: 'number' as const,
-      dataKey: "timestamp",
-      domain: ['dataMin', 'dataMax'] as const,
-      tickFormatter: (v: number) => formatTimestampToDdMmHhMmUTC(v),
-      scale: 'time' as const,
-      angle: -45, textAnchor: 'end' as const, height: 70,
-      stroke: "hsl(var(--foreground))",
-      tick: { fill: "hsl(var(--foreground))", fontSize: 11 }
-    };
-
-    const yAxisProps = { yAxisId: "left", domain: yAxisDomain, tickFormatter: yAxisTickFormatter, allowDecimals: true, stroke: "hsl(var(--foreground))", tick: { fill: "hsl(var(--foreground))", fontSize: 12 } };
-
-    const legendComponent = <Legend wrapperStyle={{ paddingTop: '20px' }} iconSize={14} formatter={(value, entry) => chartConfigForShadcn[entry.dataKey as string]?.label || value} />;
-    const tooltipComponent = <Tooltip content={<ChartTooltipContent formatter={tooltipFormatter} />} wrapperStyle={{ outline: "none" }} cursor={{ strokeDasharray: '3 3' }} animationDuration={150} />;
-    const trendLineComponents = showTrendLine ? plottableMetrics.map(key => {
-      const config = METRIC_CONFIGS[key];
-      const dataKey = isAggregated ? `${key}_avg` : key;
-      return <Line key={`trend-${key}`} yAxisId="left" dataKey={`${dataKey}_trend`} stroke={config.color} strokeWidth={2} strokeDasharray="5 5" dot={false} isAnimationActive={false} legendType="none" tooltipType="none" />;
-    }) : null;
-
-    if (chartType === 'scatter') {
-      return (
-        <ScatterChart data={formattedData} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis {...xAxisProps} />
-          <YAxis {...yAxisProps} />
-          {tooltipComponent}
-          {legendComponent}
-          {plottableMetrics.map(key => {
-            const config = METRIC_CONFIGS[key];
-            const dataKey = isAggregated ? `${key}_avg` : key;
-            return <Scatter key={key} yAxisId="left" dataKey={dataKey} name={config.name} fill={config.color} shape="circle" fillOpacity={showTrendLine ? 0.7 : 1} onClick={(props) => handlePointClick(props, key)} />;
-          })}
-          {trendLineComponents}
-        </ScatterChart>
-      );
-    }
-
+  if (isLoading || formattedData.length === 0 || metricsAvailableForCurrentChartType.length === 0) {
     return (
-      <ComposedChart data={formattedData} onClick={handlePointClick} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis {...xAxisProps} />
-        <YAxis {...yAxisProps} />
-        {tooltipComponent}
-        {legendComponent}
-        {plottableMetrics.map(key => {
-          const config = METRIC_CONFIGS[key];
-          const dataKey = isAggregated ? `${key}_avg` : key;
-          if (chartType === 'line') {
-            return <Line key={key} yAxisId="left" type="monotone" dataKey={dataKey} name={config.name} stroke={config.color} strokeWidth={2} dot={isAggregated ? { r: 3 } : false} strokeOpacity={showTrendLine ? 0.7 : 1} />;
-          }
-          if (chartType === 'bar') {
-            return <Bar key={key} yAxisId="left" dataKey={dataKey} name={config.name} fill={config.color} radius={[4, 4, 0, 0]} fillOpacity={showTrendLine ? 0.7 : 1} />;
-          }
-          return null;
-        })}
-        {trendLineComponents}
-      </ComposedChart>
+      <Card className="shadow-lg h-full">
+        <CardHeader className="pb-3"><Skeleton className="h-6 w-1/2 mb-2" /><Skeleton className="h-4 w-1/3" /></CardHeader>
+        <CardContent className="p-4 pt-0 h-[450px] flex items-center justify-center">
+          <p className="text-muted-foreground">{isLoading ? "Loading chart data..." : "No data for selected metrics or time range."}</p>
+        </CardContent>
+      </Card>
     );
+  }
+  
+  const yAxisTickFormatter = (value: any) => typeof value === 'number' ? value.toFixed(1) : value;
+  
+  const xAxisProps: any = {
+    type: 'number' as const,
+    dataKey: "timestamp",
+    domain: ['dataMin', 'dataMax'] as [number | string, number | string],
+    tickFormatter: (v: number) => formatTimestampToDdMmHhMmUTC(v),
+    scale: 'time' as const,
+    angle: -45, textAnchor: 'end' as const, height: 70,
+    stroke: "hsl(var(--foreground))",
+    tick: { fill: "hsl(var(--foreground))", fontSize: 11 }
   };
   
+  if (isAggregated) {
+    Object.assign(xAxisProps, { dataKey: "timestampDisplay", type: "category" as const, scale: 'point' as const, domain: undefined });
+  }
+
+  const yAxisProps = { yAxisId: "left", domain: yAxisDomain, tickFormatter: yAxisTickFormatter, allowDecimals: true, stroke: "hsl(var(--foreground))", tick: { fill: "hsl(var(--foreground))", fontSize: 12 } };
+
+  const tooltipFormatter = (value: any, name: string | number, entry: any) => {
+    const dataKey = entry.dataKey as string;
+    if (dataKey.endsWith('_trend')) return null;
+    const originalKey = dataKey.replace(/_avg$/, '') as MetricKey;
+    const config = METRIC_CONFIGS[originalKey];
+    if (!config) return [value, name as string];
+    const displayName = chartConfigForShadcn[dataKey]?.label as string || name;
+    const displayValue = typeof value === 'number' ? value.toFixed(config.isString ? 0 : isAggregated ? 1 : 2) : value;
+    return [`${displayValue}${config.unit || ''}`, displayName];
+  };
+
+  const tooltipComponent = <Tooltip content={<ChartTooltipContent formatter={tooltipFormatter} />} wrapperStyle={{ outline: "none" }} cursor={{ strokeDasharray: '3 3' }} animationDuration={150} />;
+  const legendComponent = <Legend wrapperStyle={{ paddingTop: '20px' }} iconSize={14} formatter={(value, entry) => chartConfigForShadcn[entry.dataKey as string]?.label || value} />;
+  const trendLineComponents = showTrendLine ? metricsAvailableForCurrentChartType.map(key => {
+    const config = METRIC_CONFIGS[key];
+    const dataKey = isAggregated ? `${key}_avg` : key;
+    return <Line key={`trend-${key}`} yAxisId="left" type="monotone" dataKey={`${dataKey}_trend`} stroke={config.color} strokeWidth={2} strokeDasharray="5 5" dot={false} isAnimationActive={false} legendType="none" tooltipType="none" />;
+  }) : null;
+
   return (
     <Card className="shadow-lg">
       <CardHeader className="pb-3">
         <div>
           <CardTitle className="font-headline">Historical Data Trends</CardTitle>
-           <CardDescription>
-            Displaying {chartType.charAt(0).toUpperCase() + chartType.slice(1)} Chart
-            {isAggregated ? ` (Aggregated Data)` : ` (Raw Data)`}.
-            {(chartType === 'line' || chartType === 'scatter') && !isAggregated && " Point clicks can populate AI forecast."}
-            {chartType === 'scatter' && isAggregated && numericMetricsForScatter.length > 0 && " Bubble size indicates data spread."}
+          <CardDescription>
+            Displaying {chartType.charAt(0).toUpperCase() + chartType.slice(1)} Chart {isAggregated ? `(Aggregated Data)` : `(Raw Data)`}.
+            {chartType === 'scatter' && isAggregated && " Bubble size indicates data spread."}
           </CardDescription>
         </div>
       </CardHeader>
       <CardContent className="p-4 pt-0">
-        <ChartContainer ref={chartRef} config={chartConfigForShadcn} className="w-full h-[550px] mx-auto overflow-hidden">
-            {renderChart()}
+        <ChartContainer ref={chartRef} config={chartConfigForShadcn} className="w-full h-[550px] mx-auto">
+          <ResponsiveContainer key={chartDynamicKey}>
+            {chartType === 'scatter' ? (
+                <ScatterChart data={formattedData} margin={{ top: 20, right: 20, bottom: 40, left: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis {...xAxisProps} />
+                    <YAxis {...yAxisProps} />
+                    {tooltipComponent}
+                    {legendComponent}
+                    {metricsAvailableForCurrentChartType.map(key => {
+                        const config = METRIC_CONFIGS[key];
+                        const dataKey = isAggregated ? `${key}_avg` : key;
+                        const name = chartConfigForShadcn[dataKey]?.label as string || config.name;
+                        const zKey = isAggregated ? `${key}_stdDev` : undefined;
+                        return (
+                            <React.Fragment key={key}>
+                                {isAggregated && zKey && <ZAxis zAxisId={key} dataKey={zKey} range={[MIN_BUBBLE_AREA, MAX_BUBBLE_AREA]} name={`${name} Std Dev`} />}
+                                <Scatter yAxisId="left" dataKey={dataKey} name={name} fill={config.color} shape="circle" fillOpacity={showTrendLine ? 0.7 : 1} onClick={(props) => handlePointClick(props, key)} />
+                            </React.Fragment>
+                        );
+                    })}
+                    {trendLineComponents}
+                </ScatterChart>
+            ) : (
+                <ComposedChart data={formattedData} onClick={handlePointClick} margin={{ top: 20, right: 20, bottom: 40, left: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis {...xAxisProps} />
+                    <YAxis {...yAxisProps} />
+                    {tooltipComponent}
+                    {legendComponent}
+                    {metricsAvailableForCurrentChartType.map(key => {
+                        const config = METRIC_CONFIGS[key];
+                        const dataKey = isAggregated ? `${key}_avg` : key;
+                        const name = chartConfigForShadcn[dataKey]?.label as string || config.name;
+                        if (chartType === 'line') {
+                            return <Line key={key} yAxisId="left" type="monotone" dataKey={dataKey} name={name} stroke={config.color} strokeWidth={2} dot={isAggregated ? {r:3} : false} connectNulls={false} strokeOpacity={showTrendLine ? 0.7 : 1} />;
+                        }
+                        if (chartType === 'bar') {
+                            return <Bar key={key} yAxisId="left" dataKey={dataKey} name={name} fill={config.color} radius={[4, 4, 0, 0]} fillOpacity={showTrendLine ? 0.7 : 1} />;
+                        }
+                        return null;
+                    })}
+                    {trendLineComponents}
+                </ComposedChart>
+            )}
+          </ResponsiveContainer>
         </ChartContainer>
         <div className="flex justify-center items-center pt-2 space-x-4">
           <DropdownMenu>
