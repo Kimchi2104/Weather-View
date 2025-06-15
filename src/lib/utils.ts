@@ -1,12 +1,66 @@
+// src/lib/utils.ts
+
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import { DayNightPeriod, WeatherDataPoint } from "@/types/weather";
+import { DayNightPeriod, WeatherDataPoint, ChartType } from "@/types/weather";
 import regression from 'regression';
 import type { TrendLineType } from '@/types/weather';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
+
+export function getPaddedMinYDomain(dataMin: number, dataMax: number, chartType?: ChartType): number {
+  if (chartType === 'bar' && dataMin >= 0) {
+    return 0;
+  }
+
+  let paddedMin;
+  const range = dataMax - dataMin;
+
+  if (dataMin >= 0 && dataMin <= 30) {
+    if (range <= 200 && dataMax <= 200) {
+      paddedMin = Math.max(-10, dataMin - 20);
+      if (dataMin >= 0 && paddedMin > -2) paddedMin = -2;
+      if (dataMin === 0) paddedMin = -5;
+    }
+    else {
+      const proportionalPadding = Math.max(10, 0.05 * dataMax);
+      paddedMin = Math.floor(dataMin - proportionalPadding);
+      if (dataMin >= 0 && paddedMin > -2) paddedMin = -2;
+    }
+  } else if (dataMin > 30) {
+    const padding = Math.max(5, 0.15 * dataMin);
+    paddedMin = Math.floor(dataMin - padding);
+  } else {
+    const padding = Math.max(3, 0.15 * Math.abs(dataMin));
+    paddedMin = Math.floor(dataMin - padding);
+  }
+  return paddedMin;
+};
+
+export const getPaddedMaxYDomain = (dataMax: number, dataMin: number): number => {
+    let paddedMax;
+    const range = dataMax - dataMin;
+    if (dataMax >= 0 && dataMax < 10) {
+       if (range <= 200 && dataMin >= -100) {
+        paddedMax = Math.ceil(dataMax + Math.max(3, 0.5 * (dataMax - Math.max(0, dataMin) + 3)));
+        if (dataMax === 0 && paddedMax < 10) paddedMax = 10;
+      } else {
+        const proportionalPadding = Math.max(10, 0.05 * Math.abs(dataMin));
+        paddedMax = Math.ceil(dataMax + proportionalPadding);
+      }
+    } else if (dataMax >= 10) {
+      const padding = Math.max(5, 0.15 * dataMax);
+      paddedMax = Math.ceil(dataMax + padding);
+    } else { 
+      const padding = Math.max(3, 0.15 * Math.abs(dataMax));
+      paddedMax = Math.ceil(dataMax + padding);
+      if (paddedMax > 0 && dataMax < 0) paddedMax = 0;
+    }
+    return paddedMax;
+};
+
 
 export function calculateMovingAverage(data: number[], windowSize: number): (number | null)[] {
   if (windowSize <= 1 || data.length < windowSize) {

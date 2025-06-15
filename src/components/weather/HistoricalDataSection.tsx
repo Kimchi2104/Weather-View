@@ -14,15 +14,14 @@ import { Label as ShadcnLabel } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { transformRawDataToWeatherDataPoint, formatTimestampToDdMmHhMmUTC, formatTimestampToFullUTC, calculateDayNightPeriods } from '@/lib/utils';
-import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge, ShieldCheck, Sun, Moon } from 'lucide-react'; // Added Moon
+import { transformRawDataToWeatherDataPoint, calculateDayNightPeriods } from '@/lib/utils';
+import { CloudRain, Thermometer, Droplets, SunDim, Wind, Gauge, ShieldCheck, Sun, Moon } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from '@/components/ui/skeleton';
 import DetailedDistributionModal from './DetailedDistributionModal';
 import DayNightDurationModal from './DayNightDurationModal';
 import { useTheme } from 'next-themes';
 import CVComparisonCard from './CVComparisonCard';
-
 
 const WeatherChart = dynamic(() => import('./WeatherChart'), {
   ssr: false,
@@ -43,9 +42,9 @@ const HISTORICAL_AVAILABLE_METRICS: { key: MetricKey; name: string }[] = [
 const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
   temperature: { name: 'Temperature', unit: '°C', Icon: Thermometer, color: 'hsl(var(--chart-1))', healthyMin: 0, healthyMax: 35 },
   humidity: { name: 'Humidity', unit: '%', Icon: Droplets, color: 'hsl(var(--chart-2))', healthyMin: 30, healthyMax: 70 },
-  precipitation: { name: 'Precipitation Status', unit: '', Icon: CloudRain, color: 'hsl(var(--chart-3))', isString: true }, // Textual status
+  precipitation: { name: 'Precipitation Status', unit: '', Icon: CloudRain, color: 'hsl(var(--chart-3))', isString: true },
   rainAnalog: { name: 'Rain Analog', unit: 'raw', Icon: CloudRain, color: 'hsl(200, 70%, 60%)' },
-  precipitationIntensity: { name: 'Precip. Intensity', unit: '%', Icon: CloudRain, color: 'hsl(220, 80%, 70%)', healthyMin: 0, healthyMax: 10 }, // Low intensity is good
+  precipitationIntensity: { name: 'Precip. Intensity', unit: '%', Icon: CloudRain, color: 'hsl(220, 80%, 70%)', healthyMin: 0, healthyMax: 10 },
   airQuality: { name: 'Air Quality', unit: '', Icon: ShieldCheck, color: 'hsl(var(--chart-4))', isString: true },
   aqiPpm: { name: 'AQI (ppm)', unit: 'ppm', Icon: Wind, color: 'hsl(var(--chart-5))', healthyMin: 0, healthyMax: 300 },
   lux: { name: 'Light Level', unit: 'lux', Icon: SunDim, color: 'hsl(30, 80%, 55%)' },
@@ -61,23 +60,18 @@ interface HistoricalDataSectionProps {
 }
 
 const calculateStandardDeviation = (values: number[]): number => {
-  if (!values || values.length === 0) return 0;
-  const validValues = values.filter(v => typeof v === 'number' && isFinite(v));
-  if (validValues.length <= 1) return 0;
-
-  const mean = validValues.reduce((sum, val) => sum + val, 0) / validValues.length;
-  if (!isFinite(mean)) return 0;
-
-  const variance = validValues.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / validValues.length;
-  if (isNaN(variance) || !isFinite(variance)) return 0;
-
-  const stdDev = Math.sqrt(variance);
-  return isNaN(stdDev) || !isFinite(stdDev) ? 0 : stdDev;
+  if (values.length < 2) return 0;
+  const n = values.length;
+  const mean = values.reduce((a, b) => a + b) / n;
+  return Math.sqrt(values.map(x => Math.pow(x - mean, 2)).reduce((a, b) => a + b) / n);
 };
 
 
 const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointClickForAI }) => {
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => ({
+    from: subDays(new Date(), 7),
+    to: new Date(),
+  }));
   const [startTime, setStartTime] = useState<string>("00:00");
   const [endTime, setEndTime] = useState<string>("23:59");
   const [selectedMetrics, setSelectedMetrics] = useState<MetricKey[]>(['temperature', 'humidity']);
@@ -99,42 +93,21 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
   const [isDayNightModalOpen, setIsDayNightModalOpen] = useState(false);
   const [dayNightPeriods, setDayNightPeriods] = useState<DayNightPeriod[]>([]);
 
-
-  const { theme } = useTheme();
-  const isAuraGlassTheme = theme === 'aura-glass';
-  const [hasMounted, setHasMounted] = useState(false);
-
-  useEffect(() => {
-    setHasMounted(true);
-  }, []);
-
   const firebaseDataPath = 'devices/TGkMhLL4k4ZFBwgOyRVNKe5mTQq1/records/';
-
-  useEffect(() => {
-    setDateRange({
-      from: subDays(new Date(), 7),
-      to: new Date(),
-    });
-  }, []);
 
   const fetchAllHistoricalData = useCallback(async () => {
     setIsLoading(true);
     try {
       const dataRef = ref(database, firebaseDataPath);
       const snapshot: DataSnapshot = await get(dataRef);
-
       if (snapshot.exists()) {
         const rawDataContainer = snapshot.val();
-        if (typeof rawDataContainer !== 'object' || rawDataContainer === null) {
-          setAllFetchedData([]);
-        } else {
-          const recordsArray: [string, RawFirebaseDataPoint][] = Object.entries(rawDataContainer);
-          const processedData: WeatherDataPoint[] = recordsArray
-            .map(([key, rawPoint]) => transformRawDataToWeatherDataPoint(rawPoint as RawFirebaseDataPoint, key))
-            .filter((point): point is WeatherDataPoint => point !== null)
-            .sort((a, b) => a.timestamp - b.timestamp);
-          setAllFetchedData(processedData);
-        }
+        const recordsArray: [string, RawFirebaseDataPoint][] = Object.entries(rawDataContainer || {});
+        const processedData: WeatherDataPoint[] = recordsArray
+          .map(([key, rawPoint]) => transformRawDataToWeatherDataPoint(rawPoint, key))
+          .filter((point): point is WeatherDataPoint => point !== null && typeof point.timestamp === 'number')
+          .sort((a, b) => a.timestamp - b.timestamp);
+        setAllFetchedData(processedData);
       } else {
         setAllFetchedData([]);
       }
@@ -146,484 +119,250 @@ const HistoricalDataSection: FC<HistoricalDataSectionProps> = ({ onChartPointCli
     }
   }, [firebaseDataPath]);
 
-  const filterDataByDateRange = useCallback(() => {
-    if (!dateRange?.from || !dateRange?.to) {
-      setDisplayedData([]);
-      return;
-    }
-    if (allFetchedData.length === 0 && !isLoading) {
-      setDisplayedData([]);
-      return;
-    }
-
-    const startDate = dateRange.from;
-    const [startH, startM] = startTime.split(':').map(Number);
-    const fromTimestamp = Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), startH, startM, 0, 0);
-
-    const endDate = dateRange.to;
-    const [endH, endM] = endTime.split(':').map(Number);
-    const toTimestamp = Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), endH, endM, 59, 999);
-
-    const filtered = allFetchedData.filter(point => {
-      const pointTime = point.timestamp;
-      return pointTime >= fromTimestamp && pointTime <= toTimestamp;
-    });
-
-    setDisplayedData(filtered);
-
-  }, [allFetchedData, dateRange, startTime, endTime, isLoading]);
-
   useEffect(() => {
     fetchAllHistoricalData();
   }, [fetchAllHistoricalData]);
 
   useEffect(() => {
-    if (dateRange && allFetchedData.length > 0) {
-      filterDataByDateRange();
-    } else if (dateRange && !isLoading) {
+    if (!dateRange?.from || !dateRange?.to) {
       setDisplayedData([]);
+      return;
     }
-  }, [dateRange, allFetchedData, filterDataByDateRange, startTime, endTime, isLoading]);
-
+    const fromDate = startOfDay(dateRange.from);
+    const toDate = endOfDay(dateRange.to);
+    const filtered = allFetchedData.filter(point => {
+      const pointDate = new Date(point.timestamp);
+      return pointDate >= fromDate && pointDate <= toDate;
+    });
+    setDisplayedData(filtered);
+  }, [allFetchedData, dateRange]);
 
   const handleMetricSelectionChange = (newlySelectedKeys: MetricKey[]) => {
     setSelectedMetrics(newlySelectedKeys);
-
     if (newlySelectedKeys.length === 1 && newlySelectedKeys[0] === 'sunriseSunset') {
         setSelectedChartType('scatter');
         setAggregationType('raw');
-    } else {
-        if (selectedChartType === 'bar' && aggregationType === 'raw' && newlySelectedKeys.length > 0) {
-            setAggregationType('daily');
-        }
     }
   };
 
-
   const handleChartTypeChange = (newChartType: ChartType) => {
     setSelectedChartType(newChartType);
-    if (newChartType === 'bar' && aggregationType === 'raw' && selectedMetrics.filter(m => m !== 'sunriseSunset').length > 0) {
+    if (newChartType === 'bar' && aggregationType === 'raw' && selectedMetrics.length > 0 && selectedMetrics[0] !== 'sunriseSunset') {
       setAggregationType('daily');
     }
   };
 
-  const handleAggregationTypeChange = (newAggregationType: ChartAggregationMode) => {
-    if (selectedChartType === 'bar' && newAggregationType === 'raw' && selectedMetrics.filter(m => m !== 'sunriseSunset').length > 0) {
-        if (aggregationType !== 'raw') { 
-            setAggregationType(aggregationType);
-        } else {
-            setAggregationType('daily');
-        }
-    } else {
-        setAggregationType(newAggregationType);
-    }
-  };
-
-
-  const isAggregationApplicable = selectedChartType === 'line' || selectedChartType === 'bar' || selectedChartType === 'scatter';
-  const isActuallyAggregated = isAggregationApplicable && aggregationType !== 'raw';
+  const isAggregationApplicable = selectedChartType !== 'line' && selectedChartType !== 'scatter';
+  const isActuallyAggregated = aggregationType !== 'raw';
 
   const chartData = useMemo(() => {
-    if (!displayedData || displayedData.length === 0) {
-      return [];
+    if (!isActuallyAggregated) {
+      return displayedData;
     }
 
-    if (isActuallyAggregated) {
-      const currentAggregationPeriod = aggregationType as AggregationPeriod;
-      const groupedData: Record<string, WeatherDataPoint[]> = {};
-      displayedData.forEach(point => {
+    const groupedData: Record<string, WeatherDataPoint[]> = {};
+    const currentAggregationPeriod = aggregationType as AggregationPeriod;
+    
+    displayedData.forEach(point => {
         let key = '';
         const pointDate = new Date(point.timestamp);
-        if (currentAggregationPeriod === 'hourly') {
-          key = format(pointDate, 'yyyy-MM-dd HH');
-        } else if (currentAggregationPeriod === 'daily') {
-          key = format(pointDate, 'yyyy-MM-dd');
-        } else if (currentAggregationPeriod === 'weekly') {
-          key = getYear(pointDate) + '-W' + String(getISOWeek(pointDate)).padStart(2, '0');
-        } else if (currentAggregationPeriod === 'monthly') {
-          key = format(pointDate, 'yyyy-MM');
-        }
-
-        if (!groupedData[key]) {
-          groupedData[key] = [];
-        }
+        if (currentAggregationPeriod === 'hourly') key = format(startOfHour(pointDate), "yyyy-MM-dd'T'HH:00:00");
+        else if (currentAggregationPeriod === 'daily') key = format(startOfDay(pointDate), 'yyyy-MM-dd');
+        else if (currentAggregationPeriod === 'weekly') key = `${getYear(pointDate)}-W${String(getISOWeek(pointDate)).padStart(2, '0')}`;
+        else if (currentAggregationPeriod === 'monthly') key = format(startOfMonth(pointDate), 'yyyy-MM');
+        
+        if (!groupedData[key]) groupedData[key] = [];
         groupedData[key].push(point);
-      });
+    });
 
-      const aggregatedResult: AggregatedDataPoint[] = Object.entries(groupedData).map(([groupKey, pointsInGroup]) => {
-        const firstPointDate = new Date(pointsInGroup[0].timestamp);
+    return Object.entries(groupedData).map(([groupKey, pointsInGroup]) => {
+        const firstPointTimestamp = pointsInGroup[0].timestamp;
         const aggregatedPoint: AggregatedDataPoint = {
-          timestamp: firstPointDate.getTime(),
-          timestampDisplay: '',
-          aggregationPeriod: currentAggregationPeriod,
-          rawPointsInGroup: pointsInGroup,
-          precipitation: '',
-          temperature: 0,
-          humidity: 0,
-          lux: 0,
-          aqiPpm: 0,
-          pressure: 0,
-          rainAnalog: 0,
-          precipitationIntensity: 0,
-          sunriseSunset: '',
-          airQuality: '',
+            timestamp: firstPointTimestamp,
+            timestampDisplay: groupKey,
+            aggregationPeriod: currentAggregationPeriod,
+            rawPointsInGroup: pointsInGroup,
+            temperature: 0, humidity: 0, lux: 0, aqiPpm: 0, pressure: 0, rainAnalog: 0, precipitationIntensity: 0,
+            precipitation: '', airQuality: '', sunriseSunset: ''
         };
 
-        if (currentAggregationPeriod === 'hourly') {
-          aggregatedPoint.timestampDisplay = format(startOfHour(firstPointDate), 'MMM dd HH:00');
-        } else if (currentAggregationPeriod === 'daily') {
-          aggregatedPoint.timestampDisplay = format(startOfDay(firstPointDate), 'MMM dd, yyyy');
-        } else if (currentAggregationPeriod === 'weekly') {
-           aggregatedPoint.timestampDisplay = 'W' + getISOWeek(firstPointDate) + ', ' + getYear(firstPointDate);
-        } else if (currentAggregationPeriod === 'monthly') {
-          aggregatedPoint.timestampDisplay = format(startOfMonth(firstPointDate), 'MMM yyyy');
-        }
+        if (currentAggregationPeriod === 'daily') aggregatedPoint.timestampDisplay = format(new Date(groupKey), 'MMM dd, yyyy');
+        else if (currentAggregationPeriod === 'hourly') aggregatedPoint.timestampDisplay = format(new Date(groupKey), 'MMM dd, HH:00');
+        else if (currentAggregationPeriod === 'weekly') aggregatedPoint.timestampDisplay = `Week ${getISOWeek(new Date(groupKey))}, ${getYear(new Date(groupKey))}`;
+        else if (currentAggregationPeriod === 'monthly') aggregatedPoint.timestampDisplay = format(new Date(groupKey), 'MMM yyyy');
 
-        (Object.keys(METRIC_CONFIGS) as MetricKey[]).forEach(metricKey => {
-          const config = METRIC_CONFIGS[metricKey];
-          if (config && !config.isString) {
-            const values = pointsInGroup.map(p => p[metricKey] as number).filter(v => typeof v === 'number' && isFinite(v));
-            if (values.length > 0) {
-              const average = values.reduce((sum, val) => sum + val, 0) / values.length;
-              const stdDev = calculateStandardDeviation(values);
-
-              (aggregatedPoint as any)[`${metricKey}_avg`] = average;
-              (aggregatedPoint as any)[`${metricKey}_min`] = Math.min(...values);
-              (aggregatedPoint as any)[`${metricKey}_max`] = Math.max(...values);
-              (aggregatedPoint as any)[`${metricKey}_stdDev`] = stdDev;
-              (aggregatedPoint as any)[`${metricKey}_count`] = values.length;
-              if (selectedMetrics.includes(metricKey)) {
-                (aggregatedPoint as any)[metricKey] = average;
-              }
-            } else {
-              (aggregatedPoint as any)[`${metricKey}_avg`] = null;
-              (aggregatedPoint as any)[`${metricKey}_min`] = null;
-              (aggregatedPoint as any)[`${metricKey}_max`] = null;
-              (aggregatedPoint as any)[`${metricKey}_stdDev`] = 0;
-              (aggregatedPoint as any)[`${metricKey}_count`] = 0;
-              if (selectedMetrics.includes(metricKey)) {
-                (aggregatedPoint as any)[metricKey] = null;
-              }
+        HISTORICAL_AVAILABLE_METRICS.forEach(({ key }) => {
+            if (!METRIC_CONFIGS[key].isString) {
+                const values = pointsInGroup.map(p => p[key] as number).filter(v => typeof v === 'number' && isFinite(v));
+                if (values.length > 0) {
+                    (aggregatedPoint as any)[`${key}_avg`] = values.reduce((s, v) => s + v, 0) / values.length;
+                    (aggregatedPoint as any)[`${key}_min`] = Math.min(...values);
+                    (aggregatedPoint as any)[`${key}_max`] = Math.max(...values);
+                    (aggregatedPoint as any)[`${key}_stdDev`] = calculateStandardDeviation(values);
+                }
             }
-          } else if (config && config.isString && selectedMetrics.includes(metricKey)) { 
-             const firstValue = pointsInGroup[0]?.[metricKey];
-             (aggregatedPoint as any)[metricKey] = firstValue;
-            (aggregatedPoint as any)[`${metricKey}_avg`] = null;
-            (aggregatedPoint as any)[`${metricKey}_min`] = null;
-            (aggregatedPoint as any)[`${metricKey}_max`] = null;
-            (aggregatedPoint as any)[`${metricKey}_stdDev`] = 0;
-            (aggregatedPoint as any)[`${metricKey}_count`] = pointsInGroup.length;
-          }
         });
         return aggregatedPoint;
-      }).sort((a, b) => a.timestamp - b.timestamp);
-      return aggregatedResult;
-    }
+    }).sort((a, b) => a.timestamp - b.timestamp);
 
-    return displayedData.map(point => ({
-        ...point,
-        timestampDisplay: formatTimestampToDdMmHhMmUTC(point.timestamp),
-        tooltipTimestampFull: formatTimestampToFullUTC(point.timestamp),
-    }));
-  }, [displayedData, selectedChartType, aggregationType, selectedMetrics, isActuallyAggregated]);
+  }, [displayedData, aggregationType, isActuallyAggregated]);
 
   const minMaxReferenceData = useMemo(() => {
-    if (!showMinMaxLines || chartData.length === 0 || selectedChartType !== 'line') {
-      return undefined;
-    }
+    if (!showMinMaxLines || chartData.length === 0) return undefined;
+    
     const result: Record<string, { minValue: number; maxValue: number }> = {};
     selectedMetrics.forEach(metricKey => {
-      const config = METRIC_CONFIGS[metricKey];
-      if (config && !config.isString) {
-        const values = chartData.map(p => {
-          return (p as any)[metricKey] as number;
-        }).filter(v => typeof v === 'number' && isFinite(v));
-
-        if (values.length > 0) {
-          result[metricKey] = {
-            minValue: Math.min(...values),
-            maxValue: Math.max(...values),
-          };
+        const config = METRIC_CONFIGS[metricKey];
+        if (config && !config.isString) {
+            const dataKey = isActuallyAggregated ? `${metricKey}_avg` : metricKey;
+            const values = chartData.map(p => (p as any)[dataKey]).filter((v): v is number => typeof v === 'number' && isFinite(v));
+            if (values.length > 0) {
+                result[metricKey] = {
+                    minValue: Math.min(...values),
+                    maxValue: Math.max(...values),
+                };
+            }
         }
-      }
     });
     return result;
-  }, [showMinMaxLines, chartData, selectedMetrics, selectedChartType]);
+  }, [showMinMaxLines, chartData, selectedMetrics, isActuallyAggregated]);
 
-
-  const handleDetailedChartClick = (clickedData: WeatherDataPoint | AggregatedDataPoint | null, rechartsClickProps: any | null) => {
-    if (selectedMetrics.length === 1 && selectedMetrics[0] === 'sunriseSunset') {
-        return;
-    }
-
-    const isRawLineOrScatterClickForAI =
-      ((selectedChartType === 'line' || selectedChartType === 'scatter') && !isActuallyAggregated);
-
-    if (isRawLineOrScatterClickForAI && onChartPointClickForAI) {
-      if (clickedData && ('rawTimestampString' in clickedData || ('timestamp' in clickedData && !isActuallyAggregated && !('aggregationPeriod' in clickedData)))) {
-          onChartPointClickForAI(clickedData as WeatherDataPoint);
-          return;
-      }
-    }
-
-    if (selectedChartType === 'scatter' && isActuallyAggregated && clickedData && rechartsClickProps) {
-      const payloadPoint = clickedData as AggregatedDataPoint;
-      let metricKeyFromPayload: MetricKey | undefined = undefined;
-
-      if (rechartsClickProps && rechartsClickProps.explicitMetricKey) {
-        metricKeyFromPayload = rechartsClickProps.explicitMetricKey as MetricKey;
-      } else {
-        return;
-      }
-
-      const baseMetricKey = metricKeyFromPayload;
-      const metricConfig = METRIC_CONFIGS[baseMetricKey];
-
-      if (!metricConfig || metricConfig.isString) return;
-      const rawPointsForAggregate = payloadPoint.rawPointsInGroup;
-      if (!rawPointsForAggregate || rawPointsForAggregate.length === 0) return;
-
-      const aggregationFullLabel = `${payloadPoint.aggregationPeriod?.charAt(0).toUpperCase() + payloadPoint.aggregationPeriod!.slice(1)} - ${payloadPoint.timestampDisplay}`;
-      const modalDataPayload: DetailModalDataTypeFromType = {
-        metricKey: baseMetricKey,
-        metricConfig,
-        aggregationLabel: aggregationFullLabel,
-        stats: {
-          avg: payloadPoint[`${baseMetricKey}_avg` as keyof AggregatedDataPoint] as number | undefined,
-          min: payloadPoint[`${baseMetricKey}_min` as keyof AggregatedDataPoint] as number | undefined,
-          max: payloadPoint[`${baseMetricKey}_max` as keyof AggregatedDataPoint] as number | undefined,
-          stdDev: payloadPoint[`${baseMetricKey}_stdDev` as keyof AggregatedDataPoint] as number | undefined,
-          count: payloadPoint[`${baseMetricKey}_count` as keyof AggregatedDataPoint] as number | undefined,
-        },
-        rawPoints: rawPointsForAggregate,
-      };
-
-      if (!modalDataPayload.metricKey || !modalDataPayload.metricConfig || !modalDataPayload.rawPoints || modalDataPayload.rawPoints.length === 0) {
-          return;
-      }
-      setDetailModalData(modalDataPayload);
-      setIsDetailModalOpen(true);
-      return;
-    } else if (rechartsClickProps === null && clickedData === null && onChartPointClickForAI) {
-        onChartPointClickForAI(null);
-        return;
+  const handleDetailedChartClick = (clickedData: any, rechartsClickProps: any) => {
+    if (onChartPointClickForAI && clickedData && !isActuallyAggregated) {
+      onChartPointClickForAI(clickedData as WeatherDataPoint);
     }
   };
   
   const cvDataForCard = useMemo(() => {
-    if (!displayedData || displayedData.length < 2) return [];
-
-    const numericMetrics = selectedMetrics.filter(key => {
-        const config = METRIC_CONFIGS[key];
-        return config && !config.isString;
-    });
-
-    return numericMetrics
-      .map(metricKey => {
-        const config = METRIC_CONFIGS[metricKey];
-        const values = displayedData
-            .map(p => p[metricKey] as number)
-            .filter(v => typeof v === 'number' && isFinite(v));
-
-        if (values.length < 2) return null;
-
-        const mean = values.reduce((a, b) => a + b, 0) / values.length;
-        const stdDev = calculateStandardDeviation(values);
-        const cv = mean > 0 ? (stdDev / mean) * 100 : null;
-        
-        return {
-          metricName: config.name,
-          cv,
-        };
-      })
-      .filter((item): item is { metricName: string; cv: number | null } => item !== null);
+    if (displayedData.length < 2) return [];
+    return selectedMetrics.filter(key => !METRIC_CONFIGS[key].isString).map(metricKey => {
+      const values = displayedData.map(p => p[metricKey] as number).filter(v => typeof v === 'number' && isFinite(v));
+      if (values.length < 2) return null;
+      const mean = values.reduce((a, b) => a + b, 0) / values.length;
+      const stdDev = calculateStandardDeviation(values);
+      return { metricName: METRIC_CONFIGS[metricKey].name, cv: mean > 0 ? (stdDev / mean) * 100 : null };
+    }).filter(Boolean) as { metricName: string; cv: number | null }[];
   }, [displayedData, selectedMetrics]);
 
-
   const handleDayNightAnalysisClick = () => {
-      const periods = calculateDayNightPeriods(chartData as WeatherDataPoint[]);
-      setDayNightPeriods(periods);
-      setIsDayNightModalOpen(true);
-  }
+    const periods = calculateDayNightPeriods(displayedData);
+    setDayNightPeriods(periods);
+    setIsDayNightModalOpen(true);
+  };
 
   const showChartConfigSelectors = !(selectedMetrics.length === 1 && selectedMetrics[0] === 'sunriseSunset');
 
   return (
     <>
       <section className="mb-8">
-        <h2
-          className={`text-2xl font-headline font-semibold mb-4 text-foreground`}
-        >Historical Data Analysis</h2>
-
+        <h2 className="text-2xl font-headline font-semibold mb-4 text-foreground">Historical Data Analysis</h2>
         <div className="bg-card p-4 sm:p-6 rounded-lg shadow-md space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-            <div className="md:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
-              <div>
-                <ShadcnLabel htmlFor="date-range-picker" className="text-sm font-medium text-muted-foreground mb-1 block">Date Range:</ShadcnLabel>
-                <DateRangePicker onDateChange={setDateRange} initialRange={dateRange} id="date-range-picker"/>
-              </div>
-              <div className="grid grid-cols-2 gap-2 items-end">
-                  <div>
-                      <ShadcnLabel htmlFor="start-time-hist" className="text-sm font-medium text-muted-foreground mb-1 block">Start Time:</ShadcnLabel>
-                      <Input
-                          type="time"
-                          id="start-time-hist"
-                          value={startTime}
-                          onChange={(e) => setStartTime(e.target.value)}
-                          className="w-full"
-                      />
-                  </div>
-                  <div>
-                      <ShadcnLabel htmlFor="end-time-hist" className="text-sm font-medium text-muted-foreground mb-1 block">End Time:</ShadcnLabel>
-                      <Input
-                          type="time"
-                          id="end-time-hist"
-                          value={endTime}
-                          onChange={(e) => setEndTime(e.target.value)}
-                          className="w-full"
-                      />
-                  </div>
-              </div>
-            </div>
-          </div>
-          <p className="text-xs text-muted-foreground">
-              Data is fetched from Firebase path: `{firebaseDataPath}`. Time selection applies to the chosen date range.
-            </p>
-          <DataSelector
-            availableMetrics={HISTORICAL_AVAILABLE_METRICS}
-            selectedMetrics={selectedMetrics}
-            onSelectionChange={handleMetricSelectionChange}
-          />
-          {!showChartConfigSelectors && (
-              <div className="mt-4">
-                  <Button onClick={handleDayNightAnalysisClick}>
-                      View Day/Night Durations
-                  </Button>
-              </div>
-          )}
-          {showChartConfigSelectors && (
-            <div className="mt-4 flex flex-wrap items-end gap-4">
-                <div>
-                <ShadcnLabel htmlFor="chart-type-select" className="text-sm font-medium text-muted-foreground mb-1 block">Chart Type:</ShadcnLabel>
-                <Select value={selectedChartType} onValueChange={(value) => handleChartTypeChange(value as ChartType)}>
-                    <SelectTrigger id="chart-type-select" className="w-[150px]">
-                    <SelectValue placeholder="Select chart type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                    <SelectItem value="line">Line Chart</SelectItem>
-                    <SelectItem value="bar">Bar Chart</SelectItem>
-                    <SelectItem value="scatter">Scatter Chart</SelectItem>
-                    </SelectContent>
-                </Select>
-                </div>
-                {isAggregationApplicable && (
-                <div>
-                    <ShadcnLabel htmlFor="aggregation-type-select" className="text-sm font-medium text-muted-foreground mb-1 block">Aggregation:</ShadcnLabel>
-                    <Select
-                    value={aggregationType}
-                    onValueChange={(value) => handleAggregationTypeChange(value as ChartAggregationMode)}
-                    disabled={selectedChartType === 'bar' && aggregationType === 'raw' && selectedMetrics.filter(m => m !== 'sunriseSunset').length > 0 }
-                    >
-                    <SelectTrigger id="aggregation-type-select" className="w-[150px]">
-                        <SelectValue placeholder="Select aggregation" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        { (selectedChartType === 'line' || selectedChartType === 'scatter' ) && <SelectItem value="raw">Raw Data</SelectItem> }
-                        <SelectItem value="hourly">Hourly</SelectItem>
-                        <SelectItem value="daily">Daily</SelectItem>
-                        <SelectItem value="weekly">Weekly</SelectItem>
-                        <SelectItem value="monthly">Monthly</SelectItem>
-                    </SelectContent>
-                    </Select>
-                </div>
-                )}
-                {selectedChartType === 'line' && (
-                <div className="flex items-center space-x-2 pb-1">
-                    <Checkbox
-                    id="show-min-max-lines"
-                    checked={showMinMaxLines}
-                    onCheckedChange={(checked) => setShowMinMaxLines(Boolean(checked))}
-                    aria-label="Show Min/Max Lines"
-                    />
-                    <ShadcnLabel
-                    htmlFor="show-min-max-lines"
-                    className="text-sm font-medium text-muted-foreground cursor-pointer"
-                    >
-                    Show Min/Max Lines
-                    </ShadcnLabel>
-                </div>
-                )}
-                {(selectedChartType === 'line' || selectedChartType === 'bar' || selectedChartType === 'scatter') && (
-                <div className="flex items-end gap-2">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-end">
+                 <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
                     <div>
-                        <ShadcnLabel htmlFor="trend-type-select" className="text-sm font-medium text-muted-foreground mb-1 block">Trend Line:</ShadcnLabel>
-                        <Select value={trendLineType} onValueChange={(value) => setTrendLineType(value as TrendLineType)} disabled={selectedMetrics.length === 0 || (selectedMetrics.length === 1 && selectedMetrics[0] === 'sunriseSunset')}>
-                            <SelectTrigger id="trend-type-select" className="w-[150px]">
-                                <SelectValue placeholder="Select trend type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="none">None</SelectItem>
-                                <SelectItem value="linear">Linear</SelectItem>
-                                <SelectItem value="logarithmic">Logarithmic</SelectItem>
-                                <SelectItem value="exponential">Exponential</SelectItem>
-                                <SelectItem value="power">Power</SelectItem>
-                                <SelectItem value="polynomial">Polynomial</SelectItem>
-                                <SelectItem value="movingAverage">Moving Average</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        <ShadcnLabel htmlFor="date-range-picker" className="text-sm font-medium text-muted-foreground mb-1 block">Date Range:</ShadcnLabel>
+                        <DateRangePicker onDateChange={setDateRange} initialRange={dateRange} id="date-range-picker"/>
                     </div>
-                    {trendLineType === 'polynomial' && (
-                        <div>
-                            <ShadcnLabel htmlFor="poly-order" className="text-xs font-medium text-muted-foreground mb-1 block">Order:</ShadcnLabel>
-                            <Input type="number" id="poly-order" value={polynomialOrder} onChange={e => setPolynomialOrder(Math.max(2, Number(e.target.value)))} className="h-10 w-20" />
-                        </div>
-                    )}
-                    {trendLineType === 'movingAverage' && (
-                        <div>
-                            <ShadcnLabel htmlFor="ma-period" className="text-xs font-medium text-muted-foreground mb-1 block">Period:</ShadcnLabel>
-                            <Input type="number" id="ma-period" value={movingAveragePeriod} onChange={e => setMovingAveragePeriod(Math.max(2, Number(e.target.value)))} className="h-10 w-20" />
-                        </div>
-                    )}
-                </div>
-                )}
+                 </div>
             </div>
-          )}
+            <p className="text-xs text-muted-foreground">
+              Data is fetched from Firebase path: `{firebaseDataPath}`.
+            </p>
+            <DataSelector
+              availableMetrics={HISTORICAL_AVAILABLE_METRICS}
+              selectedMetrics={selectedMetrics}
+              onSelectionChange={handleMetricSelectionChange}
+            />
+            {!showChartConfigSelectors ? (
+                <div className="mt-4"><Button onClick={handleDayNightAnalysisClick}>View Day/Night Durations</Button></div>
+            ) : (
+                <div className="mt-4 flex flex-wrap items-end gap-x-6 gap-y-4">
+                    <div className="flex items-end gap-x-4">
+                        <div>
+                            <ShadcnLabel htmlFor="chart-type-select" className="text-sm font-medium text-muted-foreground mb-1 block">Chart Type:</ShadcnLabel>
+                            <Select value={selectedChartType} onValueChange={(value) => handleChartTypeChange(value as ChartType)}>
+                                <SelectTrigger id="chart-type-select" className="w-[150px]"><SelectValue placeholder="Select chart type" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="line">Line Chart</SelectItem>
+                                    <SelectItem value="bar">Bar Chart</SelectItem>
+                                    <SelectItem value="scatter">Scatter Chart</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div>
+                            <ShadcnLabel htmlFor="aggregation-type-select" className="text-sm font-medium text-muted-foreground mb-1 block">Aggregation:</ShadcnLabel>
+                            <Select value={aggregationType} onValueChange={(value) => setAggregationType(value as ChartAggregationMode)} disabled={selectedChartType === 'bar' && aggregationType === 'raw'}>
+                                <SelectTrigger id="aggregation-type-select" className="w-[150px]"><SelectValue placeholder="Select aggregation" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="raw">Raw Data</SelectItem>
+                                    <SelectItem value="hourly">Hourly</SelectItem>
+                                    <SelectItem value="daily">Daily</SelectItem>
+                                    <SelectItem value="weekly">Weekly</SelectItem>
+                                    <SelectItem value="monthly">Monthly</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                    <div className="flex items-end gap-x-4">
+                        <div>
+                            <ShadcnLabel htmlFor="trend-type-select" className="text-sm font-medium text-muted-foreground mb-1 block">Trend Line:</ShadcnLabel>
+                            <Select value={trendLineType} onValueChange={(value) => setTrendLineType(value as TrendLineType)} disabled={!showChartConfigSelectors}>
+                                <SelectTrigger id="trend-type-select" className="w-[150px]"><SelectValue placeholder="Select trend type" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">None</SelectItem>
+                                    <SelectItem value="linear">Linear</SelectItem>
+                                    <SelectItem value="logarithmic">Logarithmic</SelectItem>
+                                    <SelectItem value="exponential">Exponential</SelectItem>
+                                    <SelectItem value="power">Power</SelectItem>
+                                    <SelectItem value="polynomial">Polynomial</SelectItem>
+                                    <SelectItem value="movingAverage">Moving Average</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        {trendLineType === 'polynomial' && (
+                            <div>
+                                <ShadcnLabel htmlFor="poly-order" className="text-xs font-medium text-muted-foreground mb-1 block">Order:</ShadcnLabel>
+                                <Input type="number" id="poly-order" value={polynomialOrder} onChange={e => setPolynomialOrder(Math.max(2, Number(e.target.value)))} className="h-10 w-20" />
+                            </div>
+                        )}
+                        {trendLineType === 'movingAverage' && (
+                            <div>
+                                <ShadcnLabel htmlFor="ma-period" className="text-xs font-medium text-muted-foreground mb-1 block">Period:</ShadcnLabel>
+                                <Input type="number" id="ma-period" value={movingAveragePeriod} onChange={e => setMovingAveragePeriod(Math.max(2, Number(e.target.value)))} className="h-10 w-20" />
+                            </div>
+                        )}
+                    </div>
+                     <div className="flex items-center space-x-2 pb-1">
+                        <Checkbox id="show-min-max-lines" checked={showMinMaxLines} onCheckedChange={(checked) => setShowMinMaxLines(Boolean(checked))} aria-label="Show Min/Max Lines"/>
+                        <ShadcnLabel htmlFor="show-min-max-lines" className="text-sm font-medium text-muted-foreground cursor-pointer">Show Min/Max Lines</ShadcnLabel>
+                    </div>
+                </div>
+            )}
         </div>
         <div className="mt-6">
           <WeatherChart
             data={chartData}
             selectedMetrics={selectedMetrics}
             metricConfigs={METRIC_CONFIGS}
-            isLoading={isLoading && allFetchedData.length === 0 && chartData.length === 0}
+            isLoading={isLoading && allFetchedData.length === 0}
             onPointClick={handleDetailedChartClick}
             chartType={selectedChartType}
             isAggregated={isActuallyAggregated}
-            showMinMaxLines={showMinMaxLines && selectedChartType === 'line'}
+            showMinMaxLines={showMinMaxLines}
             showTrendLine={trendLineType !== 'none'}
             trendLineType={trendLineType}
             trendLineOptions={{ polynomialOrder, movingAveragePeriod }}
             minMaxReferenceData={minMaxReferenceData}
           />
         </div>
-        <CVComparisonCard cvData={cvDataForCard} />
+        {cvDataForCard.length > 0 && <CVComparisonCard cvData={cvDataForCard} />}
       </section>
       {isDetailModalOpen && detailModalData && (
-          <DetailedDistributionModal
-            isOpen={isDetailModalOpen}
-            onClose={() => {
-              setIsDetailModalOpen(false);
-              setDetailModalData(null);
-            }}
-            data={detailModalData}
-          />
-       )}
-       {isDayNightModalOpen && (
-           <DayNightDurationModal
-                isOpen={isDayNightModalOpen}
-                onClose={() => setIsDayNightModalOpen(false)}
-                periods={dayNightPeriods}
-            />
-       )}
+        <DetailedDistributionModal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} data={detailModalData} />
+      )}
+      {isDayNightModalOpen && (
+        <DayNightDurationModal isOpen={isDayNightModalOpen} onClose={() => setIsDayNightModalOpen(false)} periods={dayNightPeriods} />
+      )}
     </>
   );
 };
